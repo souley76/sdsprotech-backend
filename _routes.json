@@ -1,5 +1,11 @@
 {
   "version": 1,
-  "include": ["/functions/*"],
+  "include": [
+    "/functions/paydunya-pay",
+    "/functions/paydunya-ipn",
+    "/functions/notify",
+    "/functions/pay",
+    "/functions/pawapay/*"
+  ],
   "exclude": []
 }

@@ -10,15 +10,11 @@ export async function onRequestPost(context) {
 
   const MASTER_KEY  = env.PAYDUNYA_MASTER_KEY;
   const PRIVATE_KEY = env.PAYDUNYA_PRIVATE_KEY;
-  const PUBLIC_KEY  = env.PAYDUNYA_PUBLIC_KEY;  // ← AVANT : TOKEN
+  const TOKEN       = env.PAYDUNYA_TOKEN;
   const MODE        = env.PAYDUNYA_MODE || "live";
 
-  if (!MASTER_KEY || !PRIVATE_KEY || !PUBLIC_KEY) {
-    return new Response(JSON.stringify({ 
-      error: "Clés PayDunya manquantes",
-      manquant: { master: !MASTER_KEY, private: !PRIVATE_KEY, public: !PUBLIC_KEY }
-    }), { status: 500, headers: CORS });
-  }
+  if (!MASTER_KEY || !PRIVATE_KEY || !TOKEN)
+    return new Response(JSON.stringify({ error: "Clés PayDunya manquantes" }), { status: 500, headers: CORS });
 
   let body;
   try { body = await request.json(); }
@@ -63,8 +59,8 @@ export async function onRequestPost(context) {
       logo_url:       SITE_URL + "/logo.png"
     },
     actions: {
-      cancel_url:   cancel_url || SITE_URL + "/accessoires.html?commande=" + commande_id + "&statut=annule",
-      return_url:   return_url || SITE_URL + "/accessoires.html?commande=" + commande_id + "&statut=succes",
+      cancel_url:   cancel_url || SITE_URL + "/produit.html?commande=" + commande_id + "&statut=annule",
+      return_url:   return_url || SITE_URL + "/produit.html?commande=" + commande_id + "&statut=succes",
       callback_url: "https://sdsprotech-backend.pages.dev/paydunya-ipn"
     },
     custom_data: { commande_id, client_nom, client_tel, client_email: client_email || "" }
@@ -78,7 +74,7 @@ export async function onRequestPost(context) {
         "Content-Type":         "application/json",
         "PAYDUNYA-MASTER-KEY":  MASTER_KEY,
         "PAYDUNYA-PRIVATE-KEY": PRIVATE_KEY,
-        "PAYDUNYA-PUBLIC-KEY":  PUBLIC_KEY    // ← AVANT : PAYDUNYA-TOKEN
+        "PAYDUNYA-TOKEN":       TOKEN
       },
       body: JSON.stringify(payload)
     });
@@ -88,30 +84,14 @@ export async function onRequestPost(context) {
 
   const result = await pdRes.json();
 
-  if (!pdRes.ok || result.response_code !== "00") {
+  if (!pdRes.ok || result.response_code !== "00")
     return new Response(JSON.stringify({ error: "Erreur PayDunya", details: result }), { status: 400, headers: CORS });
-  }
 
-  // ── Sauvegarde Supabase (champs minimaux pour éviter les erreurs colonne) ──
-  let supaDebug = null;
+  // ── Sauvegarde Supabase ──────────────────────────────────────
+  let supaDebug = { url: !!env.SUPABASE_URL, key: !!env.SUPABASE_SERVICE_ROLE_KEY };
 
   if (env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY) {
     try {
-      const orderData = {
-        commande_id,
-        client_name:     client_nom,
-        email:           client_email || null,
-        phone:           client_tel,
-        product:         articles || "",
-        amount:          montant,
-        currency:        "XOF",
-        operator:        "PayDunya",
-        status:          "en_attente",
-        paydunya_status: "PENDING",
-        paydunya_token:  result.token,
-        created_at:      new Date().toISOString()
-      };
-
       const supaRes = await fetch(env.SUPABASE_URL + "/rest/v1/orders", {
         method: "POST",
         headers: {
@@ -120,18 +100,31 @@ export async function onRequestPost(context) {
           "Authorization": "Bearer " + env.SUPABASE_SERVICE_ROLE_KEY,
           "Prefer":        "return=representation"
         },
-        body: JSON.stringify(orderData)
+        body: JSON.stringify({
+          commande_id,
+          client_name:     client_nom,
+          user_name:       client_nom,
+          user_email:      client_email || null,
+          phone:           client_tel,
+          telephone:       client_tel,
+          product:         articles || "",
+          produit:         articles || "",
+          amount:          montant,
+          total:           montant,
+          prix:            montant,
+          currency:        "XOF",
+          operator:        "PayDunya",
+          paiement:        "PayDunya",
+          status:          "en_attente",
+          paydunya_status: "PENDING",
+          paydunya_token:  result.token,
+          created_at:      new Date().toISOString()
+        })
       });
-
       const supaBody = await supaRes.text();
-      supaDebug = { status: supaRes.status, ok: supaRes.ok, body: supaBody };
-
-      if (!supaRes.ok) {
-        console.error("[PAYDUNYA] Supabase error:", supaRes.status, supaBody);
-      }
+      supaDebug = { status: supaRes.status, body: supaBody };
     } catch (e) {
       supaDebug = { error: e.message };
-      console.error("[PAYDUNYA] Supabase exception:", e.message);
     }
   }
 

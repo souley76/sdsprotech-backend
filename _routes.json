@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "include": [
+    "/paydunya-pay",
+    "/paydunya-ipn",
+    "/notifier",
+    "/payeur",
+    "/pawapay/*",
+    "/ai-chat"
+  ],
+  "exclude": []
+}

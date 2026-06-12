@@ -6,9 +6,9 @@ const CORS = {
 };
 
 const MODELS = {
-  'haiku':  'claude-haiku-4-5-20251001',
-  'sonnet': 'claude-sonnet-4-6',
-  'opus':   'claude-opus-4-6'
+  'haiku':  'claude-3-5-haiku-20241022',
+  'sonnet': 'claude-3-5-sonnet-20241022',
+  'opus':   'claude-opus-4-1-20250805'
 };
 
 const DEFAULT_SYSTEM = `Tu es l'assistant officiel de Seck Digital Services Pro (SDS Pro), boutique de smartphones premium à Dakar, Sénégal. Site web : https://sdsprotech.com

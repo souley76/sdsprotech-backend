@@ -4,9 +4,9 @@
     "/paydunya-pay",
     "/paydunya-ipn",
     "/notifier",
-    "/payer",
+    "/payeur",
     "/pawapay/*",
-    "/fonctions/ai-chat"
+    "/functions/ai-chat"
   ],
   "exclude": []
 }

@@ -1921,6 +1921,17 @@ async function tnlPay(){
     return;
   }
 
+  // Si invité et email déjà associé à un compte existant : bloquer et proposer la connexion
+  if(email && !_currentUser && _supa){
+    try{
+      const { data: hasAccount } = await _supa.rpc('email_has_account', { p_email: email });
+      if(hasAccount){
+        alert('Vous avez déjà un compte chez nous avec cette adresse email.\n\nVeuillez vous connecter pour continuer cet achat, ou utilisez une autre adresse email.');
+        return;
+      }
+    } catch(e){}
+  }
+
   const qty_pay    = tnlData.qty || 1;
   const commande_id = 'CMD-' + Date.now() + '-' + Math.random().toString(36).slice(2,7).toUpperCase();
   // NE PAS envoyer le total calculé côté client — le backend recalcule depuis Supabase

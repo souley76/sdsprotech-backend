@@ -778,6 +778,17 @@ async function tnlPay(){
     return;
   }
 
+  // Si invité et email déjà associé à un compte existant : bloquer et proposer la connexion
+  if(email && !_currentUser && _supa){
+    try{
+      const { data: hasAccount } = await _supa.rpc('email_has_account', { p_email: email });
+      if(hasAccount){
+        alert('Vous avez déjà un compte chez nous avec cette adresse email.\n\nVeuillez vous connecter pour continuer cet achat, ou utilisez une autre adresse email.');
+        return;
+      }
+    } catch(e){}
+  }
+
   const total = cart.reduce((s,i) => s + i.prix * i.qty, 0);
   const commande_id = 'ACC-' + Date.now() + '-' + Math.random().toString(36).slice(2,7).toUpperCase();
   const articles = cart.map(i=>`${i.nom} x${i.qty}`).join(', ');

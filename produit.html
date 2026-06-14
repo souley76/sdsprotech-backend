@@ -506,6 +506,8 @@ body{cursor:auto;}
 /* Étape 4 — paiement */
 .tnl-field{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:9px;padding:11px 12px;color:#fff;font-size:13px;outline:none;width:100%;box-sizing:border-box;margin-bottom:8px;}
 .tnl-field:focus{border-color:rgba(0,200,255,0.4);}
+.tnl-field:disabled{opacity:0.55;cursor:not-allowed;background:rgba(255,255,255,0.02);-webkit-text-fill-color:rgba(255,255,255,0.7);}
+.tnl-locked-banner{margin-bottom:10px;padding:10px 12px;background:rgba(0,200,255,0.06);border:1px solid rgba(0,200,255,0.18);border-radius:9px;font-size:12px;color:var(--cyan);line-height:1.5;}
 .tnl-pay-btns{display:flex;gap:8px;margin-bottom:10px;}
 .tnl-pay-btn{flex:1;display:flex;align-items:center;justify-content:center;padding:11px 8px;border-radius:9px;cursor:pointer;transition:all 0.2s;font-weight:800;font-size:13px;}
 .tnl-pay-btn-free{border:2px solid rgba(0,166,81,0.4);background:rgba(0,166,81,0.08);color:#00a651;}
@@ -1912,6 +1914,14 @@ function tnlRenderStep4(body, btn){
   const total = tnlGetPrice(tnlData.storage, tnlData.color) * qty + (tnlData.charger ? 15000 * qty : 0);
   const desc  = `${selProd.n}${tnlData.storage?' · '+tnlData.storage:''}${tnlData.color?' · '+tnlData.color:''}`;
 
+  // Pour un compte connecté : verrouiller nom/téléphone/email sur les infos du profil
+  const meta     = _currentUser?.user_metadata || {};
+  const accName  = meta.name || '';
+  const accPhone = meta.phone || '';
+  const accEmail = _currentUser?.email || '';
+  const accAddr  = meta.adresse_livraison || '';
+  const locked   = !!_currentUser;
+
   body.innerHTML = `
     <div class="tnl-recap">
       📱 ${desc}<br>
@@ -1920,10 +1930,11 @@ function tnlRenderStep4(body, btn){
       🛡️ Blindé + 👜 Pochette : Gratuit<br>
       <strong style="color:var(--cyan);">TOTAL : ${formatPrice_pg(total)} FCFA</strong>
     </div>
-    <input type="text"  id="tnlName"    class="tnl-field" placeholder="Nom complet *" autocomplete="name">
-    <input type="tel"   id="tnlPhone"   class="tnl-field" placeholder="Téléphone * (ex: 77 123 45 67)" autocomplete="tel">
-    <input type="text"  id="tnlAddress" class="tnl-field" placeholder="Adresse de livraison *" autocomplete="street-address">
-    <input type="email" id="tnlEmail"   class="tnl-field" placeholder="Email (optionnel)" autocomplete="email">
+    ${locked ? `<div class="tnl-locked-banner">🔒 Connecté en tant que ${accName || accEmail} — vos informations de compte sont utilisées pour cette commande. Seule l'adresse de livraison est modifiable.</div>` : ''}
+    <input type="text"  id="tnlName"    class="tnl-field" placeholder="Nom complet *" autocomplete="name" value="${accName}" ${locked?'disabled':''}>
+    <input type="tel"   id="tnlPhone"   class="tnl-field" placeholder="Téléphone * (ex: 77 123 45 67)" autocomplete="tel" value="${accPhone}" ${(locked && accPhone)?'disabled':''}>
+    <input type="text"  id="tnlAddress" class="tnl-field" placeholder="Adresse de livraison *" autocomplete="street-address" value="${accAddr}">
+    <input type="email" id="tnlEmail"   class="tnl-field" placeholder="Email (optionnel)" autocomplete="email" value="${accEmail}" ${locked?'disabled':''}>
     <div style="margin-top:12px;padding:12px 14px;background:rgba(0,100,255,0.06);border:1px solid rgba(0,200,255,0.15);border-radius:10px;font-size:12px;color:rgba(255,255,255,0.6);text-align:center;">
       💳 Vous serez redirigé vers la page de paiement sécurisée PayDunya.<br>
       <span style="color:var(--cyan);">Orange Money · Free Money · Wave · Djamo · Carte bancaire</span>

@@ -36,22 +36,32 @@ export async function onRequestPost(context) {
   // ── Recalcul du prix CÔTÉ SERVEUR depuis Supabase ────────────
   let montant = 0;
 
-  // ── CAS 1 : Panier multi-produits accessoires (cart_items) ───
+  // ── CAS 1 : Panier multi-produits (cart_items) — accessoires ET/OU ordinateurs ───
   if (Array.isArray(cart_items) && cart_items.length > 0 && SUPA_URL && SUPA_KEY) {
     try {
-      const ids = cart_items.map(i => i.produit_id).filter(Boolean);
-      if (ids.length > 0) {
-        const accRes = await fetch(
-          `${SUPA_URL}/rest/v1/accessoires?id=in.(${ids.join(',')})&select=id,prix`,
+      // Regrouper les items par table d'origine (par défaut "accessoires")
+      const byTable = {};
+      for (const item of cart_items) {
+        const table = (item.table === 'ordinateurs') ? 'ordinateurs' : 'accessoires';
+        (byTable[table] = byTable[table] || []).push(item);
+      }
+
+      for (const table of Object.keys(byTable)) {
+        const items = byTable[table];
+        const ids = items.map(i => i.produit_id).filter(Boolean);
+        if (ids.length === 0) continue;
+
+        const res = await fetch(
+          `${SUPA_URL}/rest/v1/${table}?id=in.(${ids.join(',')})&select=id,prix`,
           { headers: { "apikey": SUPA_KEY, "Authorization": "Bearer " + SUPA_KEY } }
         );
-        const accs = await accRes.json();
-        if (Array.isArray(accs) && accs.length > 0) {
-          for (const item of cart_items) {
-            const acc = accs.find(a => a.id === item.produit_id);
-            if (acc) {
+        const rows = await res.json();
+        if (Array.isArray(rows) && rows.length > 0) {
+          for (const item of items) {
+            const row = rows.find(r => r.id === item.produit_id);
+            if (row) {
               const qtyNum = Math.max(1, Math.min(10, parseInt(item.qty) || 1));
-              montant += acc.prix * qtyNum;
+              montant += row.prix * qtyNum;
             }
           }
         }
@@ -88,15 +98,18 @@ export async function onRequestPost(context) {
         const chargerAmt = charger ? 15000 * qtyNum : 0;
         montant = prixBase * qtyNum + chargerAmt;
       } else {
-        // Chercher dans accessoires (produit unique)
-        const accRes = await fetch(
-          `${SUPA_URL}/rest/v1/accessoires?id=eq.${encodeURIComponent(produit_id)}&select=prix`,
-          { headers: { "apikey": SUPA_KEY, "Authorization": "Bearer " + SUPA_KEY } }
-        );
-        const accs = await accRes.json();
-        if (accs && accs[0]) {
-          const qtyNum = Math.max(1, Math.min(10, parseInt(qty) || 1));
-          montant = accs[0].prix * qtyNum;
+        // Chercher dans accessoires puis ordinateurs (produit unique)
+        for (const table of ['accessoires', 'ordinateurs']) {
+          const accRes = await fetch(
+            `${SUPA_URL}/rest/v1/${table}?id=eq.${encodeURIComponent(produit_id)}&select=prix`,
+            { headers: { "apikey": SUPA_KEY, "Authorization": "Bearer " + SUPA_KEY } }
+          );
+          const accs = await accRes.json();
+          if (accs && accs[0]) {
+            const qtyNum = Math.max(1, Math.min(10, parseInt(qty) || 1));
+            montant = accs[0].prix * qtyNum;
+            break;
+          }
         }
       }
     } catch(e) {

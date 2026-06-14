@@ -33,6 +33,12 @@ export async function onRequestPost(context) {
   const SUPA_URL = (env.SUPABASE_URL || "").trim().replace(/\/$/, "");
   const SUPA_KEY = (env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
 
+  // Valide qu'une valeur est un entier positif (ID Supabase). Retourne null sinon.
+  const toPosInt = (val) => {
+    const n = parseInt(val, 10);
+    return (Number.isInteger(n) && n > 0 && String(n) === String(val).trim()) ? n : null;
+  };
+
   // ── Recalcul du prix CÔTÉ SERVEUR depuis Supabase ────────────
   let montant = 0;
 
@@ -48,7 +54,11 @@ export async function onRequestPost(context) {
 
       for (const table of Object.keys(byTable)) {
         const items = byTable[table];
-        const ids = items.map(i => i.produit_id).filter(Boolean);
+        // Ne garder que les produit_id valides (entiers positifs)
+        const validItems = items
+          .map(i => ({ ...i, produit_id: toPosInt(i.produit_id) }))
+          .filter(i => i.produit_id !== null);
+        const ids = [...new Set(validItems.map(i => i.produit_id))];
         if (ids.length === 0) continue;
 
         const res = await fetch(
@@ -57,7 +67,7 @@ export async function onRequestPost(context) {
         );
         const rows = await res.json();
         if (Array.isArray(rows) && rows.length > 0) {
-          for (const item of items) {
+          for (const item of validItems) {
             const row = rows.find(r => r.id === item.produit_id);
             if (row) {
               const qtyNum = Math.max(1, Math.min(10, parseInt(item.qty) || 1));
@@ -72,10 +82,11 @@ export async function onRequestPost(context) {
   }
 
   // ── CAS 2 : Produit unique iPhone (produit_id) ───────────────
-  if (montant <= 0 && produit_id && SUPA_URL && SUPA_KEY) {
+  const produitIdNum = toPosInt(produit_id);
+  if (montant <= 0 && produitIdNum && SUPA_URL && SUPA_KEY) {
     try {
       const prodRes = await fetch(
-        `${SUPA_URL}/rest/v1/products?id=eq.${encodeURIComponent(produit_id)}&select=prix,variantes`,
+        `${SUPA_URL}/rest/v1/products?id=eq.${produitIdNum}&select=prix,variantes`,
         { headers: { "apikey": SUPA_KEY, "Authorization": "Bearer " + SUPA_KEY } }
       );
       const prods = await prodRes.json();
@@ -101,7 +112,7 @@ export async function onRequestPost(context) {
         // Chercher dans accessoires puis ordinateurs (produit unique)
         for (const table of ['accessoires', 'ordinateurs']) {
           const accRes = await fetch(
-            `${SUPA_URL}/rest/v1/${table}?id=eq.${encodeURIComponent(produit_id)}&select=prix`,
+            `${SUPA_URL}/rest/v1/${table}?id=eq.${produitIdNum}&select=prix`,
             { headers: { "apikey": SUPA_KEY, "Authorization": "Bearer " + SUPA_KEY } }
           );
           const accs = await accRes.json();

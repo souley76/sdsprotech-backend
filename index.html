@@ -2938,7 +2938,7 @@ async function loadOrders(uid){
           <div style="display:flex;gap:8px;"><span style="font-size:10px;color:rgba(255,255,255,0.35);font-family:monospace;min-width:65px;">💳 Paiement</span><span style="font-size:12px;color:rgba(255,255,255,0.75);">${paiement}</span></div>
         </div>
         ${isLivre ? '<div style="padding:8px 12px;background:rgba(0,230,118,0.08);border:1px solid rgba(0,230,118,0.2);border-radius:8px;color:#00e676;font-size:12px;text-align:center;">✅ Commande livrée — Merci pour votre confiance !</div>' : ''}
-        ${isPending ? `<div style="display:flex;gap:8px;margin-top:4px;"><div style="flex:1;text-align:center;padding:8px;background:linear-gradient(135deg,#0066ff,#00c8ff);border-radius:8px;color:#fff;font-size:12px;font-weight:700;cursor:pointer;" onclick="finaliserPaiement('${o.commande_id||o.id}','${produit.replace(/'/g,"\'")}','${total}',event)">▶ Finaliser le paiement</div><div style="padding:8px 12px;background:rgba(255,50,50,0.1);border:1px solid rgba(255,50,50,0.2);border-radius:8px;color:#ff8080;font-size:12px;cursor:pointer;" onclick="deleteOrder('${orderId}',this)">🗑</div></div>` : ''}
+        ${isPending ? `<div style="display:flex;gap:8px;margin-top:4px;"><div style="flex:1;text-align:center;padding:8px;background:linear-gradient(135deg,#0066ff,#00c8ff);border-radius:8px;color:#fff;font-size:12px;font-weight:700;cursor:pointer;" onclick="finaliserPaiement('${o.commande_id||o.id}','${produit.replace(/'/g,"\'")}','${total}',event,'${o.source||''}')">▶ Finaliser le paiement</div><div style="padding:8px 12px;background:rgba(255,50,50,0.1);border:1px solid rgba(255,50,50,0.2);border-radius:8px;color:#ff8080;font-size:12px;cursor:pointer;" onclick="deleteOrder('${orderId}',this)">🗑</div></div>` : ''}
       </div>`;
     }).join('');
   } catch(e){
@@ -2959,7 +2959,7 @@ async function deleteOrder(orderId, el){
 
 
 async function finaliserPaiement(commandeId, produit, total, evt, source){
-  if(!commandeId){ resumeOrder('', produit, total, true); return; }
+  if(!commandeId){ resumeOrder('', produit, total, true, '', source); return; }
   const btn = evt && evt.currentTarget;
   if(btn){ btn.innerHTML='⏳ Redirection...'; btn.style.opacity='0.7'; }
   try {
@@ -2969,23 +2969,28 @@ async function finaliserPaiement(commandeId, produit, total, evt, source){
     });
     const data = await res.json();
     if(data && data.payment_url){
+      // Reprend le paiement de la commande EXISTANTE — aucune nouvelle commande créée
       window.location.href = data.payment_url;
     } else if(data && data.status === 'completed'){
       if(btn){ btn.innerHTML='✅ Déjà payé !'; btn.style.background='rgba(0,230,118,0.2)'; btn.style.opacity='1'; }
       setTimeout(()=>loadOrders(window._currentUser?.id), 1500);
     } else {
       if(btn){ btn.innerHTML='▶ Finaliser le paiement'; btn.style.opacity='1'; }
-      resumeOrder('', produit, total, true, commandeId);
+      resumeOrder('', produit, total, true, commandeId, source);
     }
   } catch(e){
     if(btn){ btn.innerHTML='▶ Finaliser le paiement'; btn.style.opacity='1'; }
-    resumeOrder('', produit, total, true, commandeId);
+    resumeOrder('', produit, total, true, commandeId, source);
   }
 }
 
+// Redirige vers le tunnel du produit concerné (smartphone/accessoire/ordinateur)
+// pour relancer le paiement de la commande EXISTANTE — ne crée jamais de doublon.
 function resumeOrder(depositId, produit, total, isPending, commandeId, source){
   if(!isPending) return;
-  const base = (source === 'accessoire') ? '/accessoires.html' : '/produit.html';
+  let base = '/produit.html';
+  if(source === 'accessoires.html') base = '/accessoires.html';
+  else if(source === 'ordinateurs.html') base = '/ordinateurs.html';
   let url = base + '?resume=1&produit=' + encodeURIComponent(produit||'') + '&total=' + encodeURIComponent(total||'');
   if(commandeId) url += '&commande_id=' + encodeURIComponent(commandeId);
   window.location.href = url;

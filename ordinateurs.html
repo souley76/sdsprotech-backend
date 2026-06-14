@@ -1301,17 +1301,16 @@ function initAuth(){
 function updateNavUser(user){
   const btn = document.getElementById('navUserBtn');
   const dal = document.getElementById('drawerAccountLinks');
-  if(!btn) return;
   if(user){
     const name = user.user_metadata?.name || user.email.split('@')[0];
     const first = name.split(' ')[0];
-    btn.textContent = '👤 ' + first;
+    if(btn) btn.textContent = '👤 ' + first;
     if(dal) dal.innerHTML = `
-      <a href="#" style="color:var(--cyan)!important;font-weight:600!important;">👤 ${first}</a>
+      <a href="#" onclick="navUserClick();closeDrawer();" style="color:var(--cyan)!important;font-weight:600!important;">👤 ${first}</a>
       <a href="#" onclick="signOut();" style="color:#ff6b6b!important;">🚪 Déconnexion</a>`;
   } else {
-    btn.textContent = '👤 Connexion';
-    if(dal) dal.innerHTML = `<a href="#" onclick="navUserClick();" style="color:var(--cyan)!important;font-weight:600!important;">👤 Connexion</a>`;
+    if(btn) btn.textContent = '👤 Connexion';
+    if(dal) dal.innerHTML = `<a href="#" onclick="navUserClick();closeDrawer();" style="color:var(--cyan)!important;font-weight:600!important;">👤 Connexion</a>`;
   }
 }
 
@@ -1352,6 +1351,7 @@ loadOrdinateurs();
 loadAccSuggestions();
 
 // ── Mode reprise commande PayDunya ──────────────────────────
+// Relance le paiement de la commande EXISTANTE (commande_id) — ne crée jamais de nouvelle commande.
 (async function checkResume(){
   const params = new URLSearchParams(window.location.search);
   if(params.get('resume') !== '1') return;
@@ -1363,8 +1363,18 @@ loadAccSuggestions();
       body: JSON.stringify({ commande_id: commandeId })
     });
     const data = await res.json();
-    if(data && data.payment_url){ window.location.href = data.payment_url; }
-  } catch(e){}
+    if(data && data.payment_url){
+      window.location.href = data.payment_url;
+      return;
+    }
+    if(data && data.status === 'completed'){
+      window.location.href = '/?statut=deja-paye';
+      return;
+    }
+    showAlert('Impossible de relancer le paiement automatiquement pour cette commande (#' + commandeId + ').\n\nContactez-nous sur WhatsApp au 77 069 97 39 en précisant ce numéro de commande, nous finaliserons votre paiement manuellement.');
+  } catch(e){
+    showAlert('Impossible de relancer le paiement automatiquement pour cette commande (#' + commandeId + ').\n\nContactez-nous sur WhatsApp au 77 069 97 39 en précisant ce numéro de commande, nous finaliserons votre paiement manuellement.');
+  }
 })();
 
 // ── BLOCAGE COPIE / CLIC DROIT / DRAG IMAGES ─────────────────────

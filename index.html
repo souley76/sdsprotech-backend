@@ -3,6 +3,12 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
+<script>
+// Si on revient depuis produit.html/accessoires.html, ne pas afficher l'écran d'intro
+if(sessionStorage.getItem('sds_skip_intro') === '1'){
+  document.documentElement.classList.add('skip-intro');
+}
+</script>
 <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SECK DIGITAL SERVICES PRO - Smartphones Premium Dakar</title>
@@ -56,13 +62,18 @@ body{background:var(--deep);color:var(--white);font-family:'Outfit',sans-serif;o
 #main{opacity:0;transition:opacity 0.8s ease;}
 #main.on{opacity:1;}
 
+/* Retour depuis une autre page : skip intro instantané, pas d'écran noir */
+html.skip-intro #intro{display:none!important;}
+html.skip-intro #main{opacity:1!important;transition:none!important;}
+html.skip-intro,html.skip-intro body{overflow:auto!important;}
+
 /* NAV */
 nav{position:fixed;top:0;left:0;right:0;z-index:500;background:rgba(2,9,18,0.85);backdrop-filter:blur(24px);border-bottom:1px solid var(--border);}
 .nav-strip{background:linear-gradient(90deg,var(--blue),var(--cyan));height:2px;}
 .nav-inner{display:flex;align-items:center;justify-content:space-between;padding:10px 48px;}
 .nav-logo img{height:38px;filter:drop-shadow(0 0 12px rgba(0,200,255,0.4));}
 .nav-links{display:flex;gap:28px;align-items:center;}
-@media(min-width:769px){#navLogoWrap{display:none!important;}}
+@media(min-width:769px){#navLogoWrap{display:none!important;}#navLogoDesktop{display:flex!important;}}
 .nav-links a{color:var(--grey);text-decoration:none;font-size:13px;font-weight:500;letter-spacing:0.5px;transition:color 0.2s;position:relative;}
 .nav-links a:hover{color:var(--cyan);}
 .nav-cta{background:linear-gradient(135deg,var(--blue),var(--cyan))!important;color:#fff!important;padding:9px 22px;border-radius:6px;font-weight:600!important;box-shadow:0 0 20px rgba(0,150,255,0.3);}
@@ -599,7 +610,12 @@ input, textarea {
     <button class="hamburger" id="hamburgerBtn" onclick="toggleDrawer()" aria-label="Menu">
       <span></span><span></span><span></span>
     </button>
-    <!-- Logo SDS PRO — centré, décalé à gauche pour s'éloigner de Connexion -->
+    <!-- Logo SDS PRO desktop — affiché juste après le hamburger, dans l'espace vide avant Catalogue -->
+    <div id="navLogoDesktop" style="display:none;align-items:center;gap:8px;margin-left:18px;">
+      <img src="logo-sds.png" height="28" alt="SDS PRO" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+      <span style="display:none;font-family:'Rajdhani',sans-serif;font-size:17px;font-weight:700;letter-spacing:2px;align-items:center;"><span style="color:#00e5ff;text-shadow:0 0 16px rgba(0,229,255,0.6);">SDS</span><span style="color:#fff;margin-left:6px;">PRO</span></span>
+    </div>
+    <!-- Logo SDS PRO mobile — centré, décalé à gauche pour s'éloigner de Connexion -->
     <div id="navLogoWrap" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;padding-right:120px;">
       <img src="logo-sds.png" height="34" alt="SDS PRO" id="navLogoImg" onerror="this.style.display='none';document.getElementById('navLogoText').style.display='flex';">
       <span id="navLogoText" style="display:none;font-family:'Rajdhani',sans-serif;font-size:20px;font-weight:700;letter-spacing:3px;align-items:center;"><span style="color:#00e5ff;text-shadow:0 0 20px rgba(0,229,255,0.6);">SDS</span><span style="color:#fff;margin-left:8px;">PRO</span></span>

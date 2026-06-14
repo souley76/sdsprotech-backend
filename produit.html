@@ -20,11 +20,11 @@
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 html{scroll-behavior:smooth;}
-body{background:var(--deep);color:var(--white);font-family:'Outfit',sans-serif;overflow-x:hidden;cursor:none;}
+body{background:var(--deep);color:var(--white);font-family:'Outfit',sans-serif;overflow-x:hidden;cursor:auto;}
 
 /* CUSTOM CURSOR */
-.cursor{position:fixed;width:12px;height:12px;background:var(--cyan);border-radius:50%;pointer-events:none;z-index:99999;transform:translate(-50%,-50%);transition:transform 0.1s;mix-blend-mode:screen;}
-.cursor-ring{position:fixed;width:36px;height:36px;border:1px solid rgba(0,229,255,0.5);border-radius:50%;pointer-events:none;z-index:99998;transform:translate(-50%,-50%);transition:all 0.15s ease;}
+.cursor{display:none;}
+.cursor-ring{display:none;}
 
 /* INTRO */
 #intro{position:fixed;inset:0;z-index:9999;background:#000;display:flex;align-items:center;justify-content:center;flex-direction:column;overflow:hidden;}
@@ -553,6 +553,21 @@ body{cursor:auto;}
 .qty-action-add{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.15)!important;color:rgba(255,255,255,0.7);}
 .qty-action-buy{background:linear-gradient(135deg,#0033cc,#00aaff);color:#fff;box-shadow:0 4px 16px rgba(0,100,255,0.3);}
 
+
+/* ── BLOCAGE SÉLECTION / COPIE ────────────────────────────────── */
+*{
+  -webkit-user-select:none;
+  -moz-user-select:none;
+  -ms-user-select:none;
+  user-select:none;
+  -webkit-touch-callout:none;
+}
+input, textarea {
+  -webkit-user-select:text;
+  -moz-user-select:text;
+  -ms-user-select:text;
+  user-select:text;
+}
 </style>
 </head>
 <body>
@@ -2240,6 +2255,14 @@ async function cartCommander(){
   tnlOpen();
 }
 
+
+// ── BLOCAGE COPIE / CLIC DROIT / DRAG IMAGES ─────────────────────
+document.addEventListener('contextmenu', e => e.preventDefault());
+document.addEventListener('copy', e => e.preventDefault());
+document.addEventListener('cut', e => e.preventDefault());
+document.addEventListener('dragstart', e => {
+  if(e.target.tagName === 'IMG') e.preventDefault();
+});
 </script>
 <!-- CART OVERLAY -->
 <div class="cart-overlay" id="cartOverlay" onclick="cartClose()"></div>

@@ -4,12 +4,12 @@
 <meta charset="UTF-8">
 <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Accessoires Smartphones — SDS ProTech Dakar</title>
-<meta name="description" content="Accessoires smartphones premium à Dakar : coques, écouteurs, chargeurs, câbles, powerbanks. Livraison gratuite à Dakar.">
-<meta name="keywords" content="accessoires smartphone Dakar, coque iPhone Dakar, écouteurs Dakar, chargeur rapide Dakar, SDS ProTech">
-<meta property="og:title" content="Accessoires Smartphones — SDS ProTech">
-<meta property="og:description" content="Accessoires smartphones premium à Dakar. Livraison gratuite.">
-<meta property="og:url" content="https://sdsprotech.com/accessoires.html">
+<title>Ordinateurs Portables — SDS ProTech Dakar</title>
+<meta name="description" content="Ordinateurs portables neufs et reconditionnés à Dakar : MacBook, Dell, HP, Lenovo, Asus. Livraison gratuite à Dakar.">
+<meta name="keywords" content="ordinateur portable Dakar, MacBook Dakar, laptop Dakar, PC portable Sénégal, SDS ProTech">
+<meta property="og:title" content="Ordinateurs Portables — SDS ProTech">
+<meta property="og:description" content="Ordinateurs portables premium à Dakar. Livraison gratuite.">
+<meta property="og:url" content="https://sdsprotech.com/ordinateurs.html">
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Outfit:wght@300;400;500;600;700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
@@ -308,8 +308,8 @@ input, textarea {
     </div>
     <div class="nav-links">
       <a href="/">Smartphones</a>
-      <a href="/accessoires.html" class="on" style="color:var(--cyan)!important;">🎧 Accessoires</a>
-      <a href="/ordinateurs.html">💻 Ordinateurs</a>
+      <a href="/accessoires.html">🎧 Accessoires</a>
+      <a href="/ordinateurs.html" class="on" style="color:var(--cyan)!important;">💻 Ordinateurs</a>
     </div>
     <div class="nav-actions">
       <button class="cart-btn" onclick="toggleCart()">
@@ -330,8 +330,8 @@ input, textarea {
     <div class="drawer-divider"></div>
     <div class="drawer-title">Boutique</div>
     <a href="/" onclick="closeDrawer()">📱 Smartphones</a>
-    <a href="/accessoires.html" class="drawer-acc" onclick="closeDrawer()">🎧 Accessoires</a>
-    <a href="/ordinateurs.html" onclick="closeDrawer()">💻 Ordinateurs</a>
+    <a href="/accessoires.html" onclick="closeDrawer()">🎧 Accessoires</a>
+    <a href="/ordinateurs.html" class="drawer-acc" onclick="closeDrawer()">💻 Ordinateurs</a>
     <div class="drawer-divider"></div>
     <div class="drawer-title">Informations</div>
     <a href="/#pay" onclick="closeDrawer()">💳 Modes de paiement</a>
@@ -381,11 +381,11 @@ input, textarea {
 
 <!-- HERO -->
 <div class="hero">
-  <div class="hero-eyebrow">Accessoires Premium</div>
-  <h1 class="hero-title">Équipez<span class="c">Votre Mobile</span></h1>
-  <p class="hero-desc">Coques, écouteurs, chargeurs, câbles et powerbanks. Tout ce qu'il vous faut pour votre smartphone, livré à Dakar.</p>
+  <div class="hero-eyebrow">Ordinateurs Premium</div>
+  <h1 class="hero-title">Trouvez<span class="c">Votre PC</span></h1>
+  <p class="hero-desc">MacBook, Dell, HP, Lenovo, Asus... Ordinateurs portables neufs et reconditionnés, vérifiés et livrés à Dakar.</p>
   <div class="hero-btns">
-    <a href="#catalogue" class="btn-glow" onclick="event.preventDefault();var el=document.getElementById('catalogue');if(el)el.scrollIntoView({behavior:'smooth',block:'start'});">Voir les accessoires</a>
+    <a href="#catalogue" class="btn-glow" onclick="event.preventDefault();var el=document.getElementById('catalogue');if(el)el.scrollIntoView({behavior:'smooth',block:'start'});">Voir les ordinateurs</a>
     <a href="https://wa.me/221770699739" class="btn-ghost" target="_blank">💬 WhatsApp</a>
   </div>
 </div>
@@ -393,14 +393,15 @@ input, textarea {
 <!-- CATALOGUE -->
 <div class="section" id="catalogue">
   <div class="s-tag">// Catalogue</div>
-  <div class="s-title">Nos Accessoires</div>
+  <div class="s-title">Nos Ordinateurs</div>
   <div class="filters" id="filters">
     <div class="fb on" onclick="filter('all',this)">Tout</div>
-    <div class="fb" onclick="filter('coque',this)">📱 Coques</div>
-    <div class="fb" onclick="filter('ecouteurs',this)">🎧 Écouteurs</div>
-    <div class="fb" onclick="filter('chargeur',this)">⚡ Chargeurs</div>
-    <div class="fb" onclick="filter('cable',this)">🔌 Câbles</div>
-    <div class="fb" onclick="filter('powerbank',this)">🔋 Powerbanks</div>
+    <div class="fb" onclick="filter('macbook',this)">🍎 MacBook</div>
+    <div class="fb" onclick="filter('windows',this)">🖥️ Windows / PC</div>
+    <div class="fb" onclick="filter('gaming',this)">🎮 Gaming</div>
+    <div class="fb" onclick="filter('bureautique',this)">📊 Bureautique</div>
+    <div class="fb" onclick="filter('etudiant',this)">🎓 Étudiant</div>
+    <div class="fb" onclick="filter('accessoire_pc',this)">🔌 Accessoires PC</div>
     <div class="fb" onclick="filter('autre',this)">✨ Autres</div>
   </div>
   <div class="grid" id="grid">
@@ -419,7 +420,7 @@ input, textarea {
   <div class="foot-top">
     <div class="foot-brand">
       <img src="logo-sds.png" alt="SDS" onerror="this.style.display='none'">
-      <p>Votre boutique smartphones premium à Dakar. iPhones, Samsung, Infinix, Tecno et accessoires au meilleur prix.</p>
+      <p>Votre boutique tech premium à Dakar. iPhones, Samsung, Infinix, Tecno, accessoires et ordinateurs portables au meilleur prix.</p>
       <div class="foot-ninea">NINEA : 013038395 | RCCM : SN DKR 2026 A 16899</div>
     </div>
     <div class="foot-col"><h4>Catalogue</h4><a href="/">iPhones</a><a href="/">Samsung</a><a href="/">Infinix</a><a href="/">Tecno</a><a href="/accessoires.html">Accessoires</a><a href="/ordinateurs.html">Ordinateurs</a></div>
@@ -695,7 +696,7 @@ function tnlRenderStep3(body, btn){
       <h4>🔄 Retours</h4>
       Retour accepté dans les <strong>72 heures</strong> suivant la réception si le produit présente un défaut constaté à la livraison. Produit retourné dans son état d'origine.
       <h4>🛡️ Garantie</h4>
-      Tous les accessoires sont testés et certifiés. Garantie panne de <strong>6 mois</strong> sur tout achat.
+      Tous nos ordinateurs sont testés, vérifiés et certifiés fonctionnels. Garantie panne de <strong>6 mois</strong> sur tout achat (3 mois pour les modèles reconditionnés d'entrée de gamme — précisé sur la fiche produit).
       <h4>💳 Paiement</h4>
       Paiements acceptés : <strong>Orange Money · Free Money · Wave · Djamo · MaxIt SN</strong>. Commande confirmée dès réception du paiement.
     </div>
@@ -752,7 +753,7 @@ async function tnlPay(){
   }
 
   const total = cart.reduce((s,i) => s + i.prix * i.qty, 0);
-  const commande_id = 'ACC-' + Date.now() + '-' + Math.random().toString(36).slice(2,7).toUpperCase();
+  const commande_id = 'PC-' + Date.now() + '-' + Math.random().toString(36).slice(2,7).toUpperCase();
   const articles = cart.map(i=>`${i.nom} x${i.qty}`).join(', ');
 
   const btn = document.getElementById('tnlBtnNext');
@@ -770,7 +771,7 @@ async function tnlPay(){
         montant:      total,
         paiement:     'PayDunya',
         statut:       'en_attente',
-        source:       'accessoires.html',
+        source:       'ordinateurs.html',
         commande_id,
         user_id:      _currentUser?.id || null,
         created_at:   new Date().toISOString()
@@ -790,10 +791,10 @@ async function tnlPay(){
         client_address: address,
         articles,
         total_fallback: total,
-        cart_items:     cart.map(i => ({ produit_id: i.id, qty: i.qty, prix: i.prix, table: 'accessoires' })),
+        cart_items:     cart.map(i => ({ produit_id: i.id, qty: i.qty, prix: i.prix, table: 'ordinateurs' })),
         commande_id,
-        return_url: 'https://sdsprotech.com/accessoires.html?statut=succes',
-        cancel_url: 'https://sdsprotech.com/accessoires.html?statut=annule'
+        return_url: 'https://sdsprotech.com/ordinateurs.html?statut=succes',
+        cancel_url: 'https://sdsprotech.com/ordinateurs.html?statut=annule'
       })
     });
     const data = await res.json();
@@ -893,9 +894,9 @@ async function authSendReset(){
 }
 
 // ── CATALOGUE ───────────────────────────────────────────────────
-async function loadAccessoires(retry){
+async function loadOrdinateurs(retry){
   try{
-    const res = await fetch(`${SUPA_URL}/rest/v1/accessoires?visible=eq.true&order=id.asc&select=*`, {
+    const res = await fetch(`${SUPA_URL}/rest/v1/ordinateurs?visible=eq.true&order=id.asc&select=*`, {
       headers: { 'apikey': SUPA_KEY, 'Authorization': `Bearer ${SUPA_KEY}` }
     });
     if(res.ok){
@@ -908,7 +909,7 @@ async function loadAccessoires(retry){
   } catch(e){
     // Réessayer une fois après 1.5s en cas d'erreur réseau temporaire
     if(!retry){
-      setTimeout(() => loadAccessoires(true), 1500);
+      setTimeout(() => loadOrdinateurs(true), 1500);
       return;
     }
     _all = [];
@@ -917,17 +918,17 @@ async function loadAccessoires(retry){
 }
 
 function catLabel(cat){
-  const map = {coque:'📱 Coques',ecouteurs:'🎧 Écouteurs',chargeur:'⚡ Chargeurs',cable:'🔌 Câbles',powerbank:'🔋 Powerbanks',autre:'✨ Accessoires'};
+  const map = {macbook:'🍎 MacBook',windows:'🖥️ Windows / PC',gaming:'🎮 Gaming',bureautique:'📊 Bureautique',etudiant:'🎓 Étudiant',accessoire_pc:'🔌 Accessoires PC',autre:'✨ Ordinateurs'};
   return map[cat] || cat;
 }
 
 function render(items){
   const grid = document.getElementById('grid');
-  if(!items.length){ grid.innerHTML = '<div class="empty"><div style="font-size:48px;">📦</div><p>Aucun accessoire trouvé</p></div>'; return; }
+  if(!items.length){ grid.innerHTML = '<div class="empty"><div style="font-size:48px;">💻</div><p>Aucun ordinateur trouvé</p></div>'; return; }
   grid.innerHTML = items.map(a => {
     const img = a.image_url
       ? `<img src="${a.image_url}" alt="${a.nom}" style="width:100%;height:100%;object-fit:cover;">`
-      : `<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:60px;">${a.emoji||'📦'}</div>`;
+      : `<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:60px;">${a.emoji||'💻'}</div>`;
     return `<div class="acc-card" onclick="openProdModal(${a.id})">
       ${a.badge ? `<div class="acc-badge">${a.badge}</div>` : ''}
       <div class="acc-img">${img}</div>
@@ -1196,7 +1197,7 @@ document.addEventListener('click', e => {
 
 // ── INIT ────────────────────────────────────────────────────────
 initAuth();
-loadAccessoires();
+loadOrdinateurs();
 
 // ── Mode reprise commande PayDunya ──────────────────────────
 (async function checkResume(){

@@ -3140,7 +3140,7 @@ async function sendAiMsg(){
   const typingEl = appendAiMsg('...', 'bot typing');
 
   try{
-    // Récupérer le catalogue depuis Supabase
+    // Récupérer le catalogue depuis Supabase (smartphones + accessoires + ordinateurs, à jour en temps réel)
     let catalogueTxt = '';
     const _prods = (window.PRODS && window.PRODS.length > 0) ? window.PRODS : (typeof P !== "undefined" ? P : []);
     if(_prods && _prods.length > 0){
@@ -3149,7 +3149,32 @@ async function sendAiMsg(){
       ).join('\n');
     }
 
-    const systemPrompt = `Tu es l'assistant officiel de Seck Digital Services Pro (SDS Pro), boutique de smartphones premium à Dakar, Sénégal.
+    let accessoiresTxt = '';
+    let ordinateursTxt = '';
+    try{
+      const [accRes, ordiRes] = await Promise.all([
+        fetch(`${SUPA_URL}/rest/v1/accessoires?visible=eq.true&select=id,nom,categorie,prix&order=id.asc&limit=25`, {
+          headers: { 'apikey': SUPA_KEY, 'Authorization': `Bearer ${SUPA_KEY}` }
+        }),
+        fetch(`${SUPA_URL}/rest/v1/ordinateurs?visible=eq.true&select=id,nom,categorie,prix,compatible&order=id.asc&limit=25`, {
+          headers: { 'apikey': SUPA_KEY, 'Authorization': `Bearer ${SUPA_KEY}` }
+        })
+      ]);
+      const accData  = await accRes.json();
+      const ordiData = await ordiRes.json();
+      if(Array.isArray(accData) && accData.length > 0){
+        accessoiresTxt = accData.map(a =>
+          `- ${a.nom} | ${a.categorie||''} | ${(a.prix||0).toLocaleString('fr-FR')} FCFA | ID:${a.id}`
+        ).join('\n');
+      }
+      if(Array.isArray(ordiData) && ordiData.length > 0){
+        ordinateursTxt = ordiData.map(o =>
+          `- ${o.nom} | ${o.compatible||o.categorie||''} | ${(o.prix||0).toLocaleString('fr-FR')} FCFA | ID:${o.id}`
+        ).join('\n');
+      }
+    } catch(e){}
+
+    const systemPrompt = `Tu es l'assistant officiel de Seck Digital Services Pro (SDS Pro), boutique à Dakar, Sénégal spécialisée dans les smartphones premium, les accessoires et les ordinateurs portables.
 Tu parles UNIQUEMENT en français. Ne jamais utiliser de mots en wolof ou dans une autre langue.
 
 === FONDATEUR & CRÉATEUR ===
@@ -3232,17 +3257,26 @@ STATUT ACTUEL :
 - Les autorisations de collecte de données personnelles sont en cours d'obtention auprès des autorités compétentes
 - Pour être averti au lancement : contacter WhatsApp 77 069 97 39
 
-=== ACCESSOIRES ===
-- Coques, écouteurs, chargeurs, câbles, powerbanks
-- Livraison gratuite à Dakar
-- Produits testés et certifiés
-- Disponible sur accessoires.html ou via WhatsApp
+=== ACCESSOIRES DISPONIBLES (à jour en temps réel) ===
+${accessoiresTxt || '(catalogue en cours de chargement, voir accessoires.html)'}
+- Catégories : coques, écouteurs, chargeurs, câbles, powerbanks
+- Livraison gratuite à Dakar, produits testés et certifiés
+- Page dédiée : accessoires.html
+
+=== ORDINATEURS PORTABLES DISPONIBLES (à jour en temps réel) ===
+${ordinateursTxt || '(catalogue en cours de chargement, voir ordinateurs.html)'}
+- Catégories : MacBook, Windows/PC, Gaming, Bureautique, Étudiant, Accessoires PC
+- Ordinateurs neufs et reconditionnés, testés et garantis (6 mois, 3 mois pour reconditionnés d'entrée de gamme)
+- Livraison gratuite à Dakar, page dédiée : ordinateurs.html
+- Si un client demande un ordinateur/PC/MacBook/laptop, propose les modèles ci-dessus avec leur [ID:X] — NE PAS répondre que vous ne vendez que des smartphones.
 
 === RÈGLES DE RÉPONSE ===
 - Réponds en français uniquement, de façon amicale et professionnelle
 - N'utilise JAMAIS de Markdown (#, **, *, --). Écris en texte simple uniquement.
 - Réponds en 2-4 phrases maximum sauf si le client pose une question complexe
-- Si tu recommandes un produit du catalogue, mets son ID entre crochets [ID:X] à la fin
+- Si tu recommandes un SMARTPHONE du catalogue, mets son ID entre crochets [ID:X] à la fin
+- Si tu recommandes un ACCESSOIRE, mets son ID entre crochets [ACC:X] à la fin
+- Si tu recommandes un ORDINATEUR PORTABLE, mets son ID entre crochets [PC:X] à la fin
 - Prix toujours en FCFA
 - Pour toute question sur le crédit halal ou dossier : orienter vers WhatsApp 77 069 97 39
 - Ne jamais inventer d'informations absentes de ce prompt
@@ -3262,27 +3296,49 @@ STATUT ACTUEL :
     const reply = data.content?.[0]?.text || 'Désolé, une erreur est survenue.';
 
     typingEl.remove();
-    // Supprimer les [ID:X] du texte affiché
-    const replyClean = reply.replace(/\[ID:\d+\]/g, '').trim();
+    // Supprimer les [ID:X] / [ACC:X] / [PC:X] du texte affiché
+    const replyClean = reply.replace(/\[(ID|ACC|PC):\d+\]/g, '').trim();
     appendAiMsg(replyClean, 'bot');
     _aiHistory.push({ role: 'assistant', content: reply });
 
-    // Extraire tous les IDs et afficher boutons produits
-    const allIds = [...reply.matchAll(/\[ID:(\d+)\]/g)].map(m => parseInt(m[1]));
-    const uniqueIds = [...new Set(allIds)];
-    if(uniqueIds.length > 0 && _prods){
+    // Extraire tous les IDs (smartphones, accessoires, ordinateurs) et afficher boutons produits
+    const smartphoneIds  = [...new Set([...reply.matchAll(/\[ID:(\d+)\]/g)].map(m => parseInt(m[1])))];
+    const accessoireIds  = [...new Set([...reply.matchAll(/\[ACC:(\d+)\]/g)].map(m => parseInt(m[1])))];
+    const ordinateurIds  = [...new Set([...reply.matchAll(/\[PC:(\d+)\]/g)].map(m => parseInt(m[1])))];
+
+    if((smartphoneIds.length || accessoireIds.length || ordinateurIds.length)){
       const container = document.createElement('div');
       container.style.cssText = 'margin-top:8px;display:flex;flex-wrap:wrap;gap:6px;';
-      uniqueIds.forEach(pid => {
-        const prod = _prods.find(p => p.id === pid);
-        if(prod){
-          const a = document.createElement('a');
-          a.href = '/produit?id=' + pid;
-          a.style.cssText = 'display:inline-block;background:linear-gradient(135deg,#0050ff,#00c8ff);color:white;padding:8px 14px;border-radius:10px;font-size:12px;font-weight:700;text-decoration:none;';
-          a.textContent = '📱 ' + prod.nom + ' →';
-          container.appendChild(a);
-        }
+
+      if(_prods){
+        smartphoneIds.forEach(pid => {
+          const prod = _prods.find(p => p.id === pid);
+          if(prod){
+            const a = document.createElement('a');
+            a.href = '/produit?id=' + pid;
+            a.style.cssText = 'display:inline-block;background:linear-gradient(135deg,#0050ff,#00c8ff);color:white;padding:8px 14px;border-radius:10px;font-size:12px;font-weight:700;text-decoration:none;';
+            a.textContent = '📱 ' + prod.nom + ' →';
+            container.appendChild(a);
+          }
+        });
+      }
+
+      accessoireIds.forEach(pid => {
+        const a = document.createElement('a');
+        a.href = '/accessoires.html?open=' + pid;
+        a.style.cssText = 'display:inline-block;background:linear-gradient(135deg,#0050ff,#00c8ff);color:white;padding:8px 14px;border-radius:10px;font-size:12px;font-weight:700;text-decoration:none;';
+        a.textContent = '🎧 Voir l\'accessoire →';
+        container.appendChild(a);
       });
+
+      ordinateurIds.forEach(pid => {
+        const a = document.createElement('a');
+        a.href = '/ordinateurs.html?open=' + pid;
+        a.style.cssText = 'display:inline-block;background:linear-gradient(135deg,#0050ff,#00c8ff);color:white;padding:8px 14px;border-radius:10px;font-size:12px;font-weight:700;text-decoration:none;';
+        a.textContent = '💻 Voir l\'ordinateur →';
+        container.appendChild(a);
+      });
+
       if(container.children.length > 0){
         document.getElementById('aiMessages').appendChild(container);
         scrollAiBottom();

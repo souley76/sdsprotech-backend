@@ -931,6 +931,7 @@ async function loadOrdinateurs(retry){
       const data = await res.json();
       _all = data || [];
       render(_all);
+      checkOpenParam();
       return;
     }
     throw new Error('HTTP ' + res.status);
@@ -1222,6 +1223,15 @@ document.addEventListener('click', e => {
     sessionStorage.setItem('sds_skip_intro', '1');
   }
 });
+
+// Ouvrir directement une fiche produit via ?open=ID (lien depuis l'assistant IA)
+function checkOpenParam(){
+  const params = new URLSearchParams(window.location.search);
+  const openId = parseInt(params.get('open'));
+  if(openId && _all.find(a => a.id === openId)){
+    openProdModal(openId);
+  }
+}
 
 // ── INIT ────────────────────────────────────────────────────────
 initAuth();

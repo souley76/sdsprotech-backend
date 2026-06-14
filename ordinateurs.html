@@ -607,13 +607,39 @@ function formatPrice(n){ return Number(n).toLocaleString('fr-FR'); }
 function addToCart(id){
   const a = _all.find(x => x.id === id);
   if(!a) return;
-  const existing = cart.find(x => x.id === id);
+  const key = 'ordinateurs:' + id;
+  const existing = cart.find(x => x._key === key);
   if(existing){ existing.qty++; }
-  else { cart.push({...a, qty:1}); }
+  else { cart.push({...a, qty:1, _table:'ordinateurs', _key:key}); }
   updateCartUI();
   // Feedback visuel
   const btn = document.querySelector(`[data-id="${id}"]`);
   if(btn){ btn.textContent = '✓ Ajouté!'; setTimeout(()=>btn.textContent='+ Panier', 1200); }
+}
+
+// Accessoires suggérés (chargeurs, écouteurs...) — ajout libre depuis le tunnel
+let _accSuggestions = [];
+async function loadAccSuggestions(){
+  try{
+    const res = await fetch(`${SUPA_URL}/rest/v1/accessoires?visible=eq.true&categorie=in.(chargeur,ecouteurs,cable,powerbank)&select=id,nom,prix,emoji,categorie&order=id.asc&limit=12`, {
+      headers: { 'apikey': SUPA_KEY, 'Authorization': `Bearer ${SUPA_KEY}` }
+    });
+    if(res.ok){ _accSuggestions = await res.json() || []; }
+  } catch(e){}
+}
+
+function addAccessory(accId){
+  const a = _accSuggestions.find(x => x.id === accId);
+  if(!a) return;
+  const key = 'accessoires:' + accId;
+  const existing = cart.find(x => x._key === key);
+  if(existing){ existing.qty++; }
+  else { cart.push({...a, qty:1, _table:'accessoires', _key:key}); }
+  updateCartUI();
+  // Rafraîchir l'étape 1 du tunnel si elle est ouverte
+  if(tnlStep === 1 && document.getElementById('tnlOverlay').classList.contains('on')){
+    tnlRenderStep1(document.getElementById('tnlBody'), document.getElementById('tnlBtnNext'));
+  }
 }
 
 function addToCartFromModal(){
@@ -622,17 +648,20 @@ function addToCartFromModal(){
   setTimeout(()=>toggleCart(true), 200);
 }
 
-function removeFromCart(id){
-  cart = cart.filter(x => x.id !== id);
+function removeFromCart(key){
+  cart = cart.filter(x => x._key !== key);
   updateCartUI();
+  if(tnlStep === 1 && document.getElementById('tnlOverlay').classList.contains('on')){
+    tnlRenderStep1(document.getElementById('tnlBody'), document.getElementById('tnlBtnNext'));
+  }
 }
 
-function changeQty(id, delta){
-  const item = cart.find(x => x.id === id);
+function changeQty(key, delta){
+  const item = cart.find(x => x._key === key);
   if(!item) return;
   item.qty += delta;
-  if(item.qty <= 0) removeFromCart(id);
-  else updateCartUI();
+  if(item.qty <= 0) removeFromCart(key);
+  else { updateCartUI(); if(tnlStep === 1 && document.getElementById('tnlOverlay').classList.contains('on')){ tnlRenderStep1(document.getElementById('tnlBody'), document.getElementById('tnlBtnNext')); } }
 }
 
 function updateCartUI(){
@@ -659,12 +688,12 @@ function updateCartUI(){
         <div class="cart-item-name">${i.nom}</div>
         <div class="cart-item-price">${formatPrice(i.prix * i.qty)} FCFA</div>
         <div class="cart-item-qty">
-          <button class="qty-btn" onclick="changeQty(${i.id},-1)">−</button>
+          <button class="qty-btn" onclick="changeQty('${i._key}',-1)">−</button>
           <span class="qty-val">${i.qty}</span>
-          <button class="qty-btn" onclick="changeQty(${i.id},1)">+</button>
+          <button class="qty-btn" onclick="changeQty('${i._key}',1)">+</button>
         </div>
       </div>
-      <button class="cart-item-del" onclick="removeFromCart(${i.id})">✕</button>
+      <button class="cart-item-del" onclick="removeFromCart('${i._key}')">✕</button>
     </div>`).join('');
 }
 
@@ -725,11 +754,25 @@ function tnlRenderStep1(body, btn){
         <div style="font-family:'Rajdhani',sans-serif;font-size:15px;color:var(--cyan);font-weight:700;margin-top:2px;">${formatPrice(i.prix * i.qty)} FCFA</div>
         <div style="font-size:11px;color:var(--grey);">Quantité : ${i.qty}</div>
       </div>
+      <button onclick="removeFromCart('${i._key}')" style="background:none;border:none;color:var(--grey);font-size:16px;cursor:pointer;padding:4px;">✕</button>
     </div>`).join('') +
     `<div style="display:flex;justify-content:space-between;padding:12px 0;border-top:1px solid var(--border);margin-top:4px;">
       <span style="font-size:12px;color:var(--grey);">Total</span>
       <span style="font-family:'Rajdhani',sans-serif;font-size:22px;font-weight:700;color:var(--cyan);">${formatPrice(total)} FCFA</span>
-    </div>`;
+    </div>` +
+    (_accSuggestions.length ? `
+    <div style="margin-top:16px;">
+      <div style="font-size:11px;color:var(--grey);margin-bottom:8px;letter-spacing:1.5px;">➕ ENVIE D'AJOUTER UN ACCESSOIRE ?</div>
+      <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;">
+        ${_accSuggestions.map(a => `
+          <div style="flex:0 0 auto;min-width:104px;background:rgba(0,100,255,0.06);border:1px solid var(--border);border-radius:10px;padding:10px;text-align:center;">
+            <div style="font-size:24px;">${a.emoji||'📦'}</div>
+            <div style="font-size:11px;color:#fff;margin:4px 0;line-height:1.3;min-height:28px;">${a.nom}</div>
+            <div style="font-family:'Rajdhani',sans-serif;font-size:13px;color:var(--cyan);font-weight:700;">${formatPrice(a.prix)} FCFA</div>
+            <button onclick="addAccessory(${a.id})" style="margin-top:6px;width:100%;padding:6px;border-radius:8px;border:none;background:linear-gradient(135deg,var(--blue),var(--cyan));color:#fff;font-size:11px;font-weight:700;cursor:pointer;">+ Ajouter</button>
+          </div>`).join('')}
+      </div>
+    </div>` : '');
 }
 
 // Étape 2 : Extras
@@ -888,7 +931,7 @@ async function tnlPay(){
         client_address: address,
         articles,
         total_fallback: total,
-        cart_items:     cart.map(i => ({ produit_id: i.id, qty: i.qty, prix: i.prix, table: 'ordinateurs' })),
+        cart_items:     cart.map(i => ({ produit_id: i.id, qty: i.qty, prix: i.prix, table: i._table || 'ordinateurs' })),
         commande_id,
         return_url: 'https://sdsprotech.com/ordinateurs.html?statut=succes',
         cancel_url: 'https://sdsprotech.com/ordinateurs.html?statut=annule'
@@ -1306,6 +1349,7 @@ function checkOpenParam(){
 // ── INIT ────────────────────────────────────────────────────────
 initAuth();
 loadOrdinateurs();
+loadAccSuggestions();
 
 // ── Mode reprise commande PayDunya ──────────────────────────
 (async function checkResume(){

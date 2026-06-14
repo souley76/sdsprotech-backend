@@ -3093,6 +3093,17 @@ let _aiOpen = false;
 let _aiHistory = [];
 let _aiModel = 'haiku';
 
+// Limite de messages gratuits pour les visiteurs non connectés
+const AI_FREE_LIMIT = 10;
+function getAiMsgCount(){
+  return parseInt(sessionStorage.getItem('sds_ai_msg_count') || '0', 10);
+}
+function incAiMsgCount(){
+  const n = getAiMsgCount() + 1;
+  sessionStorage.setItem('sds_ai_msg_count', String(n));
+  return n;
+}
+
 function changeAiModel(val){
   _aiModel = val;
   const labels = {haiku:'⚡ Haiku — Rapide & économique',sonnet:'🧠 Sonnet — Équilibré',opus:'💎 Opus — Intelligence maximale'};
@@ -3111,12 +3122,20 @@ async function sendAiMsg(){
   const msg = input.value.trim();
   if(!msg) return;
 
+  // Limite de messages gratuits pour les visiteurs non connectés
+  if(!window._currentUser && getAiMsgCount() >= AI_FREE_LIMIT){
+    appendAiMsg('🔐 Vous avez atteint la limite de ' + AI_FREE_LIMIT + ' messages gratuits avec l\'assistant. Connectez-vous à votre compte pour continuer la conversation.', 'bot');
+    navUserClick();
+    return;
+  }
+
   input.value = '';
   const btn = document.getElementById('aiSendBtn');
   btn.disabled = true;
 
   appendAiMsg(msg, 'user');
   _aiHistory.push({ role: 'user', content: msg });
+  incAiMsgCount();
 
   const typingEl = appendAiMsg('...', 'bot typing');
 

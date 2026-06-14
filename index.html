@@ -2409,6 +2409,12 @@ function initSupabase(){
     }
 
     if(session?.user){
+      // Rattacher les commandes invité (même email/téléphone) au compte
+      const userPhone = session.user.user_metadata?.phone || '';
+      _supa.rpc('link_guest_orders', { p_phone: userPhone })
+        .then(({ data }) => { if(data > 0) loadOrders(session.user.id); })
+        .catch(()=>{});
+
       loadOrders(session.user.id);
       if(event === 'SIGNED_IN'){ authClose(); }
 

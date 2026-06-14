@@ -4,6 +4,14 @@
 <head>
 <meta charset="UTF-8">
 <script>
+function showAlert(msg){
+  document.getElementById('themedAlertMsg').textContent = msg;
+  document.getElementById('themedAlertOverlay').classList.add('on');
+}
+function closeThemedAlert(){
+  document.getElementById('themedAlertOverlay').classList.remove('on');
+}
+
 // Si on revient depuis produit.html/accessoires.html, ne pas afficher l'écran d'intro
 if(sessionStorage.getItem('sds_skip_intro') === '1'){
   document.documentElement.classList.add('skip-intro');
@@ -576,6 +584,41 @@ input, textarea {
   -moz-user-select:text;
   -ms-user-select:text;
   user-select:text;
+}
+/* ── MODALE D'ALERTE THÉMÉE (remplace showAlert() natif) ──────────── */
+.themed-alert-overlay{
+  position:fixed; inset:0; background:rgba(0,5,15,0.78);
+  backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+  z-index:99999; display:none; align-items:center; justify-content:center;
+  padding:24px;
+}
+.themed-alert-overlay.on{ display:flex; }
+.themed-alert-box{
+  background:var(--mid); border:1px solid var(--border); border-radius:18px;
+  padding:26px 22px; max-width:380px; width:100%;
+  box-shadow:0 20px 60px rgba(0,0,0,0.6), 0 0 40px rgba(0,200,255,0.08);
+  animation:taPop .25s ease;
+}
+.themed-alert-icon{
+  width:44px; height:44px; border-radius:50%;
+  background:linear-gradient(135deg,var(--blue),var(--cyan));
+  display:flex; align-items:center; justify-content:center;
+  font-size:22px; margin-bottom:14px;
+}
+.themed-alert-msg{
+  color:var(--light); font-size:15px; line-height:1.65;
+  white-space:pre-line; margin-bottom:20px; font-family:'Outfit',sans-serif;
+}
+.themed-alert-btn{
+  display:block; width:100%; text-align:center; padding:13px;
+  border-radius:12px; background:linear-gradient(135deg,var(--blue),var(--cyan));
+  color:#fff; font-weight:700; border:none; cursor:pointer;
+  font-size:14px; font-family:'Outfit',sans-serif; letter-spacing:0.5px;
+}
+.themed-alert-btn:active{ transform:scale(0.98); }
+@keyframes taPop{
+  from{ opacity:0; transform:scale(0.92) translateY(8px); }
+  to{ opacity:1; transform:scale(1) translateY(0); }
 }
 </style>
 
@@ -2158,8 +2201,8 @@ async function sub(){
   const n=san(document.getElementById('cn').value);
   const ph=san(document.getElementById('cp').value);
   const ad=san(document.getElementById('ca').value);
-  if(!n||!ph||!ad||!selP){alert('Veuillez remplir tous les champs et choisir un mode de paiement.');return;}
-  if(!isValidSenegalPhone(ph)){alert('Numéro de téléphone invalide. Utilisez un numéro sénégalais valide (ex: 77 123 45 67).');return;}
+  if(!n||!ph||!ad||!selP){showAlert('Veuillez remplir tous les champs et choisir un mode de paiement.');return;}
+  if(!isValidSenegalPhone(ph)){showAlert('Numéro de téléphone invalide. Utilisez un numéro sénégalais valide (ex: 77 123 45 67).');return;}
 
   // Formater le numéro de téléphone en format international Sénégal
   let phone = ph.replace(/\s/g,'');
@@ -2257,13 +2300,13 @@ async function sub(){
       // Message plus clair pour l'utilisateur final
       if(errMsg.includes('Invalid correspondent')) errMsg = 'Service de paiement temporairement indisponible. Contactez-nous au 77 069 97 39.';
       if(errMsg.includes('Only numbers')) errMsg = 'Numéro de téléphone invalide. Entrez seulement les chiffres (ex: 770699739).';
-      alert('❌ Paiement échoué : ' + errMsg + '\n\nVérifiez votre numéro et réessayez.');
+      showAlert('❌ Paiement échoué : ' + errMsg + '\n\nVérifiez votre numéro et réessayez.');
     }
 
   } catch(err) {
     btn.disabled = false;
     btn.textContent = 'CONFIRMER →';
-    alert('❌ Erreur de connexion. Vérifiez votre internet et réessayez.');
+    showAlert('❌ Erreur de connexion. Vérifiez votre internet et réessayez.');
     console.error('Erreur paiement:', err);
   }
 }
@@ -2598,6 +2641,18 @@ async function doRegister(){
 
   const btn = document.querySelector('#formRegister .auth-btn');
   btn.textContent = 'Création...'; btn.disabled = true;
+
+  // Empêcher la création d'un 2e compte avec un numéro déjà utilisé
+  if(phone){
+    try{
+      const { data: phoneExists } = await _supa.rpc('phone_has_account', { p_phone: phone });
+      if(phoneExists){
+        btn.textContent = 'CRÉER MON COMPTE →'; btn.disabled = false;
+        showErr('registerErr','Ce numéro de téléphone est déjà associé à un compte existant. Connectez-vous, ou laissez ce champ vide / utilisez un autre numéro.');
+        return;
+      }
+    } catch(e){}
+  }
 
   const { error } = await _supa.auth.signUp({
     email, password: pass,
@@ -3151,7 +3206,7 @@ async function sendAiMsg(){
     const _prods = (window.PRODS && window.PRODS.length > 0) ? window.PRODS : (typeof P !== "undefined" ? P : []);
     if(_prods && _prods.length > 0){
       catalogueTxt = _prods.filter(p=>p.visible!==false).slice(0,20).map(p =>
-        `- ${p.nom} | ${p.modele||p.m||''} | ${(p.prix||p.prix_raw||0).toLocaleString('fr-FR')} FCFA | ID:${p.id}`
+        `- ${p.n} | ${p.m||''} | ${(p.prix_raw||0).toLocaleString('fr-FR')} FCFA | ID:${p.id}`
       ).join('\n');
     }
 
@@ -3264,17 +3319,16 @@ STATUT ACTUEL :
 - Pour être averti au lancement : contacter WhatsApp 77 069 97 39
 
 === ACCESSOIRES DISPONIBLES (à jour en temps réel) ===
-${accessoiresTxt || '(catalogue en cours de chargement, voir accessoires.html)'}
+${accessoiresTxt || '(catalogue en cours de chargement, demander au client de réessayer)'}
 - Catégories : coques, écouteurs, chargeurs, câbles, powerbanks
 - Livraison gratuite à Dakar, produits testés et certifiés
-- Page dédiée : accessoires.html
 
 === ORDINATEURS PORTABLES DISPONIBLES (à jour en temps réel) ===
-${ordinateursTxt || '(catalogue en cours de chargement, voir ordinateurs.html)'}
+${ordinateursTxt || '(catalogue en cours de chargement, demander au client de réessayer)'}
 - Catégories : MacBook, Windows/PC, Gaming, Bureautique, Étudiant, Accessoires PC
 - Ordinateurs neufs et reconditionnés, testés et garantis (6 mois, 3 mois pour reconditionnés d'entrée de gamme)
-- Livraison gratuite à Dakar, page dédiée : ordinateurs.html
-- Si un client demande un ordinateur/PC/MacBook/laptop, propose les modèles ci-dessus avec leur [ID:X] — NE PAS répondre que vous ne vendez que des smartphones.
+- Livraison gratuite à Dakar
+- Si un client demande un ordinateur/PC/MacBook/laptop, propose les modèles ci-dessus avec leur [ACC:X] ou [PC:X] — NE PAS répondre que vous ne vendez que des smartphones.
 
 === RÈGLES DE RÉPONSE ===
 - Réponds en français uniquement, de façon amicale et professionnelle
@@ -3286,7 +3340,9 @@ ${ordinateursTxt || '(catalogue en cours de chargement, voir ordinateurs.html)'}
 - Prix toujours en FCFA
 - Pour toute question sur le crédit halal ou dossier : orienter vers WhatsApp 77 069 97 39
 - Ne jamais inventer d'informations absentes de ce prompt
-- Si tu ne sais pas : dire honnêtement "Je vous recommande de contacter notre équipe au 77 069 97 39"`;
+- Si tu ne sais pas : dire honnêtement "Je vous recommande de contacter notre équipe au 77 069 97 39"
+- INTERDIT : ne jamais mentionner de noms de fichiers, d'extensions (.html, .com inclus dans des chemins), de code, de "page web", de "site web technique" ou tout terme informatique. Pour parler du catalogue, dis "notre catalogue", "notre boutique" ou "la section Accessoires/Ordinateurs" — jamais "ordinateurs.html" ou "accessoires.html". Les boutons cliquables affichés sous ta réponse suffisent pour amener le client au bon endroit.
+- Si on te demande qui t'a créé, qui est derrière SDS Pro, ou qui t'a "entraîné" : réponds que tu es l'assistant de SDS Pro, créé pour la boutique de Souleymane Seck, fondateur de SDS Pro à Dakar. Reste bref, chaleureux et professionnel — pas de détails techniques sur ton fonctionnement.`;
 
     const res = await fetch('https://sdsprotech-backend.pages.dev/ai-chat', {
       method: 'POST',
@@ -3323,7 +3379,7 @@ ${ordinateursTxt || '(catalogue en cours de chargement, voir ordinateurs.html)'}
             const a = document.createElement('a');
             a.href = '/produit?id=' + pid;
             a.style.cssText = 'display:inline-block;background:linear-gradient(135deg,#0050ff,#00c8ff);color:white;padding:8px 14px;border-radius:10px;font-size:12px;font-weight:700;text-decoration:none;';
-            a.textContent = '📱 ' + prod.nom + ' →';
+            a.textContent = '📱 ' + prod.n + ' →';
             container.appendChild(a);
           }
         });
@@ -3752,8 +3808,8 @@ function setReviewStar(n){
 async function submitReview(productName){
   const stars = window._reviewStars || 0;
   const text  = document.getElementById('reviewText')?.value?.trim()||'';
-  if(!stars){ alert('Veuillez sélectionner une note.'); return; }
-  if(!_supa){ alert('Erreur de connexion.'); return; }
+  if(!stars){ showAlert('Veuillez sélectionner une note.'); return; }
+  if(!_supa){ showAlert('Erreur de connexion.'); return; }
   const user = window._currentUser;
   try {
     await _supa.from('reviews').insert({
@@ -3766,8 +3822,8 @@ async function submitReview(productName){
       created_at: new Date().toISOString()
     });
     document.getElementById('reviewModal').remove();
-    alert('✅ Merci pour votre avis ! Il sera publié après validation.');
-  } catch(e){ alert('Erreur: ' + e.message); }
+    showAlert('✅ Merci pour votre avis ! Il sera publié après validation.');
+  } catch(e){ showAlert('Erreur: ' + e.message); }
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -3911,5 +3967,12 @@ document.addEventListener('dragstart', e => {
   </div>
 </div>
 
+<div class="themed-alert-overlay" id="themedAlertOverlay" onclick="if(event.target===this) closeThemedAlert()">
+  <div class="themed-alert-box">
+    <div class="themed-alert-icon">ℹ️</div>
+    <div class="themed-alert-msg" id="themedAlertMsg"></div>
+    <button class="themed-alert-btn" onclick="closeThemedAlert()">Fermer</button>
+  </div>
+</div>
 </body>
 </html>

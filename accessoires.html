@@ -291,6 +291,41 @@ input, textarea {
   -ms-user-select:text;
   user-select:text;
 }
+/* ── MODALE D'ALERTE THÉMÉE (remplace showAlert() natif) ──────────── */
+.themed-alert-overlay{
+  position:fixed; inset:0; background:rgba(0,5,15,0.78);
+  backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+  z-index:99999; display:none; align-items:center; justify-content:center;
+  padding:24px;
+}
+.themed-alert-overlay.on{ display:flex; }
+.themed-alert-box{
+  background:var(--mid); border:1px solid var(--border); border-radius:18px;
+  padding:26px 22px; max-width:380px; width:100%;
+  box-shadow:0 20px 60px rgba(0,0,0,0.6), 0 0 40px rgba(0,200,255,0.08);
+  animation:taPop .25s ease;
+}
+.themed-alert-icon{
+  width:44px; height:44px; border-radius:50%;
+  background:linear-gradient(135deg,var(--blue),var(--cyan));
+  display:flex; align-items:center; justify-content:center;
+  font-size:22px; margin-bottom:14px;
+}
+.themed-alert-msg{
+  color:var(--light); font-size:15px; line-height:1.65;
+  white-space:pre-line; margin-bottom:20px; font-family:'Outfit',sans-serif;
+}
+.themed-alert-btn{
+  display:block; width:100%; text-align:center; padding:13px;
+  border-radius:12px; background:linear-gradient(135deg,var(--blue),var(--cyan));
+  color:#fff; font-weight:700; border:none; cursor:pointer;
+  font-size:14px; font-family:'Outfit',sans-serif; letter-spacing:0.5px;
+}
+.themed-alert-btn:active{ transform:scale(0.98); }
+@keyframes taPop{
+  from{ opacity:0; transform:scale(0.92) translateY(8px); }
+  to{ opacity:1; transform:scale(1) translateY(0); }
+}
 </style>
 </head>
 <body>
@@ -530,6 +565,14 @@ input, textarea {
 </div>
 
 <script>
+function showAlert(msg){
+  document.getElementById('themedAlertMsg').textContent = msg;
+  document.getElementById('themedAlertOverlay').classList.add('on');
+}
+function closeThemedAlert(){
+  document.getElementById('themedAlertOverlay').classList.remove('on');
+}
+
 const SUPA_URL = 'https://fvfkawxwtsziqzibzbxt.supabase.co';
 // ── VALIDATION TÉLÉPHONE SÉNÉGAL & EMAIL ─────────────────────────
 function isValidSenegalPhone(phone){
@@ -766,25 +809,34 @@ async function tnlPay(){
   const email   = (document.getElementById('tnlEmail')?.value||'').trim();
 
   if(!name||!phone||!address){
-    alert('Veuillez remplir le nom, téléphone et adresse de livraison.');
+    showAlert('Veuillez remplir le nom, téléphone et adresse de livraison.');
     return;
   }
   if(!isValidSenegalPhone(phone)){
-    alert('Numéro de téléphone invalide. Utilisez un numéro sénégalais valide (ex: 77 123 45 67).');
+    showAlert('Numéro de téléphone invalide. Utilisez un numéro sénégalais valide (ex: 77 123 45 67).');
     return;
   }
   if(email && !isValidEmailDomain(email)){
-    alert('Adresse email invalide. Utilisez une adresse Gmail, Yahoo, Hotmail, Outlook, iCloud, etc.');
+    showAlert('Adresse email invalide. Utilisez une adresse Gmail, Yahoo, Hotmail, Outlook, iCloud, etc.');
     return;
   }
 
-  // Si invité et email déjà associé à un compte existant : bloquer et proposer la connexion
-  if(email && !_currentUser && _supa){
+  // Si invité et email/téléphone déjà associé à un compte existant : bloquer et proposer la connexion
+  if(!_currentUser && _supa){
     try{
-      const { data: hasAccount } = await _supa.rpc('email_has_account', { p_email: email });
-      if(hasAccount){
-        alert('Vous avez déjà un compte chez nous avec cette adresse email.\n\nVeuillez vous connecter pour continuer cet achat, ou utilisez une autre adresse email.');
-        return;
+      if(email){
+        const { data: hasAccount } = await _supa.rpc('email_has_account', { p_email: email });
+        if(hasAccount){
+          showAlert('Vous avez déjà un compte chez nous avec cette adresse email.\n\nVeuillez vous connecter pour continuer cet achat, ou utilisez une autre adresse email.');
+          return;
+        }
+      }
+      if(phone){
+        const { data: phoneHasAcc } = await _supa.rpc('phone_has_account', { p_phone: phone });
+        if(phoneHasAcc){
+          showAlert('Vous avez déjà un compte chez nous avec ce numéro de téléphone.\n\nVeuillez vous connecter pour continuer cet achat, ou utilisez un autre numéro.');
+          return;
+        }
       }
     } catch(e){}
   }
@@ -840,11 +892,11 @@ async function tnlPay(){
       window.location.href = data.payment_url;
     } else {
       btn.disabled = false; btn.textContent = '💳 PAYER MAINTENANT →';
-      alert('❌ ' + (data.error || 'Erreur de paiement. Réessayez.'));
+      showAlert('❌ ' + (data.error || 'Erreur de paiement. Réessayez.'));
     }
   } catch(e){
     btn.disabled = false; btn.textContent = '💳 PAYER MAINTENANT →';
-    alert('❌ Erreur de connexion. Vérifiez votre internet.');
+    showAlert('❌ Erreur de connexion. Vérifiez votre internet.');
   }
 }
 
@@ -1271,5 +1323,12 @@ document.addEventListener('dragstart', e => {
   if(e.target.tagName === 'IMG') e.preventDefault();
 });
 </script>
+<div class="themed-alert-overlay" id="themedAlertOverlay" onclick="if(event.target===this) closeThemedAlert()">
+  <div class="themed-alert-box">
+    <div class="themed-alert-icon">ℹ️</div>
+    <div class="themed-alert-msg" id="themedAlertMsg"></div>
+    <button class="themed-alert-btn" onclick="closeThemedAlert()">Fermer</button>
+  </div>
+</div>
 </body>
 </html>

@@ -1472,6 +1472,25 @@ document.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;cur.style.le
 //     app.supabase.com → Ton projet → Settings → API
 // ══════════════════════════════════════════════════════════════
 const SUPA_URL = 'https://fvfkawxwtsziqzibzbxt.supabase.co';
+// ── VALIDATION TÉLÉPHONE SÉNÉGAL & EMAIL ─────────────────────────
+function isValidSenegalPhone(phone){
+  // Garder uniquement les chiffres, retirer l'indicatif +221/221 si présent
+  let digits = (phone || '').replace(/\D/g, '');
+  if(digits.startsWith('221')) digits = digits.slice(3);
+  // 9 chiffres, préfixes mobiles sénégalais valides : 70, 71, 75, 76, 77, 78
+  return /^(70|71|75|76|77|78)\d{7}$/.test(digits);
+}
+
+function isValidEmailDomain(email){
+  const allowed = [
+    'gmail.com','yahoo.com','yahoo.fr','hotmail.com','hotmail.fr',
+    'outlook.com','outlook.fr','live.com','live.fr','icloud.com',
+    'msn.com','aol.com','protonmail.com','proton.me','orange.sn','free.fr'
+  ];
+  const m = (email || '').trim().toLowerCase().match(/@([^\s@]+)$/);
+  return !!m && allowed.includes(m[1]);
+}
+
 const SUPA_KEY = 'sb_publishable_BTBvJ0drkx8ZWflBG7IhMA_A_b6h7rI';
 
 let P = []; window.PRODS = P; // Sera rempli depuis Supabase
@@ -2140,6 +2159,7 @@ async function sub(){
   const ph=san(document.getElementById('cp').value);
   const ad=san(document.getElementById('ca').value);
   if(!n||!ph||!ad||!selP){alert('Veuillez remplir tous les champs et choisir un mode de paiement.');return;}
+  if(!isValidSenegalPhone(ph)){alert('Numéro de téléphone invalide. Utilisez un numéro sénégalais valide (ex: 77 123 45 67).');return;}
 
   // Formater le numéro de téléphone en format international Sénégal
   let phone = ph.replace(/\s/g,'');
@@ -2563,6 +2583,8 @@ async function doRegister(){
   const address     = document.getElementById('regAddress') ? document.getElementById('regAddress').value.trim() : '';
 
   if(!name||!email||!pass){ showErr('registerErr','Remplis les champs obligatoires.'); return; }
+  if(!isValidEmailDomain(email)){ showErr('registerErr','Adresse email invalide. Utilisez Gmail, Yahoo, Hotmail, Outlook, iCloud, etc.'); return; }
+  if(phone && !isValidSenegalPhone(phone)){ showErr('registerErr','Numéro de téléphone invalide. Utilisez un numéro sénégalais valide (ex: 77 123 45 67).'); return; }
   if(pass.length < 6){ showErr('registerErr','Mot de passe trop court (min. 6 caractères).'); return; }
   if(pass !== passConfirm){ showErr('registerErr','Les mots de passe ne correspondent pas.'); return; }
   if(!address){ showErr('registerErr','Veuillez entrer votre adresse de livraison.'); return; }
@@ -2946,6 +2968,16 @@ async function doNotify(){
 
   if(!email && !phone){
     errEl.textContent = 'Entrez au moins un email ou un numéro WhatsApp.';
+    errEl.classList.add('on');
+    return;
+  }
+  if(email && !isValidEmailDomain(email)){
+    errEl.textContent = 'Adresse email invalide. Utilisez Gmail, Yahoo, Hotmail, Outlook, iCloud, etc.';
+    errEl.classList.add('on');
+    return;
+  }
+  if(phone && !isValidSenegalPhone(phone)){
+    errEl.textContent = 'Numéro de téléphone invalide. Utilisez un numéro sénégalais valide (ex: 77 123 45 67).';
     errEl.classList.add('on');
     return;
   }

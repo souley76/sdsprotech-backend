@@ -532,6 +532,25 @@ input, textarea {
 
 <script>
 const SUPA_URL = 'https://fvfkawxwtsziqzibzbxt.supabase.co';
+// ── VALIDATION TÉLÉPHONE SÉNÉGAL & EMAIL ─────────────────────────
+function isValidSenegalPhone(phone){
+  // Garder uniquement les chiffres, retirer l'indicatif +221/221 si présent
+  let digits = (phone || '').replace(/\D/g, '');
+  if(digits.startsWith('221')) digits = digits.slice(3);
+  // 9 chiffres, préfixes mobiles sénégalais valides : 70, 71, 75, 76, 77, 78
+  return /^(70|71|75|76|77|78)\d{7}$/.test(digits);
+}
+
+function isValidEmailDomain(email){
+  const allowed = [
+    'gmail.com','yahoo.com','yahoo.fr','hotmail.com','hotmail.fr',
+    'outlook.com','outlook.fr','live.com','live.fr','icloud.com',
+    'msn.com','aol.com','protonmail.com','proton.me','orange.sn','free.fr'
+  ];
+  const m = (email || '').trim().toLowerCase().match(/@([^\s@]+)$/);
+  return !!m && allowed.includes(m[1]);
+}
+
 const SUPA_KEY = 'sb_publishable_BTBvJ0drkx8ZWflBG7IhMA_A_b6h7rI';
 
 // ── PANIER ──────────────────────────────────────────────────────
@@ -751,6 +770,14 @@ async function tnlPay(){
     alert('Veuillez remplir le nom, téléphone et adresse de livraison.');
     return;
   }
+  if(!isValidSenegalPhone(phone)){
+    alert('Numéro de téléphone invalide. Utilisez un numéro sénégalais valide (ex: 77 123 45 67).');
+    return;
+  }
+  if(email && !isValidEmailDomain(email)){
+    alert('Adresse email invalide. Utilisez une adresse Gmail, Yahoo, Hotmail, Outlook, iCloud, etc.');
+    return;
+  }
 
   const total = cart.reduce((s,i) => s + i.prix * i.qty, 0);
   const commande_id = 'PC-' + Date.now() + '-' + Math.random().toString(36).slice(2,7).toUpperCase();
@@ -866,6 +893,7 @@ async function authRegister(){
   const okEl  = document.getElementById('authRegOk');
   const btn   = document.getElementById('authRegBtn');
   if(!name||!email||!pass){ errEl.textContent='Tous les champs sont requis.'; return; }
+  if(!isValidEmailDomain(email)){ errEl.textContent='Adresse email invalide. Utilisez Gmail, Yahoo, Hotmail, Outlook, iCloud, etc.'; return; }
   if(pass.length < 6){ errEl.textContent='Mot de passe minimum 6 caractères.'; return; }
   btn.disabled=true; btn.textContent='Création...';
   try{

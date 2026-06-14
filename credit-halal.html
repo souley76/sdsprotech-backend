@@ -112,6 +112,21 @@ body{background:var(--deep);color:var(--white);font-family:'Outfit',sans-serif;o
 
 /* FOOTER */
 .footer{text-align:center;padding:30px 20px;font-size:11px;color:var(--grey);border-top:1px solid var(--border);margin-top:20px;}
+
+/* ── BLOCAGE SÉLECTION / COPIE ────────────────────────────────── */
+*{
+  -webkit-user-select:none;
+  -moz-user-select:none;
+  -ms-user-select:none;
+  user-select:none;
+  -webkit-touch-callout:none;
+}
+input, textarea {
+  -webkit-user-select:text;
+  -moz-user-select:text;
+  -ms-user-select:text;
+  user-select:text;
+}
 </style>
 </head>
 <body>
@@ -763,6 +778,14 @@ function showToast(msg){
   t.classList.add('on');
   setTimeout(()=> t.classList.remove('on'), 3500);
 }
+
+// ── BLOCAGE COPIE / CLIC DROIT / DRAG IMAGES ─────────────────────
+document.addEventListener('contextmenu', e => e.preventDefault());
+document.addEventListener('copy', e => e.preventDefault());
+document.addEventListener('cut', e => e.preventDefault());
+document.addEventListener('dragstart', e => {
+  if(e.target.tagName === 'IMG') e.preventDefault();
+});
 </script>
 </body>
 </html>

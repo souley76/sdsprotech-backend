@@ -2662,7 +2662,7 @@ async function doRegister(){
   btn.textContent = 'CRÉER MON COMPTE →'; btn.disabled = false;
 
   if(error){
-    const msgs = { 'User already registered': 'Cet email est déjà utilisé. Connecte-toi.' };
+    const msgs = { 'User already registered': 'Cet email est déjà utilisé. Connectez-vous.' };
     showErr('registerErr', msgs[error.message] || error.message);
   } else {
     // Afficher le panel de confirmation email (plus de saisie OTP)

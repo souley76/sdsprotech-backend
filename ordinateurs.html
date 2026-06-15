@@ -621,7 +621,7 @@ function addToCart(id){
 let _accSuggestions = [];
 async function loadAccSuggestions(){
   try{
-    const res = await fetch(`${SUPA_URL}/rest/v1/accessoires?visible=eq.true&categorie=in.(chargeur,ecouteurs,cable,powerbank)&select=id,nom,prix,emoji,categorie&order=id.asc&limit=12`, {
+    const res = await fetch(`${SUPA_URL}/rest/v1/accessoires?visible=eq.true&select=id,nom,prix,emoji,categorie&order=id.asc&limit=12`, {
       headers: { 'apikey': SUPA_KEY, 'Authorization': `Bearer ${SUPA_KEY}` }
     });
     if(res.ok){ _accSuggestions = await res.json() || []; }

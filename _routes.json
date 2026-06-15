@@ -3,7 +3,10 @@
   "include": [
     "/paydunya-pay",
     "/paydunya-ipn",
-    "/notifier",
+    "/paydunya-confirm",
+    "/paydunya-resume",
+    "/notify",
+    "/pay",
     "/payeur",
     "/pawapay/*",
     "/ai-chat"

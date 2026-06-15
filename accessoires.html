@@ -944,11 +944,11 @@ async function tnlPay(){
       window.location.href = data.payment_url;
     } else {
       btn.disabled = false; btn.textContent = '💳 PAYER MAINTENANT →';
-      showAlert('❌ ' + (data.error || 'Erreur de paiement. Réessayez.'));
+      showAlert('❌ ' + (data.error || 'Le service de paiement rencontre un problème temporaire. Réessayez dans quelques minutes ou écrivez-nous sur WhatsApp au 77 069 97 39.'));
     }
   } catch(e){
     btn.disabled = false; btn.textContent = '💳 PAYER MAINTENANT →';
-    showAlert('❌ Erreur de connexion. Vérifiez votre internet.');
+    showAlert('❌ Le service de paiement est momentanément indisponible. Réessayez dans quelques minutes ou contactez-nous sur WhatsApp au 77 069 97 39.');
   }
 }
 

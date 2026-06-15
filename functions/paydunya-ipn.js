@@ -4,6 +4,18 @@ export async function onRequestOptions(context) {
   return handleOptions(context.env);
 }
 
+// ── GET : PayDunya (et les health-checks) testent l'accessibilité ──
+//    de l'URL via une requête GET. Sans ce handler, Cloudflare renvoie
+//    405 et PayDunya considère le callback_url « non accessible ».
+export async function onRequestGet(context) {
+  const CORS = CORS_HEADERS(context.env);
+  return new Response(JSON.stringify({
+    ok: true,
+    service: "paydunya-ipn",
+    message: "Endpoint IPN actif. Utilisez POST pour les notifications de paiement."
+  }), { status: 200, headers: CORS });
+}
+
 export async function onRequestPost(context) {
   const { request, env } = context;
   const CORS = CORS_HEADERS(env);

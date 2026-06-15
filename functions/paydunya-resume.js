@@ -89,7 +89,13 @@ export async function onRequestPost(context) {
       return new Response(JSON.stringify({ success: true, payment_url: paymentUrl, token }), { status: 200, headers: CORS });
 
     } catch(e) {
-      return new Response(JSON.stringify({ error: "Erreur PayDunya" }), { status: 500, headers: CORS });
+      // La vérification de statut a échoué, mais on a un token valide :
+      // renvoyer directement le lien de paiement plutôt qu'une erreur.
+      return new Response(JSON.stringify({
+        success: true,
+        payment_url: `https://payment.paydunya.com/checkout/invoice/${token}`,
+        token
+      }), { status: 200, headers: CORS });
     }
   }
 

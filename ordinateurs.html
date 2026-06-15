@@ -626,6 +626,10 @@ async function loadAccSuggestions(){
     });
     if(res.ok){ _accSuggestions = await res.json() || []; }
   } catch(e){}
+  // Si le tunnel est déjà ouvert à l'étape 1, rafraîchir pour afficher les suggestions
+  if(tnlStep === 1 && document.getElementById('tnlOverlay')?.classList.contains('on')){
+    tnlRenderStep1(document.getElementById('tnlBody'), document.getElementById('tnlBtnNext'));
+  }
 }
 
 function addAccessory(accId){

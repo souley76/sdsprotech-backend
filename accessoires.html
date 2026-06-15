@@ -1326,9 +1326,9 @@ loadAccessoires();
       window.location.href = '/?statut=deja-paye';
       return;
     }
-    showAlert('[DEBUG] paydunya-resume a répondu:\n' + JSON.stringify(data));
+    showAlert('Impossible de relancer le paiement automatiquement pour cette commande (#' + commandeId + ').\n\nContactez-nous sur WhatsApp au 77 069 97 39 en précisant ce numéro de commande, nous finaliserons votre paiement manuellement.');
   } catch(e){
-    showAlert('[DEBUG] Erreur fetch paydunya-resume:\n' + e.message);
+    showAlert('Impossible de relancer le paiement automatiquement pour cette commande (#' + commandeId + ').\n\nContactez-nous sur WhatsApp au 77 069 97 39 en précisant ce numéro de commande, nous finaliserons votre paiement manuellement.');
   }
 })();
 

@@ -30,7 +30,9 @@ export async function onRequestPost(context) {
   const refCmd         = commande_id || "—";
   const refToken       = paydunya_token || "—";
 
-  // ── Template HTML partagé ──────────────────────────────────
+  // ── Template HTML partagé (thème CLAIR — lisible partout) ───
+  //    Fond blanc + texte foncé : reste lisible même quand le client
+  //    mail force le mode clair (Zoho, Gmail). Évite le blanc-sur-blanc.
   function buildHtml(isClient) {
     const headerTitle = isClient
       ? "✅ Votre commande est confirmée"
@@ -39,42 +41,49 @@ export async function onRequestPost(context) {
       ? "CONFIRMATION DE COMMANDE"
       : "COMMANDE EN ATTENTE DE TRAITEMENT";
 
+    const sectionTitle = "padding:12px 20px;border-bottom:1px solid #e2e8f0;font-size:11px;font-weight:700;color:#0066cc;letter-spacing:2px;background:#f1f6fc;";
+    const cellLabel    = "padding:10px 20px;color:#64748b;font-size:12px;width:45%;border-bottom:1px solid #eef2f7;";
+    const cellLabelEnd = "padding:10px 20px;color:#64748b;font-size:12px;width:45%;";
+    const cellValue    = "padding:10px 20px;color:#0f172a;font-size:13px;font-weight:600;border-bottom:1px solid #eef2f7;";
+    const cellValueEnd = "padding:10px 20px;color:#0f172a;font-size:13px;font-weight:600;";
+    const boxStyle     = "background:#ffffff;border:1px solid #dbe4ee;border-radius:12px;overflow:hidden;";
+
     return `<!DOCTYPE html>
 <html lang="fr">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#0a0a0a;font-family:'Segoe UI',Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#0a0a0a;padding:30px 0;">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light"></head>
+<body style="margin:0;padding:0;background:#eef2f7;font-family:'Segoe UI',Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#eef2f7;padding:30px 0;">
 <tr><td align="center">
-<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#0d1b2a;border-radius:16px;overflow:hidden;border:1px solid rgba(0,200,255,0.2);">
+<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #dbe4ee;">
 
   <!-- Header -->
   <tr>
-    <td style="background:linear-gradient(135deg,#001540,#003080);padding:28px 32px;text-align:center;">
-      <div style="font-size:28px;font-weight:700;color:#00e5ff;letter-spacing:3px;">${companyName}</div>
-      <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:4px;letter-spacing:2px;">SMARTPHONES & ACCESSOIRES · DAKAR</div>
-      <div style="margin-top:16px;font-size:18px;color:#fff;font-weight:600;">${headerTitle}</div>
+    <td style="background:linear-gradient(135deg,#002a6e,#0066cc);padding:28px 32px;text-align:center;">
+      <div style="font-size:26px;font-weight:700;color:#ffffff;letter-spacing:3px;">${companyName}</div>
+      <div style="font-size:11px;color:#cfe2ff;margin-top:4px;letter-spacing:2px;">SMARTPHONES &amp; ACCESSOIRES · DAKAR</div>
+      <div style="margin-top:16px;font-size:18px;color:#ffffff;font-weight:600;">${headerTitle}</div>
     </td>
   </tr>
 
   <!-- Badge -->
   <tr>
     <td style="padding:20px 32px 0;text-align:center;">
-      <div style="display:inline-block;background:rgba(0,229,255,0.1);border:1px solid rgba(0,229,255,0.4);border-radius:100px;padding:8px 24px;font-size:11px;color:#00e5ff;letter-spacing:2px;">${badge}</div>
+      <div style="display:inline-block;background:#e7f1ff;border:1px solid #9ec5fe;border-radius:100px;padding:8px 24px;font-size:11px;color:#0066cc;letter-spacing:2px;font-weight:700;">${badge}</div>
     </td>
   </tr>
 
   <!-- Références -->
   <tr>
     <td style="padding:20px 32px;">
-      <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(0,100,255,0.06);border:1px solid rgba(0,200,255,0.15);border-radius:12px;overflow:hidden;">
-        <tr><td colspan="2" style="padding:12px 20px;border-bottom:1px solid rgba(0,200,255,0.1);font-size:11px;font-weight:700;color:#00e5ff;letter-spacing:2px;">RÉFÉRENCES DE TRANSACTION</td></tr>
+      <table width="100%" cellpadding="0" cellspacing="0" style="${boxStyle}">
+        <tr><td colspan="2" style="${sectionTitle}">RÉFÉRENCES DE TRANSACTION</td></tr>
         <tr>
-          <td style="padding:10px 20px;color:rgba(255,255,255,0.5);font-size:12px;width:45%;border-bottom:1px solid rgba(255,255,255,0.05);">🔖 N° Commande</td>
-          <td style="padding:10px 20px;color:#00e5ff;font-size:12px;font-weight:700;border-bottom:1px solid rgba(255,255,255,0.05);font-family:monospace;">${refCmd}</td>
+          <td style="${cellLabel}">🔖 N° Commande</td>
+          <td style="padding:10px 20px;color:#0066cc;font-size:12px;font-weight:700;border-bottom:1px solid #eef2f7;font-family:monospace;">${refCmd}</td>
         </tr>
         <tr>
-          <td style="padding:10px 20px;color:rgba(255,255,255,0.5);font-size:12px;">🔐 Réf. PayDunya</td>
-          <td style="padding:10px 20px;color:rgba(255,255,255,0.7);font-size:11px;font-family:monospace;">${refToken}</td>
+          <td style="${cellLabelEnd}">🔐 Réf. PayDunya</td>
+          <td style="padding:10px 20px;color:#334155;font-size:11px;font-family:monospace;">${refToken}</td>
         </tr>
       </table>
     </td>
@@ -83,19 +92,19 @@ export async function onRequestPost(context) {
   <!-- Infos client -->
   <tr>
     <td style="padding:0 32px 20px;">
-      <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(0,100,255,0.06);border:1px solid rgba(0,200,255,0.15);border-radius:12px;overflow:hidden;">
-        <tr><td colspan="2" style="padding:12px 20px;border-bottom:1px solid rgba(0,200,255,0.1);font-size:11px;font-weight:700;color:#00e5ff;letter-spacing:2px;">INFORMATIONS CLIENT</td></tr>
+      <table width="100%" cellpadding="0" cellspacing="0" style="${boxStyle}">
+        <tr><td colspan="2" style="${sectionTitle}">INFORMATIONS CLIENT</td></tr>
         <tr>
-          <td style="padding:10px 20px;color:rgba(255,255,255,0.5);font-size:12px;width:45%;border-bottom:1px solid rgba(255,255,255,0.05);">👤 Nom</td>
-          <td style="padding:10px 20px;color:#fff;font-size:13px;font-weight:600;border-bottom:1px solid rgba(255,255,255,0.05);">${client_nom || "—"}</td>
+          <td style="${cellLabel}">👤 Nom</td>
+          <td style="${cellValue}">${client_nom || "—"}</td>
         </tr>
         <tr>
-          <td style="padding:10px 20px;color:rgba(255,255,255,0.5);font-size:12px;border-bottom:1px solid rgba(255,255,255,0.05);">📞 Téléphone</td>
-          <td style="padding:10px 20px;color:#00e5ff;font-size:13px;font-weight:600;border-bottom:1px solid rgba(255,255,255,0.05);">${client_tel || "—"}</td>
+          <td style="${cellLabel}">📞 Téléphone</td>
+          <td style="padding:10px 20px;color:#0066cc;font-size:13px;font-weight:600;border-bottom:1px solid #eef2f7;">${client_tel || "—"}</td>
         </tr>
         <tr>
-          <td style="padding:10px 20px;color:rgba(255,255,255,0.5);font-size:12px;">📍 Adresse livraison</td>
-          <td style="padding:10px 20px;color:#fff;font-size:13px;">${client_adr || "—"}</td>
+          <td style="${cellLabelEnd}">📍 Adresse livraison</td>
+          <td style="${cellValueEnd}">${client_adr || "—"}</td>
         </tr>
       </table>
     </td>
@@ -104,19 +113,19 @@ export async function onRequestPost(context) {
   <!-- Détails commande -->
   <tr>
     <td style="padding:0 32px 20px;">
-      <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(0,100,255,0.06);border:1px solid rgba(0,200,255,0.15);border-radius:12px;overflow:hidden;">
-        <tr><td colspan="2" style="padding:12px 20px;border-bottom:1px solid rgba(0,200,255,0.1);font-size:11px;font-weight:700;color:#00e5ff;letter-spacing:2px;">DÉTAILS DE LA COMMANDE</td></tr>
+      <table width="100%" cellpadding="0" cellspacing="0" style="${boxStyle}">
+        <tr><td colspan="2" style="${sectionTitle}">DÉTAILS DE LA COMMANDE</td></tr>
         <tr>
-          <td style="padding:10px 20px;color:rgba(255,255,255,0.5);font-size:12px;width:45%;border-bottom:1px solid rgba(255,255,255,0.05);">🛒 Produit(s)</td>
-          <td style="padding:10px 20px;color:#fff;font-size:13px;border-bottom:1px solid rgba(255,255,255,0.05);">${articles || "—"}</td>
+          <td style="${cellLabel}">🛒 Produit(s)</td>
+          <td style="${cellValue}">${articles || "—"}</td>
         </tr>
         <tr>
-          <td style="padding:10px 20px;color:rgba(255,255,255,0.5);font-size:12px;border-bottom:1px solid rgba(255,255,255,0.05);">💳 Paiement</td>
-          <td style="padding:10px 20px;color:#fff;font-size:13px;border-bottom:1px solid rgba(255,255,255,0.05);">${operateur || "PayDunya"}</td>
+          <td style="${cellLabel}">💳 Paiement</td>
+          <td style="${cellValue}">${operateur || "PayDunya"}</td>
         </tr>
         <tr>
-          <td style="padding:10px 20px;color:rgba(255,255,255,0.5);font-size:12px;">🕐 Date</td>
-          <td style="padding:10px 20px;color:#fff;font-size:13px;">${orderDate}</td>
+          <td style="${cellLabelEnd}">🕐 Date</td>
+          <td style="${cellValueEnd}">${orderDate}</td>
         </tr>
       </table>
     </td>
@@ -125,10 +134,10 @@ export async function onRequestPost(context) {
   <!-- Total -->
   <tr>
     <td style="padding:0 32px 20px;">
-      <div style="background:linear-gradient(135deg,rgba(0,33,255,0.2),rgba(0,200,255,0.1));border:1px solid rgba(0,200,255,0.3);border-radius:12px;padding:18px 24px;">
+      <div style="background:#e7f1ff;border:1px solid #9ec5fe;border-radius:12px;padding:18px 24px;">
         <table width="100%"><tr>
-          <td style="color:rgba(255,255,255,0.7);font-size:14px;font-weight:600;">TOTAL PAYÉ</td>
-          <td style="text-align:right;color:#00e5ff;font-size:24px;font-weight:700;">${total || "—"}</td>
+          <td style="color:#334155;font-size:14px;font-weight:700;">TOTAL PAYÉ</td>
+          <td style="text-align:right;color:#0066cc;font-size:24px;font-weight:800;">${total || "—"}</td>
         </tr></table>
       </div>
     </td>
@@ -138,8 +147,8 @@ export async function onRequestPost(context) {
   <!-- Message client -->
   <tr>
     <td style="padding:0 32px 20px;">
-      <div style="background:rgba(0,255,100,0.05);border:1px solid rgba(0,255,100,0.2);border-radius:12px;padding:16px 20px;font-size:13px;color:rgba(255,255,255,0.8);line-height:1.7;">
-        ✅ <strong style="color:#00ff88;">Votre commande a bien été reçue.</strong><br>
+      <div style="background:#e9fbef;border:1px solid #86e3a8;border-radius:12px;padding:16px 20px;font-size:13px;color:#14532d;line-height:1.7;">
+        ✅ <strong style="color:#15803d;">Votre commande a bien été reçue.</strong><br>
         Notre équipe vous contactera dans les <strong>24h</strong> pour confirmer la livraison.<br>
         📦 Livraison Dakar : <strong>Gratuite · 24-48h</strong><br>
         🛡️ Blindé + 👜 Pochette inclus gratuitement.
@@ -150,23 +159,23 @@ export async function onRequestPost(context) {
   <!-- Infos entreprise -->
   <tr>
     <td style="padding:0 32px 24px;">
-      <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;overflow:hidden;">
-        <tr><td colspan="2" style="padding:12px 20px;border-bottom:1px solid rgba(255,255,255,0.05);font-size:11px;font-weight:700;color:rgba(255,255,255,0.4);letter-spacing:2px;">INFORMATIONS ENTREPRISE</td></tr>
+      <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">
+        <tr><td colspan="2" style="padding:12px 20px;border-bottom:1px solid #e2e8f0;font-size:11px;font-weight:700;color:#64748b;letter-spacing:2px;">INFORMATIONS ENTREPRISE</td></tr>
         <tr>
-          <td style="padding:8px 20px;color:rgba(255,255,255,0.4);font-size:11px;border-bottom:1px solid rgba(255,255,255,0.04);">🏢 Société</td>
-          <td style="padding:8px 20px;color:rgba(255,255,255,0.7);font-size:11px;border-bottom:1px solid rgba(255,255,255,0.04);">${companyName} · RCCM: SN DKR 2026 A 16899</td>
+          <td style="padding:8px 20px;color:#94a3b8;font-size:11px;border-bottom:1px solid #eef2f7;width:30%;">🏢 Société</td>
+          <td style="padding:8px 20px;color:#475569;font-size:11px;border-bottom:1px solid #eef2f7;">${companyName} · RCCM: SN DKR 2026 A 16899</td>
         </tr>
         <tr>
-          <td style="padding:8px 20px;color:rgba(255,255,255,0.4);font-size:11px;border-bottom:1px solid rgba(255,255,255,0.04);">📍 Adresse</td>
-          <td style="padding:8px 20px;color:rgba(255,255,255,0.7);font-size:11px;border-bottom:1px solid rgba(255,255,255,0.04);">${companyAddress}</td>
+          <td style="padding:8px 20px;color:#94a3b8;font-size:11px;border-bottom:1px solid #eef2f7;">📍 Adresse</td>
+          <td style="padding:8px 20px;color:#475569;font-size:11px;border-bottom:1px solid #eef2f7;">${companyAddress}</td>
         </tr>
         <tr>
-          <td style="padding:8px 20px;color:rgba(255,255,255,0.4);font-size:11px;border-bottom:1px solid rgba(255,255,255,0.04);">📞 Contact</td>
-          <td style="padding:8px 20px;color:rgba(255,255,255,0.7);font-size:11px;border-bottom:1px solid rgba(255,255,255,0.04);">${companyPhone}</td>
+          <td style="padding:8px 20px;color:#94a3b8;font-size:11px;border-bottom:1px solid #eef2f7;">📞 Contact</td>
+          <td style="padding:8px 20px;color:#475569;font-size:11px;border-bottom:1px solid #eef2f7;">${companyPhone}</td>
         </tr>
         <tr>
-          <td style="padding:8px 20px;color:rgba(255,255,255,0.4);font-size:11px;">🌐 Site</td>
-          <td style="padding:8px 20px;font-size:11px;"><a href="${companyWebsite}" style="color:#00e5ff;text-decoration:none;">${companyWebsite}</a></td>
+          <td style="padding:8px 20px;color:#94a3b8;font-size:11px;">🌐 Site</td>
+          <td style="padding:8px 20px;font-size:11px;"><a href="${companyWebsite}" style="color:#0066cc;text-decoration:none;">${companyWebsite}</a></td>
         </tr>
       </table>
     </td>
@@ -174,8 +183,8 @@ export async function onRequestPost(context) {
 
   <!-- Footer -->
   <tr>
-    <td style="padding:16px 32px;border-top:1px solid rgba(0,200,255,0.1);text-align:center;">
-      <div style="font-size:10px;color:rgba(255,255,255,0.25);">NINEA: 013038395 · Email automatique — ${companyName} · Ne pas répondre</div>
+    <td style="padding:16px 32px;border-top:1px solid #e2e8f0;text-align:center;background:#f8fafc;">
+      <div style="font-size:10px;color:#94a3b8;">NINEA: 013038395 · Email automatique — ${companyName} · Ne pas répondre</div>
     </td>
   </tr>
 

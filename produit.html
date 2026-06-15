@@ -914,6 +914,19 @@ async function loadProduct(){
   const id = params.get('id');
   const slug = window.location.pathname.split('/').pop();
 
+  // ── Retour PayDunya (succès / annulation) ────────────────────
+  //    PayDunya renvoie sur produit.html?commande=XXX&statut=succes
+  //    Sans 'id', loadProduct affichait "Produit introuvable" : on
+  //    intercepte AVANT le check d'id pour montrer une page propre.
+  const statutRetour = params.get('statut');
+  if(statutRetour === 'succes' || statutRetour === 'annule'){
+    const loader = document.getElementById('pgLoading');
+    if(loader) loader.style.display = 'none';
+    const cmd = params.get('commande') || params.get('commande_id') || '';
+    showPaymentResult(statutRetour, cmd);
+    return;
+  }
+
   // ── Mode reprise commande PayDunya ───────────────────────────
   if(params.get('resume') === '1'){
     const produitNom = decodeURIComponent(params.get('produit') || 'Commande');
@@ -1210,6 +1223,44 @@ function removeCartItem(idx) {
 function showNotFound(){
   document.getElementById('pgLoading').style.display = 'none';
   document.getElementById('pgNotFound').style.display = 'block';
+}
+
+// ── Écran de retour PayDunya (succès ou annulation) ──────────
+function showPaymentResult(statut, commandeId){
+  const ok = statut === 'succes';
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'min-height:70vh;display:flex;align-items:center;justify-content:center;padding:24px;font-family:Outfit,sans-serif;';
+  wrap.innerHTML = `
+    <div style="max-width:440px;width:100%;text-align:center;background:#0d1b2a;border:1px solid ${ok?'rgba(0,255,136,0.3)':'rgba(255,80,80,0.3)'};border-radius:20px;padding:40px 28px;box-shadow:0 12px 48px rgba(0,0,0,0.4);">
+      <div style="font-size:64px;line-height:1;margin-bottom:16px;">${ok?'✅':'⚠️'}</div>
+      <h2 style="color:${ok?'#00ff88':'#ff8080'};font-size:24px;margin:0 0 12px;font-weight:800;">
+        ${ok?'Paiement confirmé !':'Paiement non finalisé'}
+      </h2>
+      <p style="color:rgba(255,255,255,0.75);font-size:15px;line-height:1.6;margin:0 0 8px;">
+        ${ok
+          ? 'Merci pour votre confiance. Votre commande a bien été reçue et est en cours de traitement.'
+          : 'Votre paiement n\u2019a pas été finalisé. Vous pouvez réessayer depuis « Mes commandes » ou nous contacter.'}
+      </p>
+      ${commandeId?`<p style="color:#00e5ff;font-size:13px;font-family:monospace;margin:0 0 20px;">N° commande : ${commandeId}</p>`:'<div style="height:12px;"></div>'}
+      ${ok?`<p style="color:rgba(255,255,255,0.6);font-size:13px;line-height:1.6;margin:0 0 24px;">📦 Livraison Dakar : <strong style="color:#fff;">Gratuite · 24-48h</strong><br>Notre équipe vous contactera sous 24h.</p>`:''}
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <a href="/" style="display:block;padding:14px;background:linear-gradient(135deg,#0066ff,#00c8ff);border-radius:12px;color:#fff;font-weight:700;text-decoration:none;font-size:15px;">🏠 Retour à la boutique</a>
+        <a href="https://wa.me/221770699739${commandeId?'?text='+encodeURIComponent('Bonjour, au sujet de ma commande '+commandeId):''}" style="display:block;padding:14px;background:rgba(37,211,102,0.15);border:1px solid rgba(37,211,102,0.4);border-radius:12px;color:#25d366;font-weight:700;text-decoration:none;font-size:15px;">💬 Nous contacter sur WhatsApp</a>
+      </div>
+    </div>`;
+  const container = document.querySelector('.prod-container') || document.body;
+  container.innerHTML = '';
+  container.appendChild(wrap);
+
+  // Confirmer côté serveur (best-effort) si succès
+  if(ok && commandeId){
+    const token = new URLSearchParams(window.location.search).get('token');
+    try{ window.history.replaceState({}, '', window.location.pathname); }catch(e){}
+    fetch('https://sdsprotech-backend.pages.dev/paydunya-confirm', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ token: token||'', commande_id: commandeId })
+    }).catch(()=>{});
+  }
 }
 
 function updateCartBadge(){
@@ -1538,29 +1589,8 @@ document.addEventListener('mousemove', e=>{mx=e.clientX;my=e.clientY;});
 // ── Init ──────────────────────────────────────────────────────
 updateCartBadge();
 loadProduct();
-// ── Retour PayDunya : confirmer la commande ───────────────────
-(async function checkPaydunyaReturn(){
-  const params = new URLSearchParams(window.location.search);
-  const statut = params.get('statut');
-  const token  = params.get('token');
-  const cmd    = params.get('commande');
-  if(statut !== 'succes' || !token) return;
-  try{ window.history.replaceState({}, '', window.location.pathname); }catch(e){}
-  try{
-    const res = await fetch('https://sdsprotech-backend.pages.dev/paydunya-confirm', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token, commande_id: cmd })
-    });
-    const data = await res.json();
-    if(data && data.success){
-      const banner = document.createElement('div');
-      banner.style.cssText = 'position:fixed;top:70px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,#003300,#006600);border:1px solid #00ff88;color:#fff;padding:14px 24px;border-radius:12px;z-index:9999;font-family:Outfit,sans-serif;font-size:14px;font-weight:600;text-align:center;box-shadow:0 8px 32px rgba(0,255,100,0.3);max-width:90vw;';
-      banner.innerHTML = '✅ Paiement confirmé ! Votre commande est en cours de traitement.';
-      document.body.appendChild(banner);
-      setTimeout(()=>banner.remove(), 6000);
-    }
-  }catch(e){ console.warn('Confirm error:', e); }
-})();
+// ── Retour PayDunya : géré désormais par showPaymentResult() ──
+//    dans loadProduct(), avant le check d'id (évite "Produit introuvable").
 
 
 // ── Cart Drawer Functions (identiques à index.html + extras) ──

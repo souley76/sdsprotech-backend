@@ -568,6 +568,51 @@ input, textarea {
 </div>
 
 <script>
+// ── Retour PayDunya (succès / annulation) ────────────────────
+//    PayDunya renvoie sur cette page avec ?statut=succes|annule.
+//    On affiche un écran de confirmation propre (overlay autonome).
+function showPaymentResult(statut, commandeId){
+  const ok = statut === 'succes';
+  const ov = document.createElement('div');
+  ov.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(5,8,15,0.92);font-family:Outfit,sans-serif;';
+  ov.innerHTML = `
+    <div style="max-width:440px;width:100%;text-align:center;background:#0d1b2a;border:1px solid ${ok?'rgba(0,255,136,0.3)':'rgba(255,80,80,0.3)'};border-radius:20px;padding:40px 28px;box-shadow:0 12px 48px rgba(0,0,0,0.5);">
+      <div style="font-size:64px;line-height:1;margin-bottom:16px;">${ok?'✅':'⚠️'}</div>
+      <h2 style="color:${ok?'#00ff88':'#ff8080'};font-size:24px;margin:0 0 12px;font-weight:800;">
+        ${ok?'Paiement confirmé !':'Paiement non finalisé'}
+      </h2>
+      <p style="color:rgba(255,255,255,0.75);font-size:15px;line-height:1.6;margin:0 0 8px;">
+        ${ok
+          ? 'Merci pour votre confiance. Votre commande a bien été reçue et est en cours de traitement.'
+          : 'Votre paiement n\u2019a pas été finalisé. Vous pouvez réessayer depuis « Mes commandes » ou nous contacter.'}
+      </p>
+      ${commandeId?`<p style="color:#00e5ff;font-size:13px;font-family:monospace;margin:0 0 20px;">N° commande : ${commandeId}</p>`:'<div style="height:12px;"></div>'}
+      ${ok?`<p style="color:rgba(255,255,255,0.6);font-size:13px;line-height:1.6;margin:0 0 24px;">📦 Livraison Dakar : <strong style="color:#fff;">Gratuite · 24-48h</strong><br>Notre équipe vous contactera sous 24h.</p>`:''}
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <a href="/" style="display:block;padding:14px;background:linear-gradient(135deg,#0066ff,#00c8ff);border-radius:12px;color:#fff;font-weight:700;text-decoration:none;font-size:15px;">🏠 Retour à la boutique</a>
+        <a href="https://wa.me/221770699739${commandeId?'?text='+encodeURIComponent('Bonjour, au sujet de ma commande '+commandeId):''}" style="display:block;padding:14px;background:rgba(37,211,102,0.15);border:1px solid rgba(37,211,102,0.4);border-radius:12px;color:#25d366;font-weight:700;text-decoration:none;font-size:15px;">💬 Nous contacter sur WhatsApp</a>
+      </div>
+    </div>`;
+  document.body.appendChild(ov);
+
+  if(ok && commandeId){
+    const token = new URLSearchParams(window.location.search).get('token');
+    fetch('https://sdsprotech-backend.pages.dev/paydunya-confirm', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ token: token||'', commande_id: commandeId })
+    }).catch(()=>{});
+  }
+}
+(function checkPaydunyaReturn(){
+  const p = new URLSearchParams(window.location.search);
+  const statut = p.get('statut');
+  if(statut !== 'succes' && statut !== 'annule') return;
+  const cmd = p.get('commande') || p.get('commande_id') || '';
+  try{ window.history.replaceState({}, '', window.location.pathname); }catch(e){}
+  if(document.body){ showPaymentResult(statut, cmd); }
+  else document.addEventListener('DOMContentLoaded', ()=>showPaymentResult(statut, cmd));
+})();
+
 function showAlert(msg){
   document.getElementById('themedAlertMsg').textContent = msg;
   document.getElementById('themedAlertOverlay').classList.add('on');
@@ -937,8 +982,8 @@ async function tnlPay(){
         total_fallback: total,
         cart_items:     cart.map(i => ({ produit_id: i.id, qty: i.qty, prix: i.prix, table: i._table || 'ordinateurs' })),
         commande_id,
-        return_url: 'https://sdsprotech.com/ordinateurs.html?statut=succes',
-        cancel_url: 'https://sdsprotech.com/ordinateurs.html?statut=annule'
+        return_url: 'https://sdsprotech.com/ordinateurs.html?statut=succes&commande=' + encodeURIComponent(commande_id),
+        cancel_url: 'https://sdsprotech.com/ordinateurs.html?statut=annule&commande=' + encodeURIComponent(commande_id)
       })
     });
     const data = await res.json();

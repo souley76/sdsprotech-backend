@@ -2976,14 +2976,10 @@ async function finaliserPaiement(commandeId, produit, total, evt, source){
       setTimeout(()=>loadOrders(window._currentUser?.id), 1500);
     } else {
       if(btn){ btn.innerHTML='▶ Finaliser le paiement'; btn.style.opacity='1'; }
-      console.log('[DEBUG paydunya-resume]', JSON.stringify(data));
-      showAlert('[DEBUG] Réponse paydunya-resume:\n' + JSON.stringify(data));
       resumeOrder('', produit, total, true, commandeId, source);
     }
   } catch(e){
     if(btn){ btn.innerHTML='▶ Finaliser le paiement'; btn.style.opacity='1'; }
-    console.log('[DEBUG paydunya-resume] fetch error:', e.message);
-    showAlert('[DEBUG] Erreur fetch paydunya-resume:\n' + e.message);
     resumeOrder('', produit, total, true, commandeId, source);
   }
 }

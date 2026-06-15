@@ -81,9 +81,10 @@ export async function onRequestPost(context) {
         return new Response(JSON.stringify({ success: true, status: 'completed' }), { status: 200, headers: CORS });
       }
 
-      // Paiement encore en attente — renvoyer le lien PayDunya
+      // Paiement encore en attente — renvoyer le lien PayDunya (page client, pas l'API)
       const paymentUrl = confirmData?.invoice?.checkout_url
-        || `https://app.paydunya.com/api/v1/checkout-invoice/checkout/${token}`;
+        || confirmData?.response_text
+        || `https://payment.paydunya.com/checkout/invoice/${token}`;
 
       return new Response(JSON.stringify({ success: true, payment_url: paymentUrl, token }), { status: 200, headers: CORS });
 

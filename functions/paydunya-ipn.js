@@ -109,7 +109,6 @@ export async function onRequestPost(context) {
           },
           body: JSON.stringify({
             status:          internalStatus,
-            statut:          internalStatus === "PAID" ? "payé" : internalStatus === "FAILED" ? "annulé" : "en_attente",
             paydunya_status: statut?.toUpperCase() || "PENDING",
             paydunya_token:  token,
             paid_at:         internalStatus === "PAID" ? new Date().toISOString() : null

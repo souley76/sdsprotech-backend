@@ -1772,7 +1772,8 @@ document.addEventListener('keydown', e => { if(e.key==='Escape') closeLightbox()
 let tnlStep = 1;
 let tnlData = { storage: '', color: '', charger: false, op: '', qty: _pendingQty || 1 };
 let _tnlMode = 'single';   // 'single' = 1 produit (variantes) | 'multi' = panier multi-produits
-let _tnlMultiCart = [];    // copie du panier pour le mode multi
+let _tnlMultiCart = [];    // copie du panier pour le mode multi (avec variantes choisies)
+let _tnlMultiSteps = [];   // séquence d'étapes dynamique du mode multi
 
 const tnlTitles = ['','Choisir la variante','Livraison & Extras','Conditions d\'achat','Paiement'];
 
@@ -1844,20 +1845,29 @@ function tnlRender(){
   const btnNext = document.getElementById('tnlBtnNext');
 
   if(_tnlMode === 'multi'){
-    // Tunnel 3 étapes : 1) Récap panier  2) Conditions  3) Paiement
-    const titlesMulti = ['','Récapitulatif','Conditions d\'achat','Paiement'];
-    title.textContent = titlesMulti[tnlStep];
+    // Étapes dynamiques : une étape variante par iPhone (table products),
+    // puis Récap, Conditions, Paiement.
+    const steps = _tnlMultiSteps;  // construit dans multiCheckoutOpen()
+    const cur = steps[tnlStep - 1];
+    title.textContent = cur ? cur.title : '';
     btnBack.style.display = tnlStep > 1 ? 'flex' : 'none';
+    // Points de progression (max 4 affichés, proportionnels)
     for(let i=1;i<=4;i++){
       const d = document.getElementById('tnlDot'+i);
       if(!d) continue;
-      if(i === 4){ d.style.display = 'none'; continue; } // 3 étapes → cacher le 4e point
+      const totalSteps = steps.length;
+      if(i > totalSteps && totalSteps < 4){ d.style.display='none'; continue; }
       d.style.display = '';
-      d.className = 'tnl-step-dot' + (i < tnlStep ? ' done' : i === tnlStep ? ' active' : '');
+      // mapper la position courante sur 4 points
+      const ratio = totalSteps > 1 ? (tnlStep-1)/(totalSteps-1) : 0;
+      const activeDot = Math.round(ratio * 3) + 1;
+      d.className = 'tnl-step-dot' + (i < activeDot ? ' done' : i === activeDot ? ' active' : '');
     }
-    if(tnlStep === 1) tnlRenderMultiRecap(body, btnNext);
-    else if(tnlStep === 2) tnlRenderStep3(body, btnNext);   // réutilise les conditions
-    else if(tnlStep === 3) tnlRenderMultiPay(body, btnNext);
+    if(!cur){ body.scrollTop=0; return; }
+    if(cur.type === 'variant')      tnlRenderMultiVariant(body, btnNext, cur.cartIndex);
+    else if(cur.type === 'recap')   tnlRenderMultiRecap(body, btnNext);
+    else if(cur.type === 'conditions') tnlRenderStep3(body, btnNext);
+    else if(cur.type === 'pay')     tnlRenderMultiPay(body, btnNext);
     body.scrollTop = 0;
     return;
   }
@@ -2097,9 +2107,9 @@ function tnlRenderStep4(body, btn){
 // ── Navigation ───────────────────────────────────────────────
 function tnlNext(){
   if(_tnlMode === 'multi'){
-    if(tnlStep === 3){ tnlMultiPay(); return; }
-    tnlStep++;
-    tnlRender();
+    const cur = _tnlMultiSteps[tnlStep - 1];
+    if(cur && cur.type === 'pay'){ tnlMultiPay(); return; }
+    if(tnlStep < _tnlMultiSteps.length){ tnlStep++; tnlRender(); }
     return;
   }
   if(tnlStep === 4){ tnlPay(); return; }
@@ -2511,10 +2521,40 @@ async function cartCommander(){
 }
 
 // ── CHECKOUT PANIER MULTI-PRODUITS (tunnel à étapes) ─────────────
-function multiCheckoutOpen(){
+async function multiCheckoutOpen(){
   if(cart_pg.length === 0) return;
   _tnlMode = 'multi';
-  _tnlMultiCart = cart_pg.map(i => Object.assign({}, i));
+  _tnlMultiCart = cart_pg.map(i => Object.assign({ storage:'', color:'', charger:false, variantes:[], specs:[] }, i));
+
+  // Charger variantes/specs depuis Supabase pour chaque iPhone (table products)
+  for(const it of _tnlMultiCart){
+    if((it.table || 'products') !== 'products') continue;
+    try{
+      const res = await fetch(`${SUPA_URL}/rest/v1/products?id=eq.${it.id}&select=prix,specs,variantes`,
+        { headers:{ 'apikey':SUPA_KEY, 'Authorization':`Bearer ${SUPA_KEY}` } });
+      const d = await res.json();
+      if(d && d[0]){
+        it.variantes = Array.isArray(d[0].variantes) ? d[0].variantes : (d[0].variantes ? (()=>{try{return JSON.parse(d[0].variantes);}catch(_){return [];}})() : []);
+        it.specs = d[0].specs ? d[0].specs.split(',').map(x=>x.trim()) : [];
+        it.basePrice = d[0].prix || it.pNum || 0;
+      }
+    }catch(e){}
+  }
+
+  // Construire la séquence d'étapes : 1 étape variante par iPhone, puis recap/conditions/pay
+  _tnlMultiSteps = [];
+  _tnlMultiCart.forEach((it, idx) => {
+    const isPhone = (it.table || 'products') === 'products';
+    const storages = isPhone ? variantStorages(it) : [];
+    const colors   = isPhone ? variantColors(it)   : [];
+    if(isPhone && (storages.length > 0 || colors.length > 0)){
+      _tnlMultiSteps.push({ type:'variant', cartIndex: idx, title: it.n });
+    }
+  });
+  _tnlMultiSteps.push({ type:'recap',      title:'Récapitulatif' });
+  _tnlMultiSteps.push({ type:'conditions', title:"Conditions d'achat" });
+  _tnlMultiSteps.push({ type:'pay',        title:'Paiement' });
+
   tnlStep = 1;
   tnlRender();
   document.getElementById('tnlOverlay').classList.add('on');
@@ -2525,16 +2565,82 @@ function multiCheckoutOpen(){
   }
 }
 
-// Étape 1 (multi) : Récapitulatif du panier
+// Helpers variantes pour un item du panier multi
+function variantStorages(it){
+  if(it.variantes && it.variantes.length) return [...new Set(it.variantes.map(v=>v.stockage).filter(Boolean))];
+  return (it.specs||[]).filter(s => /^\d+(GB|TB)$/i.test(s.trim()));
+}
+function variantColors(it){
+  if(it.variantes && it.variantes.length) return [...new Set(it.variantes.map(v=>v.couleur).filter(Boolean))];
+  return (it.specs||[]).filter(s => !/^\d+(GB|TB)$/i.test(s.trim()) && !/unlocked|fonctionnel|face id|5g|magsafe|usb-c|dual sim|lidar|prores/i.test(s));
+}
+function itemUnitPrice(it){
+  let p = it.basePrice || it.pNum || 0;
+  if(it.variantes && it.variantes.length){
+    let v = null;
+    if(it.storage && it.color) v = it.variantes.find(x=>x.stockage===it.storage && x.couleur===it.color);
+    if(!v && it.storage) v = it.variantes.find(x=>x.stockage===it.storage);
+    if(v && v.prix) p = v.prix;
+  }
+  if(it.charger) p += 15000;
+  return p;
+}
+
+// Étape variante (multi) : choix GB + couleur + chargeur pour un iPhone
+function tnlRenderMultiVariant(body, btn, cartIndex){
+  const it = _tnlMultiCart[cartIndex];
+  const storages = variantStorages(it);
+  const colors   = variantColors(it);
+  if(storages.length === 1 && !it.storage) it.storage = storages[0];
+  if(colors.length === 1 && !it.color) it.color = colors[0];
+
+  let html = `
+    <div class="tnl-prod-card">
+      <div style="width:56px;height:56px;border-radius:10px;background:rgba(0,100,255,0.08);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><span style="font-size:32px;">${it.e||'📱'}</span></div>
+      <div style="flex:1;">
+        <div class="tnl-prod-name">${it.n}</div>
+        <div class="tnl-prod-price" id="mvPrice">${formatPrice_pg(itemUnitPrice(it)*(it.qty||1))} FCFA</div>
+      </div>
+    </div>`;
+  if(storages.length){
+    html += `<div class="tnl-label">CAPACITÉ DE STOCKAGE</div><div class="tnl-chips" id="mvStorage">`;
+    storages.forEach(s => html += `<div class="tnl-chip${it.storage===s?' on':''}" onclick="mvPickStorage(${cartIndex},'${s}')">${s}</div>`);
+    html += `</div>`;
+  }
+  if(colors.length){
+    html += `<div class="tnl-label">COULEUR</div><div class="tnl-chips" id="mvColor">`;
+    colors.forEach(c => html += `<div class="tnl-chip${it.color===c?' on':''}" onclick="mvPickColor(${cartIndex},'${c}')">${c}</div>`);
+    html += `</div>`;
+  }
+  html += `
+    <div class="tnl-extra-row${it.charger?' active':''}" style="margin-top:14px;">
+      <div><div class="tnl-extra-label">🔌 Chargeur <span style="font-size:11px;color:#7a9abb;">(optionnel)</span></div>
+      <div class="tnl-extra-sub">+${formatPrice_pg(15000)} FCFA</div></div>
+      <button class="tnl-extra-btn${it.charger?' on':''}" onclick="mvToggleCharge(${cartIndex})">${it.charger?'✓':'+'}</button>
+    </div>`;
+  body.innerHTML = html;
+  // bouton suivant : exiger un choix si plusieurs options
+  const need = (storages.length>1 && !it.storage) || (colors.length>1 && !it.color);
+  btn.disabled = need;
+  btn.textContent = 'Continuer →';
+}
+function mvPickStorage(idx, s){ _tnlMultiCart[idx].storage = s; tnlRender(); }
+function mvPickColor(idx, c){ _tnlMultiCart[idx].color = c; tnlRender(); }
+function mvToggleCharge(idx){ _tnlMultiCart[idx].charger = !_tnlMultiCart[idx].charger; tnlRender(); }
+
+// Étape Récap (multi) : récapitulatif du panier avec variantes choisies
 function tnlRenderMultiRecap(body, btn){
   btn.disabled = false;
   btn.textContent = 'Continuer →';
-  const lines = _tnlMultiCart.map(i =>
-    `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
-       <span>${i.e||'📱'} ${i.n}${i.qty>1?' <span style="color:var(--cyan);">×'+i.qty+'</span>':''}</span>
-       <span style="color:#fff;white-space:nowrap;">${formatPrice_pg((i.pNum||0)*(i.qty||1))} F</span>
-     </div>`).join('');
-  const total = _tnlMultiCart.reduce((s,i)=>s+(i.pNum||0)*(i.qty||1),0);
+  const lines = _tnlMultiCart.map(i => {
+    const variant = [i.storage, i.color].filter(Boolean).join(' · ');
+    const sub = [variant, i.charger?'+ Chargeur':''].filter(Boolean).join(' · ');
+    return `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
+       <span>${i.e||'📱'} ${i.n}${i.qty>1?' <span style="color:var(--cyan);">×'+i.qty+'</span>':''}${sub?'<br><span style="font-size:11px;color:#7a9abb;">'+sub+'</span>':''}</span>
+       <span style="color:#fff;white-space:nowrap;">${formatPrice_pg(itemUnitPrice(i)*(i.qty||1))} F</span>
+     </div>`;
+  }).join('');
+  const total = _tnlMultiCart.reduce((s,i)=>s+itemUnitPrice(i)*(i.qty||1),0);
   body.innerHTML = `
     <div class="tnl-recap" style="text-align:left;">
       ${lines}
@@ -2553,7 +2659,7 @@ function tnlRenderMultiRecap(body, btn){
 function tnlRenderMultiPay(body, btn){
   btn.textContent = '💳 PAYER MAINTENANT →';
   btn.disabled = false;
-  const total = _tnlMultiCart.reduce((s,i)=>s+(i.pNum||0)*(i.qty||1),0);
+  const total = _tnlMultiCart.reduce((s,i)=>s+itemUnitPrice(i)*(i.qty||1),0);
 
   const meta     = _currentUser?.user_metadata || {};
   const accName  = meta.name || '';
@@ -2598,9 +2704,15 @@ async function tnlMultiPay(){
   }
 
   const commande_id = 'CMD-' + Date.now() + '-' + Math.random().toString(36).slice(2,7).toUpperCase();
-  const desc = _tnlMultiCart.map(i => `${i.n}${i.qty>1?' ×'+i.qty:''}`).join(', ');
-  const cart_items = _tnlMultiCart.map(i => ({ produit_id: i.id, qty: i.qty || 1, table: i.table || 'products' }));
-  const total_fallback = _tnlMultiCart.reduce((s,i)=>s+(i.pNum||0)*(i.qty||1),0);
+  const desc = _tnlMultiCart.map(i => {
+    const v = [i.storage, i.color].filter(Boolean).join(' · ');
+    return `${i.n}${v?' · '+v:''}${i.charger?' + Chargeur':''}${i.qty>1?' ×'+i.qty:''}`;
+  }).join(', ');
+  const cart_items = _tnlMultiCart.map(i => ({
+    produit_id: i.id, qty: i.qty || 1, table: i.table || 'products',
+    storage: i.storage || null, color: i.color || null, charger: !!i.charger
+  }));
+  const total_fallback = _tnlMultiCart.reduce((s,i)=>s+itemUnitPrice(i)*(i.qty||1),0);
 
   const btn = document.getElementById('tnlBtnNext');
   if(btn){ btn.disabled = true; btn.textContent = '⏳ Redirection paiement...'; }

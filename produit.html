@@ -2363,7 +2363,8 @@ function qtyConfirm(action){
 
   const item = {
     id: selProd.id, n: selProd.n, m: selProd.m||'', e: selProd.e||'📱',
-    p: selProd.p, pNum: selProd.prix_raw||0, qty: _qtyVal
+    p: selProd.p, pNum: selProd.prix_raw||0, qty: _qtyVal,
+    table: 'products'
   };
 
   // Mettre à jour cart_pg en mémoire
@@ -2441,12 +2442,9 @@ async function commanderItem(itemId){
 async function cartCommander(){
   if(cart_pg.length === 0) return;
 
-  // Déterminer quel produit commander
-  const inCart = selProd && cart_pg.find(i => i.id === selProd.id);
-  let targetItem = inCart ? cart_pg.find(i => i.id === selProd.id) : cart_pg[0];
-
-  // Si selProd n'a pas de variantes, recharger depuis Supabase
-  if(!selProd || !inCart || !selProd.variantes || selProd.variantes.length === 0){
+  // ── UN SEUL article → tunnel iPhone classique (variantes stockage/couleur) ──
+  if(cart_pg.length === 1){
+    const targetItem = cart_pg[0];
     try {
       const res = await fetch(
         `${SUPA_URL}/rest/v1/products?id=eq.${targetItem.id}&select=*`,
@@ -2466,19 +2464,113 @@ async function cartCommander(){
         };
       }
     } catch(e){
-      // Fallback sans variantes
       selProd = {
         id: targetItem.id, n: targetItem.n, m: targetItem.m||'', e: targetItem.e||'📱',
-        p: targetItem.p, prix_raw: targetItem.pNum||0,
-        s: [], variantes: []
+        p: targetItem.p, prix_raw: targetItem.pNum||0, s: [], variantes: []
       };
     }
+    cartClose();
+    _pendingQty = targetItem.qty || 1;
+    tnlOpen();
+    return;
   }
 
-  const totalQty = targetItem.qty || 1;
+  // ── PLUSIEURS articles → checkout panier complet (pas de variantes) ──
   cartClose();
-  _pendingQty = totalQty;
-  tnlOpen();
+  multiCheckoutOpen();
+}
+
+// ── CHECKOUT PANIER MULTI-PRODUITS ───────────────────────────────
+function multiCheckoutOpen(){
+  const ov = document.getElementById('multiCheckoutOverlay');
+  if(ov){ ov.remove(); }
+  const lines = cart_pg.map(i => `${i.e||'📱'} ${i.n}${i.qty>1?' ×'+i.qty:''}`).join('<br>');
+  const totalVal = cart_pg.reduce((s,i)=>s+(i.pNum||0)*(i.qty||1),0);
+  const wrap = document.createElement('div');
+  wrap.id = 'multiCheckoutOverlay';
+  wrap.style.cssText = 'position:fixed;inset:0;z-index:99998;background:rgba(5,8,15,0.94);display:flex;align-items:center;justify-content:center;padding:18px;font-family:Outfit,sans-serif;overflow-y:auto;';
+  wrap.innerHTML = `
+    <div style="max-width:460px;width:100%;background:#0d1b2a;border:1px solid rgba(0,200,255,0.25);border-radius:18px;padding:24px;box-shadow:0 12px 48px rgba(0,0,0,0.5);">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <div style="color:#00e5ff;font-size:18px;font-weight:800;">🛒 Finaliser ma commande</div>
+        <button onclick="document.getElementById('multiCheckoutOverlay').remove()" style="background:none;border:none;color:#8aa;font-size:22px;cursor:pointer;">✕</button>
+      </div>
+      <div style="background:rgba(0,100,255,0.06);border:1px solid rgba(0,200,255,0.15);border-radius:10px;padding:12px;margin-bottom:14px;color:rgba(255,255,255,0.85);font-size:13px;line-height:1.7;">
+        ${lines}
+        <div style="border-top:1px solid rgba(255,255,255,0.1);margin-top:10px;padding-top:10px;display:flex;justify-content:space-between;font-weight:700;color:#00e5ff;">
+          <span>Total</span><span>${new Intl.NumberFormat('fr-FR').format(totalVal)} FCFA</span>
+        </div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:6px;">🚚 Livraison Dakar gratuite · 🛡️ Blindé + 👜 Pochette offerts</div>
+      </div>
+      <input id="mcName" placeholder="Nom complet" style="width:100%;box-sizing:border-box;margin-bottom:8px;padding:12px;border-radius:8px;border:1px solid rgba(0,200,255,0.2);background:rgba(255,255,255,0.04);color:#fff;font-size:14px;">
+      <input id="mcPhone" placeholder="Téléphone (ex: 77 123 45 67)" inputmode="tel" style="width:100%;box-sizing:border-box;margin-bottom:8px;padding:12px;border-radius:8px;border:1px solid rgba(0,200,255,0.2);background:rgba(255,255,255,0.04);color:#fff;font-size:14px;">
+      <input id="mcEmail" placeholder="Email (optionnel)" inputmode="email" style="width:100%;box-sizing:border-box;margin-bottom:8px;padding:12px;border-radius:8px;border:1px solid rgba(0,200,255,0.2);background:rgba(255,255,255,0.04);color:#fff;font-size:14px;">
+      <input id="mcAddress" placeholder="Adresse de livraison" style="width:100%;box-sizing:border-box;margin-bottom:14px;padding:12px;border-radius:8px;border:1px solid rgba(0,200,255,0.2);background:rgba(255,255,255,0.04);color:#fff;font-size:14px;">
+      <button id="mcPayBtn" onclick="multiCheckoutPay()" style="width:100%;background:linear-gradient(135deg,#0033cc,#00aaff);color:#fff;border:none;padding:15px;border-radius:10px;font-weight:700;font-size:16px;cursor:pointer;">💳 PAYER ${new Intl.NumberFormat('fr-FR').format(totalVal)} FCFA →</button>
+    </div>`;
+  document.body.appendChild(wrap);
+  // Pré-remplir si connecté
+  if(_currentUser){
+    const m = _currentUser.user_metadata || {};
+    if(m.full_name) document.getElementById('mcName').value = m.full_name;
+    if(_currentUser.email) document.getElementById('mcEmail').value = _currentUser.email;
+    if(m.phone) document.getElementById('mcPhone').value = m.phone;
+  }
+}
+
+async function multiCheckoutPay(){
+  const name    = (document.getElementById('mcName')?.value||'').replace(/[<>&"']/g,'').trim();
+  const phone   = (document.getElementById('mcPhone')?.value||'').replace(/[<>&"']/g,'').trim();
+  const email   = (document.getElementById('mcEmail')?.value||'').replace(/[<>&"']/g,'').trim();
+  const address = (document.getElementById('mcAddress')?.value||'').replace(/[<>&"']/g,'').trim();
+
+  if(!name||!phone||!address){ showAlert('Veuillez remplir le nom, téléphone et adresse de livraison.'); return; }
+  if(!isValidSenegalPhone(phone)){ showAlert('Numéro de téléphone invalide. Utilisez un numéro sénégalais valide (ex: 77 123 45 67).'); return; }
+  if(email && !isValidEmailDomain(email)){ showAlert('Adresse email invalide.'); return; }
+
+  // Anti-doublon invité
+  if(!_currentUser && _supa){
+    try{
+      if(email){ const { data: h } = await _supa.rpc('email_has_account', { p_email: email }); if(h){ showAlert('Vous avez déjà un compte avec cet email. Connectez-vous pour continuer.'); return; } }
+      if(phone){ const { data: h } = await _supa.rpc('phone_has_account', { p_phone: phone }); if(h){ showAlert('Vous avez déjà un compte avec ce numéro. Connectez-vous pour continuer.'); return; } }
+    }catch(e){}
+  }
+
+  const commande_id = 'CMD-' + Date.now() + '-' + Math.random().toString(36).slice(2,7).toUpperCase();
+  const desc = cart_pg.map(i => `${i.n}${i.qty>1?' ×'+i.qty:''}`).join(', ');
+  const cart_items = cart_pg.map(i => ({
+    produit_id: i.id,
+    qty:        i.qty || 1,
+    table:      i.table || 'products'
+  }));
+  const total_fallback = cart_pg.reduce((s,i)=>s+(i.pNum||0)*(i.qty||1),0);
+
+  const btn = document.getElementById('mcPayBtn');
+  if(btn){ btn.disabled = true; btn.textContent = '⏳ Redirection paiement...'; }
+
+  try{
+    const res = await fetch('https://sdsprotech-backend.pages.dev/paydunya-pay',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        client_nom: name, client_tel: phone, client_email: email, client_address: address,
+        user_id: _currentUser?.id || null,
+        articles: desc, commande_id,
+        cart_items,
+        total_fallback
+      })
+    });
+    const data = await res.json();
+    if(res.ok && data.success && data.payment_url){
+      cart_pg = []; localStorage.removeItem('sds_cart'); updateCartBadge();
+      window.location.href = data.payment_url;
+    } else {
+      if(btn){ btn.disabled=false; btn.textContent='💳 PAYER MAINTENANT →'; }
+      showAlert('❌ '+(data.error||'Le service de paiement rencontre un problème temporaire. Réessayez ou écrivez-nous sur WhatsApp au 77 069 97 39.'));
+    }
+  }catch(e){
+    if(btn){ btn.disabled=false; btn.textContent='💳 PAYER MAINTENANT →'; }
+    showAlert('❌ Le service de paiement est momentanément indisponible. Réessayez ou contactez-nous sur WhatsApp au 77 069 97 39.');
+  }
 }
 
 

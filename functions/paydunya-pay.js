@@ -45,10 +45,11 @@ export async function onRequestPost(context) {
   // ── CAS 1 : Panier multi-produits (cart_items) — accessoires ET/OU ordinateurs ───
   if (Array.isArray(cart_items) && cart_items.length > 0 && SUPA_URL && SUPA_KEY) {
     try {
-      // Regrouper les items par table d'origine (par défaut "accessoires")
+      // Regrouper les items par table d'origine (products / accessoires / ordinateurs)
+      const allowedTables = ['products', 'accessoires', 'ordinateurs'];
       const byTable = {};
       for (const item of cart_items) {
-        const table = (item.table === 'ordinateurs') ? 'ordinateurs' : 'accessoires';
+        const table = allowedTables.includes(item.table) ? item.table : 'accessoires';
         (byTable[table] = byTable[table] || []).push(item);
       }
 
@@ -61,18 +62,37 @@ export async function onRequestPost(context) {
         const ids = [...new Set(validItems.map(i => i.produit_id))];
         if (ids.length === 0) continue;
 
+        // products a des variantes (prix par stockage/couleur), pas les autres tables
+        const selectCols = (table === 'products') ? 'id,prix,variantes' : 'id,prix';
         const res = await fetch(
-          `${SUPA_URL}/rest/v1/${table}?id=in.(${ids.join(',')})&select=id,prix`,
+          `${SUPA_URL}/rest/v1/${table}?id=in.(${ids.join(',')})&select=${selectCols}`,
           { headers: { "apikey": SUPA_KEY, "Authorization": "Bearer " + SUPA_KEY } }
         );
         const rows = await res.json();
         if (Array.isArray(rows) && rows.length > 0) {
           for (const item of validItems) {
             const row = rows.find(r => r.id === item.produit_id);
-            if (row) {
-              const qtyNum = Math.max(1, Math.min(10, parseInt(item.qty) || 1));
-              montant += row.prix * qtyNum;
+            if (!row) continue;
+            const qtyNum = Math.max(1, Math.min(10, parseInt(item.qty) || 1));
+            let prixUnit = row.prix || 0;
+
+            // Prix de variante (iPhone : stockage/couleur)
+            if (table === 'products') {
+              const variantes = Array.isArray(row.variantes) ? row.variantes
+                : (row.variantes ? (()=>{ try{return JSON.parse(row.variantes);}catch(_){return [];} })() : []);
+              if (variantes.length > 0 && (item.storage || item.color)) {
+                let v = null;
+                if (item.storage && item.color)
+                  v = variantes.find(x => x.stockage === item.storage && x.couleur === item.color);
+                if (!v && item.storage)
+                  v = variantes.find(x => x.stockage === item.storage);
+                if (v && v.prix) prixUnit = v.prix;
+              }
+              // Supplément chargeur éventuel
+              if (item.charger) prixUnit += 15000;
             }
+
+            montant += prixUnit * qtyNum;
           }
         }
       }

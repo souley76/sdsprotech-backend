@@ -621,8 +621,6 @@ input, textarea {
   to{ opacity:1; transform:scale(1) translateY(0); }
 }
 </style>
-
-<link rel="stylesheet" href="desktop.css">
 </head>
 <body>
 
@@ -634,7 +632,7 @@ input, textarea {
 <div id="intro">
   <canvas id="introCanvas"></canvas>
   <div class="intro-content" id="introContent" style="opacity:0;">
-    <img class="intro-logo" src="logo-sds.png" alt="SDS" onerror="this.style.display='none'">
+    <img class="intro-logo" src="logo-sds.svg" alt="SDS" onerror="this.style.display='none'">
     <div class="intro-name">SECK <span class="c">DIGITAL</span> SERVICES <span class="c">PRO</span></div>
     <div class="intro-sub">Solutions · Rapidite · Fiabilite · Confiance</div>
     <div class="intro-loader">
@@ -656,12 +654,12 @@ input, textarea {
     </button>
     <!-- Logo SDS PRO desktop — affiché juste après le hamburger, dans l'espace vide avant Catalogue -->
     <div id="navLogoDesktop" style="display:none;align-items:center;gap:8px;margin-left:18px;">
-      <img src="logo-sds.png" height="28" alt="SDS PRO" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+      <img src="logo-sds.svg" height="28" alt="SDS PRO" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
       <span style="display:none;font-family:'Rajdhani',sans-serif;font-size:17px;font-weight:700;letter-spacing:2px;align-items:center;"><span style="color:#00e5ff;text-shadow:0 0 16px rgba(0,229,255,0.6);">SDS</span><span style="color:#fff;margin-left:6px;">PRO</span></span>
     </div>
     <!-- Logo SDS PRO mobile — centré, décalé à gauche pour s'éloigner de Connexion -->
     <div id="navLogoWrap" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;padding-right:120px;">
-      <img src="logo-sds.png" height="34" alt="SDS PRO" id="navLogoImg" onerror="this.style.display='none';document.getElementById('navLogoText').style.display='flex';">
+      <img src="logo-sds.svg" height="34" alt="SDS PRO" id="navLogoImg" onerror="this.style.display='none';document.getElementById('navLogoText').style.display='flex';">
       <span id="navLogoText" style="display:none;font-family:'Rajdhani',sans-serif;font-size:20px;font-weight:700;letter-spacing:3px;align-items:center;"><span style="color:#00e5ff;text-shadow:0 0 20px rgba(0,229,255,0.6);">SDS</span><span style="color:#fff;margin-left:8px;">PRO</span></span>
     </div>
     <!-- Liens desktop (masqués mobile) -->
@@ -925,7 +923,7 @@ input, textarea {
 <footer>
   <div class="foot-top">
     <div class="foot-brand">
-      <img src="logo-sds.png" alt="SDS" onerror="this.style.display='none'">
+      <img src="logo-sds.svg" alt="SDS" onerror="this.style.display='none'">
       <p>Votre boutique smartphones premium a Dakar. iPhones, Samsung, Huawei, Infinix, Tecno au meilleur prix.</p>
       <div class="foot-ninea">NINEA : 013038395 | RCCM : SN DKR 2026 A 16899</div>
     </div>
@@ -2814,18 +2812,23 @@ function updateNavUser(user){
   if(!btn) return;
   // Mise à jour drawer compte
   const drawerAccount = document.getElementById('drawerAccountLinks');
+  // Helper : set safe (évite les crash si l'élément n'existe pas sur cette page)
+  const safeSet = (id, fn) => {
+    const el = document.getElementById(id);
+    if(el) fn(el);
+  };
   if(user){
     const meta = user.user_metadata || {};
     const name = meta.name || user.email.split('@')[0];
     btn.textContent = '👤 '+name.split(' ')[0];
-    document.getElementById('loginPanel').classList.add('off');
-    document.getElementById('profilePanel').classList.add('on');
-    document.getElementById('otpPanel').style.display = 'none';
-    document.getElementById('profileName').textContent = name;
-    document.getElementById('profileEmail').textContent = user.email;
+    safeSet('loginPanel', el => el.classList.add('off'));
+    safeSet('profilePanel', el => el.classList.add('on'));
+    safeSet('otpPanel', el => el.style.display = 'none');
+    safeSet('profileName', el => el.textContent = name);
+    safeSet('profileEmail', el => el.textContent = user.email);
     const since = new Date(user.created_at).toLocaleDateString('fr-FR');
-    document.getElementById('profileInfo').innerHTML =
-      `Email : ${user.email}<br>Tél : ${meta.phone||'—'}<br>Membre depuis : ${since}`;
+    safeSet('profileInfo', el => el.innerHTML =
+      `Email : ${user.email}<br>Tél : ${meta.phone||'—'}<br>Membre depuis : ${since}`);
     loadOrders(user.id);
     loadHistorique(user);
     if(drawerAccount) drawerAccount.innerHTML = `
@@ -2833,12 +2836,12 @@ function updateNavUser(user){
       <a href="#" onclick="(async()=>{await _supa.auth.signOut();})();closeDrawer();" style="color:#ff6b6b!important;">🚪 Déconnexion</a>`;
   } else {
     btn.textContent = '👤 Connexion';
-    document.getElementById('loginPanel').classList.remove('off');
-    document.getElementById('profilePanel').classList.remove('on');
+    safeSet('loginPanel', el => el.classList.remove('off'));
+    safeSet('profilePanel', el => el.classList.remove('on'));
     if(drawerAccount) drawerAccount.innerHTML = `
       <a href="#" onclick="navUserClick();closeDrawer();" style="color:var(--cyan)!important;font-weight:600!important;">👤 Connexion</a>`;
-    document.getElementById('drawerHistorique').style.display = 'none';
-    document.getElementById('drawerHistoriqueList').innerHTML = '';
+    safeSet('drawerHistorique', el => el.style.display = 'none');
+    safeSet('drawerHistoriqueList', el => el.innerHTML = '');
   }
 }
 

@@ -768,10 +768,10 @@ input, textarea {
   <div class="hero-bg">
     <!-- Fond dégradé (derrière la vidéo) -->
     <div class="hero-bg-mesh"></div>
-    <!-- VIDEO BACKGROUND : hero-bg.mp4 à la racine du repo -->
-    <video id="heroBgVideo" autoplay muted loop playsinline
+    <!-- VIDEO BACKGROUND : chargée APRÈS affichage de la page (ne bloque plus le démarrage) -->
+    <video id="heroBgVideo" muted loop playsinline preload="none"
+      data-src="https://fvfkawxwtsziqzibzbxt.supabase.co/storage/v1/object/public/product-videos/Snapchat-71987157.mp4"
       style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;z-index:0;transition:opacity 1.2s ease;">
-      <source src="https://fvfkawxwtsziqzibzbxt.supabase.co/storage/v1/object/public/product-videos/Snapchat-71987157.mp4" type="video/mp4">
     </video>
     <div id="heroBgOverlay" style="position:absolute;inset:0;background:rgba(0,5,20,0.15);z-index:1;display:none;"></div>
     <div class="hero-scanlines"></div>
@@ -1544,10 +1544,14 @@ async function loadProducts(){
        CHARGEMENT DU CATALOGUE...
      </div>`;
   try {
+    // Timeout : si Supabase ne répond pas en 8s, on bascule sur le catalogue de secours
+    const ctrl = new AbortController();
+    const timeoutId = setTimeout(()=>ctrl.abort(), 8000);
     const res = await fetch(
       `${SUPA_URL}/rest/v1/products?visible=eq.true&order=ordre.asc,id.asc&select=*`,
-      { headers: { 'apikey': SUPA_KEY, 'Authorization': `Bearer ${SUPA_KEY}` } }
+      { headers: { 'apikey': SUPA_KEY, 'Authorization': `Bearer ${SUPA_KEY}` }, signal: ctrl.signal }
     );
+    clearTimeout(timeoutId);
     if(!res.ok) throw new Error('HTTP '+res.status);
     const rows = await res.json();
     P = rows.map(r => ({
@@ -1702,7 +1706,7 @@ function makeProductCards(list){
   return `<div class="pgrid">${list.map((p,i)=>{
     const isLocked = p.locked === true;
     const imgHtml = p.imgs && p.imgs.length
-      ? `<img src="${p.imgs[0]}" alt="${p.n}" style="width:100%;height:100%;object-fit:contain;padding:10px;background:rgba(0,0,0,0.15);" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`+
+      ? `<img src="${p.imgs[0]}" alt="${p.n}" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:contain;padding:10px;background:rgba(0,0,0,0.15);" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`+
         `<span style="display:none;filter:drop-shadow(0 8px 30px rgba(0,150,255,0.5))">${p.e}</span>`
       : `<span style="filter:drop-shadow(0 8px 30px rgba(0,150,255,0.5))">${p.e}</span>`;
     const clickFn = isLocked ? `notifyOpen(${p.id})` : `goToProduit(${p.id})`;
@@ -3213,7 +3217,7 @@ async function sendAiMsg(){
     let catalogueTxt = '';
     const _prods = (window.PRODS && window.PRODS.length > 0) ? window.PRODS : (typeof P !== "undefined" ? P : []);
     if(_prods && _prods.length > 0){
-      catalogueTxt = _prods.filter(p=>p.visible!==false).slice(0,100).map(p =>
+      catalogueTxt = _prods.filter(p=>p.visible!==false).slice(0,20).map(p =>
         `- ${p.n} | ${p.m||''} | ${(p.prix_raw||0).toLocaleString('fr-FR')} FCFA | ID:${p.id}`
       ).join('\n');
     }
@@ -3222,10 +3226,10 @@ async function sendAiMsg(){
     let ordinateursTxt = '';
     try{
       const [accRes, ordiRes] = await Promise.all([
-        fetch(`${SUPA_URL}/rest/v1/accessoires?visible=eq.true&select=id,nom,categorie,prix&order=id.asc&limit=100`, {
+        fetch(`${SUPA_URL}/rest/v1/accessoires?visible=eq.true&select=id,nom,categorie,prix&order=id.asc&limit=25`, {
           headers: { 'apikey': SUPA_KEY, 'Authorization': `Bearer ${SUPA_KEY}` }
         }),
-        fetch(`${SUPA_URL}/rest/v1/ordinateurs?visible=eq.true&select=id,nom,categorie,prix,compatible&order=id.asc&limit=100`, {
+        fetch(`${SUPA_URL}/rest/v1/ordinateurs?visible=eq.true&select=id,nom,categorie,prix,compatible&order=id.asc&limit=25`, {
           headers: { 'apikey': SUPA_KEY, 'Authorization': `Bearer ${SUPA_KEY}` }
         })
       ]);
@@ -3273,12 +3277,6 @@ Tu parles UNIQUEMENT en français. Ne jamais utiliser de mots en wolof ou dans u
 
 === CATALOGUE DE PRODUITS ===
 ${catalogueTxt}
-
-=== ACTUALITÉS & NOUVEAUTÉS DU SITE (mettre à jour ici) ===
-- La boutique officielle SDS Pro est désormais OUVERTE pour 2025-2026.
-- La page d'accueil affiche le drapeau du Sénégal pour soutenir les Lions de la Teranga à la Coupe du Monde 2026.
-- Sections disponibles : Smartphones, Accessoires, Ordinateurs portables.
-- (Souleymane : ajoute ici toute nouvelle promo, événement ou nouveauté pour que l'assistant en soit informé.)
 
 === LIVRAISON ===
 - Livraison 24-48h dans tout Dakar
@@ -3358,23 +3356,18 @@ ${ordinateursTxt || '(catalogue en cours de chargement, demander au client de r�
 - INTERDIT : ne jamais mentionner de noms de fichiers, d'extensions (.html, .com inclus dans des chemins), de code, de "page web", de "site web technique" ou tout terme informatique. Pour parler du catalogue, dis "notre catalogue", "notre boutique" ou "la section Accessoires/Ordinateurs" — jamais "ordinateurs.html" ou "accessoires.html". Les boutons cliquables affichés sous ta réponse suffisent pour amener le client au bon endroit.
 - Si on te demande qui t'a créé, qui est derrière SDS Pro, ou qui t'a "entraîné" : réponds que tu es l'assistant de SDS Pro, créé pour la boutique de Souleymane Seck, fondateur de SDS Pro à Dakar. Reste bref, chaleureux et professionnel — pas de détails techniques sur ton fonctionnement.`;
 
-    // Activer la recherche web seulement pour les questions "externes" (contrôle des coûts)
-    const motsRecherche = /\b(dernier|derniere|nouveau|nouvelle|sortie|sorti|actualit|news|march[ée]|comparer|comparaison|versus|vs|meilleur du moment|tendance|2026|prix du marché)\b/i;
-    const besoinRecherche = motsRecherche.test(msg);
-
     const res = await fetch('https://sdsprotech-backend.pages.dev/ai-chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         system: systemPrompt,
         messages: _aiHistory,
-        model: _aiModel,
-        search: besoinRecherche
+        model: _aiModel
       })
     });
 
     const data = await res.json();
-    const reply = data.reply_text || data.content?.[0]?.text || 'Désolé, une erreur est survenue.';
+    const reply = data.content?.[0]?.text || 'Désolé, une erreur est survenue.';
 
     typingEl.remove();
     // Supprimer les [ID:X] / [ACC:X] / [PC:X] du texte affiché
@@ -3855,10 +3848,10 @@ window.addEventListener('DOMContentLoaded', ()=>{
   // Vérifier commandes abandonnées après 2s
   setTimeout(checkAbandonedOrder, 2000);
 
-  // ── Vidéo background hero ──────────────────────────────────
+  // ── Vidéo background hero — chargée en DIFFÉRÉ (ne bloque pas l'affichage) ──
   const vid = document.getElementById('heroBgVideo');
   const ovl = document.getElementById('heroBgOverlay');
-  if(vid){
+  if(vid && vid.dataset.src){
     vid.addEventListener('canplay', ()=>{
       vid.style.opacity = '0.85';
       if(ovl) ovl.style.display = 'block';
@@ -3867,7 +3860,12 @@ window.addEventListener('DOMContentLoaded', ()=>{
       vid.style.display = 'none';
       if(ovl) ovl.style.display = 'none';
     });
-    vid.play().catch(()=>{});
+    // On attend 2,5s après l'affichage pour commencer à charger la vidéo
+    setTimeout(()=>{
+      vid.src = vid.dataset.src;
+      vid.load();
+      vid.play().catch(()=>{});
+    }, 2500);
   }
 });
 

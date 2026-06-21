@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>SDS ProTech — Salle de visionnage</title>
+<meta name="robots" content="noindex,nofollow" />
+<style>
+  :root{
+    --deep:#020912;
+    --panel:#0a1422;
+    --panel-2:#0f1d31;
+    --line:#16273f;
+    --blue:#0055ff;
+    --cyan:#00c8ff;
+    --glow:#00e5ff;
+    --ink:#eaf3ff;
+    --muted:#7c93b3;
+    --danger:#ff4d6d;
+    --ok:#23d18b;
+    --radius:18px;
+    --shadow:0 24px 70px rgba(0,0,0,.6);
+    font-synthesis:none;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:
+      radial-gradient(1200px 600px at 50% -10%, rgba(0,85,255,.10), transparent 60%),
+      radial-gradient(900px 500px at 90% 110%, rgba(0,200,255,.06), transparent 55%),
+      var(--deep);
+    color:var(--ink);
+    font-family:"Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+    /* anti-sélection / anti glisser */
+    -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
+  }
+  a{color:inherit;text-decoration:none}
+  img{ -webkit-user-drag:none; user-drag:none; pointer-events:none; }
+
+  /* ---------- Top bar ---------- */
+  .topbar{
+    position:sticky;top:0;z-index:40;
+    display:flex;align-items:center;gap:14px;
+    padding:14px clamp(16px,4vw,40px);
+    background:linear-gradient(180deg, rgba(2,9,18,.92), rgba(2,9,18,.55) 70%, transparent);
+    backdrop-filter:blur(10px);
+  }
+  .brand{display:flex;align-items:center;gap:11px;font-weight:800;letter-spacing:.2px}
+  .logo-mark{
+    width:34px;height:34px;border-radius:9px;flex:none;
+    background:conic-gradient(from 200deg, var(--blue), var(--cyan), var(--glow), var(--blue));
+    box-shadow:0 0 18px rgba(0,200,255,.45);
+    display:grid;place-items:center;color:#01121f;font-weight:900;font-size:15px;
+  }
+  .brand small{display:block;font-weight:500;color:var(--muted);font-size:11px;letter-spacing:2px;text-transform:uppercase}
+  .spacer{flex:1}
+  .user-chip{
+    display:flex;align-items:center;gap:9px;font-size:13px;color:var(--muted);
+    padding:7px 12px;border:1px solid var(--line);border-radius:999px;background:rgba(255,255,255,.02)
+  }
+  .user-chip b{color:var(--ink);font-weight:600}
+  .btn{
+    cursor:pointer;border:none;font:inherit;font-weight:700;letter-spacing:.2px;
+    padding:10px 16px;border-radius:11px;transition:.18s transform,.18s box-shadow,.18s background;
+  }
+  .btn:active{transform:translateY(1px)}
+  .btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--line)}
+  .btn-ghost:hover{color:var(--ink);border-color:var(--cyan)}
+  .btn-cyan{background:linear-gradient(180deg,var(--cyan),var(--blue));color:#02101f;box-shadow:0 8px 24px rgba(0,140,255,.35)}
+  .btn-cyan:hover{box-shadow:0 10px 30px rgba(0,200,255,.5)}
+
+  /* ---------- Layout ---------- */
+  .wrap{max-width:1320px;margin:0 auto;padding:8px clamp(16px,4vw,40px) 60px}
+  .grid{display:grid;grid-template-columns:1fr 360px;gap:26px;align-items:start}
+  @media(max-width:980px){ .grid{grid-template-columns:1fr} }
+
+  /* ---------- Player ---------- */
+  .stage{
+    position:relative;border-radius:var(--radius);overflow:hidden;background:#000;
+    box-shadow:var(--shadow);border:1px solid var(--line);
+    aspect-ratio:16/9;
+  }
+  .stage video{width:100%;height:100%;display:block;background:#000;object-fit:contain}
+  /* watermark flottant */
+  .wm{
+    position:absolute;inset:0;pointer-events:none;z-index:6;overflow:hidden;
+    mix-blend-mode:screen;
+  }
+  .wm span{
+    position:absolute;white-space:nowrap;font-size:13px;font-weight:600;
+    color:rgba(180,220,255,.16);letter-spacing:.5px;
+    text-shadow:0 0 1px rgba(0,0,0,.4);
+  }
+  /* voile anti-capture quand onglet inactif */
+  .shield{
+    position:absolute;inset:0;z-index:30;display:none;
+    background:rgba(2,9,18,.97);backdrop-filter:blur(22px);
+    flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;padding:30px
+  }
+  .shield.on{display:flex}
+  .shield .ic{width:54px;height:54px;border-radius:50%;display:grid;place-items:center;
+    background:rgba(255,77,109,.12);border:1px solid rgba(255,77,109,.4);color:var(--danger);font-size:24px}
+  .shield h3{font-size:18px}
+  .shield p{color:var(--muted);font-size:13px;max-width:340px;line-height:1.5}
+
+  .nowtitle{margin:18px 2px 4px;font-size:clamp(19px,2.4vw,26px);font-weight:800;letter-spacing:-.3px}
+  .nowmeta{color:var(--muted);font-size:13px;display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+  .pill{padding:3px 10px;border:1px solid var(--line);border-radius:999px;font-size:11px;letter-spacing:.4px;text-transform:uppercase;color:var(--cyan)}
+  .desc{margin-top:14px;color:#b9cce6;line-height:1.65;font-size:14.5px;max-width:62ch}
+
+  /* ---------- Playlist ---------- */
+  .side{
+    position:sticky;top:84px;
+    background:linear-gradient(180deg,var(--panel),var(--panel-2));
+    border:1px solid var(--line);border-radius:var(--radius);overflow:hidden
+  }
+  .side h2{font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);padding:18px 18px 6px}
+  .side .prog{padding:0 18px 14px;color:var(--muted);font-size:12px}
+  .ep{
+    display:flex;gap:12px;padding:13px 16px;cursor:pointer;border-top:1px solid var(--line);
+    transition:.16s background;position:relative
+  }
+  .ep:hover{background:rgba(0,200,255,.05)}
+  .ep.active{background:rgba(0,85,255,.12)}
+  .ep.active::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:linear-gradient(var(--cyan),var(--blue))}
+  .ep.locked{opacity:.5;cursor:not-allowed}
+  .thumb{
+    width:74px;height:46px;border-radius:8px;flex:none;background:#06101d;border:1px solid var(--line);
+    display:grid;place-items:center;color:var(--cyan);font-weight:800;font-size:15px;position:relative;overflow:hidden
+  }
+  .thumb .lock{position:absolute;inset:0;display:grid;place-items:center;background:rgba(2,9,18,.7);color:var(--muted);font-size:15px}
+  .ep .meta{min-width:0}
+  .ep .meta b{display:block;font-size:14px;font-weight:600;line-height:1.3;
+    overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .ep .meta span{font-size:12px;color:var(--muted)}
+  .ep .done{margin-left:auto;color:var(--ok);font-size:13px;align-self:center}
+
+  /* ---------- Gate (login / paywall) ---------- */
+  .gate{
+    position:fixed;inset:0;z-index:80;display:flex;align-items:center;justify-content:center;padding:24px;
+    background:
+      radial-gradient(900px 500px at 50% 0%, rgba(0,85,255,.14), transparent 60%),
+      rgba(2,9,18,.98);
+  }
+  .gate.hidden{display:none}
+  .card{
+    width:100%;max-width:420px;background:linear-gradient(180deg,var(--panel),var(--panel-2));
+    border:1px solid var(--line);border-radius:22px;padding:30px 26px;box-shadow:var(--shadow)
+  }
+  .card .logo-mark{width:46px;height:46px;font-size:20px;margin-bottom:16px}
+  .card h1{font-size:23px;letter-spacing:-.4px}
+  .card .sub{color:var(--muted);font-size:13.5px;margin-top:6px;line-height:1.5}
+  .field{margin-top:16px}
+  .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:7px;letter-spacing:.3px}
+  .field input{
+    width:100%;padding:13px 14px;border-radius:12px;border:1px solid var(--line);
+    background:#06101d;color:var(--ink);font:inherit;outline:none;transition:.16s border,.16s box-shadow;
+    -webkit-user-select:text;user-select:text;
+  }
+  .field input:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(0,200,255,.15)}
+  .gate .btn-cyan{width:100%;margin-top:20px;padding:14px}
+  .switch{margin-top:16px;text-align:center;font-size:13px;color:var(--muted)}
+  .switch a{color:var(--cyan);cursor:pointer;font-weight:600}
+  .msg{margin-top:14px;font-size:13px;padding:11px 13px;border-radius:11px;display:none;line-height:1.45}
+  .msg.err{display:block;background:rgba(255,77,109,.1);border:1px solid rgba(255,77,109,.35);color:#ffb3c1}
+  .msg.ok{display:block;background:rgba(35,209,139,.1);border:1px solid rgba(35,209,139,.35);color:#a9f0cf}
+  .paywall .price{font-size:34px;font-weight:900;letter-spacing:-1px;margin:6px 0}
+  .paywall .price small{font-size:14px;color:var(--muted);font-weight:600}
+  .feat{list-style:none;margin:18px 0;display:grid;gap:10px}
+  .feat li{display:flex;gap:10px;font-size:14px;color:#cdddf2}
+  .feat li::before{content:"✓";color:var(--cyan);font-weight:900}
+
+  .loading{position:fixed;inset:0;z-index:90;display:grid;place-items:center;background:var(--deep)}
+  .spin{width:42px;height:42px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--cyan);animation:r 1s linear infinite}
+  @keyframes r{to{transform:rotate(360deg)}}
+
+  .footnote{margin-top:26px;color:var(--muted);font-size:11.5px;text-align:center;line-height:1.6;opacity:.8}
+  ::selection{background:rgba(0,200,255,.25)}
+</style>
+</head>
+<body>
+
+<!-- ===== Loading ===== -->
+<div class="loading" id="loading"><div class="spin"></div></div>
+
+<!-- ===== Gate: auth + paywall ===== -->
+<div class="gate hidden" id="gate">
+  <!-- AUTH -->
+  <div class="card" id="authCard">
+    <div class="logo-mark">S</div>
+    <h1 id="authTitle">Accéder à la salle</h1>
+    <p class="sub" id="authSub">Connecte-toi pour reprendre ta formation là où tu t'es arrêté.</p>
+    <div class="field">
+      <label for="email">Adresse e-mail</label>
+      <input id="email" type="email" autocomplete="email" placeholder="toi@exemple.com" />
+    </div>
+    <div class="field">
+      <label for="pass">Mot de passe</label>
+      <input id="pass" type="password" autocomplete="current-password" placeholder="••••••••" />
+    </div>
+    <div class="msg" id="authMsg"></div>
+    <button class="btn btn-cyan" id="authBtn">Se connecter</button>
+    <div class="switch" id="authSwitch">Pas encore de compte ? <a id="toSignup">Créer un compte</a></div>
+  </div>
+
+  <!-- PAYWALL -->
+  <div class="card paywall" id="payCard" style="display:none">
+    <div class="logo-mark">S</div>
+    <h1>Les Fondements du Trading</h1>
+    <p class="sub">De zéro à la maîtrise — 5 modules vidéo par Souleymane Seck.</p>
+    <div class="price">15 000 <small>FCFA · accès à vie</small></div>
+    <ul class="feat">
+      <li>5 vidéos en haute qualité, à votre rythme</li>
+      <li>Salle de visionnage privée et sécurisée</li>
+      <li>Accès illimité depuis votre téléphone ou ordinateur</li>
+      <li>Paiement Wave, Orange Money, Free Money via PayDunya</li>
+    </ul>
+    <div class="msg" id="payMsg"></div>
+    <button class="btn btn-cyan" id="payBtn">Débloquer la formation</button>
+    <div class="switch"><a id="logoutFromPay">Changer de compte</a></div>
+  </div>
+</div>
+
+<!-- ===== App ===== -->
+<div id="app" style="display:none">
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo-mark">S</div>
+      <div>SDS ProTech<small>Salle de visionnage</small></div>
+    </div>
+    <div class="spacer"></div>
+    <div class="user-chip" id="userChip"><span>👤</span><b id="userEmail">—</b></div>
+    <button class="btn btn-ghost" id="logoutBtn">Quitter</button>
+  </header>
+
+  <div class="wrap">
+    <div class="grid">
+      <!-- Main -->
+      <main>
+        <div class="stage" id="stage">
+          <video id="video" controlsList="nodownload noplaybackrate" disablepictureinpicture playsinline preload="metadata"></video>
+          <div class="wm" id="wm"></div>
+          <div class="shield" id="shield">
+            <div class="ic">⏸</div>
+            <h3>Lecture en pause</h3>
+            <p>La vidéo se met en pause quand vous quittez cette fenêtre, pour protéger le contenu. Revenez ici pour continuer.</p>
+          </div>
+        </div>
+        <h1 class="nowtitle" id="nowTitle">—</h1>
+        <div class="nowmeta">
+          <span class="pill" id="nowPill">Module 1</span>
+          <span id="nowDur">—</span>
+        </div>
+        <p class="desc" id="nowDesc"></p>
+        <p class="footnote">
+          Contenu protégé © SDS ProTech. Cette session est associée à votre compte et tracée par filigrane.
+          La revente, le partage ou l'enregistrement de ces vidéos sont interdits.
+        </p>
+      </main>
+
+      <!-- Sidebar playlist -->
+      <aside class="side">
+        <h2>Programme</h2>
+        <div class="prog" id="prog">0 / 5 terminé</div>
+        <div id="epList"></div>
+      </aside>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+/* =========================================================
+   CONFIG — à compléter
+   ========================================================= */
+const SUPABASE_URL = "https://fvfkawxwtsziqzibzbxt.supabase.co";
+const SUPABASE_ANON_KEY = "VOTRE_CLE_ANON_SUPABASE"; // ⚠️ à remplacer (clé "anon public")
+const COURSE_ID = "fondements-trading";              // identifiant de la formation
+// Endpoint backend (Cloudflare Pages Function) qui crée la facture PayDunya
+const CHECKOUT_ENDPOINT = "/api/paydunya/checkout";
+
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+/* =========================================================
+   CATALOGUE DES VIDÉOS
+   - "src" = chemin vers ta vidéo dans Supabase Storage (bucket privé)
+   - on génère une URL signée à la lecture, jamais d'URL publique
+   ========================================================= */
+const EPISODES = [
+  { id:"v1", n:1, title:"Bienvenue + L'essence du trading", dur:"9 min",
+    storage:"fondements/video-1.mp4",
+    desc:"Le trading expliqué comme un commerce. Les cinq familles d'actifs et la loi de l'offre et de la demande." },
+  { id:"v2", n:2, title:"Les actions décryptées", dur:"10 min",
+    storage:"fondements/video-2.mp4",
+    desc:"Ce qu'est vraiment une action, pourquoi les entreprises en vendent, et ce qui fait monter ou baisser les prix." },
+  { id:"v3", n:3, title:"Se protéger : risque et propriété réelle", dur:"9 min",
+    storage:"fondements/video-3.mp4",
+    desc:"La faillite, la diversification, et la différence vitale entre posséder une action et parier sur son prix." },
+  { id:"v4", n:4, title:"Choisir son courtier et sécuriser ses fonds", dur:"8 min",
+    storage:"fondements/video-4.mp4",
+    desc:"Courtier régulé, ségrégation des titres, et ce qui se passe vraiment si votre broker fait faillite." },
+  { id:"v5", n:5, title:"L'état d'esprit du trader + conclusion", dur:"7 min",
+    storage:"fondements/video-5.mp4",
+    desc:"Patience, discipline, gestion du risque : les principes qui font durer un investisseur." },
+];
+const STORAGE_BUCKET = "formations"; // bucket privé Supabase Storage
+
+/* =========================================================
+   ÉTAT
+   ========================================================= */
+let SESSION = null;
+let USER = null;
+let HAS_ACCESS = false;
+let progress = {}; // {v1:true,...}
+
+/* =========================================================
+   ÉLÉMENTS
+   ========================================================= */
+const $ = (s)=>document.querySelector(s);
+const loading = $("#loading"), gate=$("#gate"), app=$("#app");
+const authCard=$("#authCard"), payCard=$("#payCard");
+const video=$("#video"), wm=$("#wm"), shield=$("#shield");
+
+/* =========================================================
+   BOOT
+   ========================================================= */
+init();
+async function init(){
+  buildPlaylist();
+  buildWatermarkLayer();
+  const { data:{ session } } = await sb.auth.getSession();
+  if(session){ await onLogin(session); }
+  else { showGate("auth"); }
+  loading.style.display="none";
+}
+
+/* =========================================================
+   AUTH
+   ========================================================= */
+let mode="login";
+$("#toSignup").onclick = ()=>{
+  mode = (mode==="login") ? "signup" : "login";
+  $("#authTitle").textContent = mode==="login" ? "Accéder à la salle" : "Créer votre compte";
+  $("#authSub").textContent = mode==="login"
+    ? "Connecte-toi pour reprendre ta formation là où tu t'es arrêté."
+    : "Quelques secondes suffisent. Vous garderez l'accès à vie après achat.";
+  $("#authBtn").textContent = mode==="login" ? "Se connecter" : "Créer le compte";
+  $("#authSwitch").innerHTML = mode==="login"
+    ? 'Pas encore de compte ? <a id="toSignup">Créer un compte</a>'
+    : 'Déjà inscrit ? <a id="toSignup">Se connecter</a>';
+  $("#toSignup").onclick = arguments.callee; // rebind
+  clearMsg();
+};
+
+$("#authBtn").onclick = async ()=>{
+  const email = $("#email").value.trim();
+  const pass = $("#pass").value;
+  if(!email || !pass){ return authErr("Renseignez votre e-mail et votre mot de passe."); }
+  $("#authBtn").disabled=true; $("#authBtn").textContent="Un instant…";
+  try{
+    let res;
+    if(mode==="signup"){
+      res = await sb.auth.signUp({ email, password:pass });
+      if(res.error) throw res.error;
+      if(!res.data.session){
+        authOk("Compte créé. Vérifiez votre boîte mail pour confirmer, puis revenez vous connecter.");
+        $("#authBtn").disabled=false; $("#authBtn").textContent="Se connecter"; mode="login";
+        return;
+      }
+    } else {
+      res = await sb.auth.signInWithPassword({ email, password:pass });
+      if(res.error) throw res.error;
+    }
+    await onLogin(res.data.session);
+  }catch(e){
+    authErr(humanError(e));
+    $("#authBtn").disabled=false;
+    $("#authBtn").textContent = mode==="login" ? "Se connecter" : "Créer le compte";
+  }
+};
+
+async function onLogin(session){
+  SESSION = session; USER = session.user;
+  $("#userEmail").textContent = USER.email;
+  HAS_ACCESS = await checkAccess(USER.id);
+  if(HAS_ACCESS){
+    await loadProgress();
+    enterRoom();
+  } else {
+    showGate("pay");
+  }
+}
+
+$("#logoutBtn").onclick = $("#logoutFromPay").onclick = async ()=>{
+  await sb.auth.signOut();
+  location.reload();
+};
+
+/* =========================================================
+   CONTRÔLE D'ACCÈS  (table `purchases`)
+   colonnes attendues : user_id (uuid), course_id (text), status (text='paid')
+   ========================================================= */
+async function checkAccess(userId){
+  try{
+    const { data, error } = await sb
+      .from("purchases")
+      .select("status")
+      .eq("user_id", userId)
+      .eq("course_id", COURSE_ID)
+      .eq("status","paid")
+      .limit(1);
+    if(error) throw error;
+    return Array.isArray(data) && data.length>0;
+  }catch(e){
+    console.warn("checkAccess:", e.message);
+    return false;
+  }
+}
+
+/* =========================================================
+   PAIEMENT — appelle ton backend qui crée la facture PayDunya
+   Le backend doit, après confirmation IPN PayDunya, insérer
+   une ligne dans `purchases` (status='paid') pour ce user.
+   ========================================================= */
+$("#payBtn").onclick = async ()=>{
+  $("#payBtn").disabled=true; $("#payBtn").textContent="Ouverture du paiement…";
+  try{
+    const r = await fetch(CHECKOUT_ENDPOINT, {
+      method:"POST",
+      headers:{ "Content-Type":"application/json", "Authorization":`Bearer ${SESSION.access_token}` },
+      body: JSON.stringify({ course_id: COURSE_ID, email: USER.email, user_id: USER.id })
+    });
+    const out = await r.json();
+    if(out && out.checkout_url){
+      window.location.href = out.checkout_url; // redirection vers PayDunya
+    } else {
+      throw new Error(out.message || "Impossible de démarrer le paiement.");
+    }
+  }catch(e){
+    $("#payMsg").className="msg err";
+    $("#payMsg").textContent = "Paiement indisponible pour le moment : "+e.message;
+    $("#payBtn").disabled=false; $("#payBtn").textContent="Débloquer la formation";
+  }
+};
+
+/* =========================================================
+   PROGRESSION  (table `progress` : user_id, course_id, episode_id, completed)
+   ========================================================= */
+async function loadProgress(){
+  try{
+    const { data } = await sb.from("progress")
+      .select("episode_id,completed")
+      .eq("user_id", USER.id).eq("course_id", COURSE_ID);
+    (data||[]).forEach(r=>{ if(r.completed) progress[r.episode_id]=true; });
+  }catch(e){ /* table optionnelle */ }
+  refreshPlaylist();
+}
+async function markComplete(epId){
+  if(progress[epId]) return;
+  progress[epId]=true; refreshPlaylist();
+  try{
+    await sb.from("progress").upsert({
+      user_id:USER.id, course_id:COURSE_ID, episode_id:epId, completed:true
+    }, { onConflict:"user_id,course_id,episode_id" });
+  }catch(e){ /* silencieux */ }
+}
+
+/* =========================================================
+   LECTURE SÉCURISÉE — URL signée à la demande
+   ========================================================= */
+let current = null;
+async function playEpisode(ep){
+  if(!HAS_ACCESS) return;
+  current = ep;
+  $("#nowTitle").textContent = ep.title;
+  $("#nowPill").textContent = "Module "+ep.n;
+  $("#nowDur").textContent = ep.dur;
+  $("#nowDesc").textContent = ep.desc;
+  markActive(ep.id);
+  try{
+    const { data, error } = await sb.storage.from(STORAGE_BUCKET)
+      .createSignedUrl(ep.storage, 60*60); // valable 1h
+    if(error) throw error;
+    video.src = data.signedUrl;
+    video.load();
+    await video.play().catch(()=>{});
+  }catch(e){
+    $("#nowDesc").textContent = "Cette vidéo n'est pas encore disponible. (Vérifiez l'upload dans Supabase : "+ep.storage+")";
+  }
+}
+video.addEventListener("ended", ()=>{
+  if(current){ markComplete(current.id);
+    const next = EPISODES[current.n]; if(next) playEpisode(next);
+  }
+});
+
+/* =========================================================
+   PLAYLIST UI
+   ========================================================= */
+function buildPlaylist(){
+  const list = $("#epList"); list.innerHTML="";
+  EPISODES.forEach(ep=>{
+    const el = document.createElement("div");
+    el.className="ep"; el.dataset.id=ep.id;
+    el.innerHTML = `
+      <div class="thumb">${ep.n}<div class="lock" style="display:none">🔒</div></div>
+      <div class="meta"><b>${ep.title}</b><span>Module ${ep.n} · ${ep.dur}</span></div>
+      <div class="done" style="display:none">✓</div>`;
+    el.onclick = ()=>{ if(HAS_ACCESS) playEpisode(ep); };
+    list.appendChild(el);
+  });
+}
+function refreshPlaylist(){
+  let done=0;
+  EPISODES.forEach(ep=>{
+    const el = document.querySelector(`.ep[data-id="${ep.id}"]`);
+    if(!el) return;
+    const locked = !HAS_ACCESS;
+    el.classList.toggle("locked", locked);
+    el.querySelector(".lock").style.display = locked ? "grid":"none";
+    const d = !!progress[ep.id];
+    el.querySelector(".done").style.display = d ? "block":"none";
+    if(d) done++;
+  });
+  $("#prog").textContent = `${done} / ${EPISODES.length} terminé`;
+}
+function markActive(id){
+  document.querySelectorAll(".ep").forEach(e=>e.classList.toggle("active", e.dataset.id===id));
+}
+
+/* =========================================================
+   ENTRÉE DANS LA SALLE
+   ========================================================= */
+function enterRoom(){
+  gate.classList.add("hidden");
+  app.style.display="block";
+  refreshPlaylist();
+  playEpisode(EPISODES[0]);
+}
+function showGate(which){
+  gate.classList.remove("hidden");
+  app.style.display="none";
+  authCard.style.display = which==="auth" ? "block":"none";
+  payCard.style.display  = which==="pay" ? "block":"none";
+}
+
+/* =========================================================
+   WATERMARK DYNAMIQUE
+   ========================================================= */
+function buildWatermarkLayer(){
+  for(let i=0;i<8;i++){ wm.appendChild(document.createElement("span")); }
+  setInterval(updateWatermark, 2200);
+}
+function updateWatermark(){
+  if(!USER) return;
+  const tag = USER.email + " · " + new Date().toLocaleTimeString("fr-FR",{hour:'2-digit',minute:'2-digit'});
+  wm.querySelectorAll("span").forEach((s)=>{
+    s.textContent = tag;
+    s.style.top = (Math.random()*88+2)+"%";
+    s.style.left = (Math.random()*70+2)+"%";
+    s.style.transform = `rotate(${(Math.random()*20-10).toFixed(1)}deg)`;
+    s.style.transition="top 1.6s ease, left 1.6s ease, opacity .6s";
+    s.style.opacity = (Math.random()*0.5+0.5).toFixed(2);
+  });
+}
+
+/* =========================================================
+   PROTECTIONS (dissuasion réaliste)
+   ========================================================= */
+// onglet inactif -> pause + voile
+document.addEventListener("visibilitychange", ()=>{
+  if(document.hidden){ if(!video.paused){ video.pause(); video.__autoresume=true; } shield.classList.add("on"); }
+  else { shield.classList.remove("on"); if(video.__autoresume){ video.__autoresume=false; video.play().catch(()=>{}); } }
+});
+window.addEventListener("blur", ()=>{ shield.classList.add("on"); if(!video.paused) video.pause(); });
+window.addEventListener("focus", ()=>{ shield.classList.remove("on"); });
+
+// clic droit / glisser / sélection
+document.addEventListener("contextmenu", e=>e.preventDefault());
+document.addEventListener("dragstart", e=>e.preventDefault());
+
+// raccourcis téléchargement / devtools (dissuasif, non infaillible)
+document.addEventListener("keydown", (e)=>{
+  const k = e.key.toLowerCase();
+  if((e.ctrlKey||e.metaKey) && ["s","u","p"].includes(k)){ e.preventDefault(); }
+  if(k==="f12"){ e.preventDefault(); }
+  if((e.ctrlKey||e.metaKey) && e.shiftKey && ["i","j","c"].includes(k)){ e.preventDefault(); }
+  // PrintScreen : on masque brièvement
+  if(k==="printscreen"){ flashShield(); }
+});
+function flashShield(){ shield.classList.add("on"); setTimeout(()=>{ if(!document.hidden) shield.classList.remove("on"); },1200); }
+
+/* =========================================================
+   HELPERS
+   ========================================================= */
+function authErr(m){ const e=$("#authMsg"); e.className="msg err"; e.textContent=m; }
+function authOk(m){ const e=$("#authMsg"); e.className="msg ok"; e.textContent=m; }
+function clearMsg(){ $("#authMsg").className="msg"; $("#authMsg").textContent=""; }
+function humanError(e){
+  const m=(e.message||"").toLowerCase();
+  if(m.includes("invalid login")) return "E-mail ou mot de passe incorrect.";
+  if(m.includes("already registered")) return "Cet e-mail a déjà un compte. Connectez-vous.";
+  if(m.includes("password")) return "Le mot de passe doit faire au moins 6 caractères.";
+  if(m.includes("email")) return "Adresse e-mail invalide.";
+  return e.message || "Une erreur est survenue. Réessayez.";
+}
+</script>
+</body>
+</html>

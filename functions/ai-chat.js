@@ -8,7 +8,7 @@ const CORS = {
 const MODELS = {
   'haiku':  'claude-haiku-4-5-20251001',
   'sonnet': 'claude-sonnet-4-6',
-  'opus':   'claude-opus-4-6'
+  'opus':   'claude-opus-4-8'
 };
 
 const DEFAULT_SYSTEM = `Tu es l'assistant officiel de Seck Digital Services Pro (SDS Pro), boutique de smartphones premium à Dakar, Sénégal. Site web : https://sdsprotech.com
@@ -32,7 +32,7 @@ export async function onRequestOptions() {
 export async function onRequestPost({ request, env }) {
   try {
     const body = await request.json();
-    const { system, messages, model } = body;
+    const { system, messages, model, search } = body;
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return new Response(JSON.stringify({ error: 'messages requis' }), { status: 400, headers: CORS });
@@ -44,7 +44,30 @@ export async function onRequestPost({ request, env }) {
     }
 
     const selectedModel = MODELS[model] || MODELS['haiku'];
-    const maxTokens = model === 'opus' ? 500 : model === 'sonnet' ? 400 : 300;
+
+    // Activer la recherche web seulement si demandée (search:true) — contrôle des coûts
+    const useSearch = search === true;
+
+    // Plus de tokens si recherche web active (sinon la réponse est coupée)
+    const maxTokens = useSearch ? 1024
+      : (model === 'opus' ? 500 : model === 'sonnet' ? 400 : 300);
+
+    const payload = {
+      model: selectedModel,
+      max_tokens: maxTokens,
+      system: system || DEFAULT_SYSTEM,
+      messages: messages.slice(-8)
+    };
+
+    if (useSearch) {
+      // Recherche web limitée : max 2 recherches par message, restreinte au site SDS Pro
+      payload.tools = [{
+        type: 'web_search_20250305',
+        name: 'web_search',
+        max_uses: 2,
+        allowed_domains: ['sdsprotech.com']
+      }];
+    }
 
     const anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -53,18 +76,12 @@ export async function onRequestPost({ request, env }) {
         'x-api-key': apiKey,
         'anthropic-version': '2023-06-01'
       },
-      body: JSON.stringify({
-        model: selectedModel,
-        max_tokens: maxTokens,
-        system: system || DEFAULT_SYSTEM,
-        messages: messages.slice(-8)
-      })
+      body: JSON.stringify(payload)
     });
 
     const data = await anthropicRes.json();
 
     if (!anthropicRes.ok) {
-      // Retourne l'erreur exacte d'Anthropic pour debug
       return new Response(
         JSON.stringify({
           error: data.error?.message || 'Erreur API Anthropic',
@@ -76,8 +93,13 @@ export async function onRequestPost({ request, env }) {
       );
     }
 
+    // Concaténer TOUS les blocs texte (avec web_search, la réponse a plusieurs blocs)
+    const fullText = Array.isArray(data.content)
+      ? data.content.filter(b => b.type === 'text').map(b => b.text).join('\n').trim()
+      : '';
+
     return new Response(
-      JSON.stringify({ ...data, model_used: selectedModel }),
+      JSON.stringify({ ...data, reply_text: fullText, model_used: selectedModel }),
       { status: 200, headers: CORS }
     );
 

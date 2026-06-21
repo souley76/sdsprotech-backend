@@ -3358,18 +3358,23 @@ ${ordinateursTxt || '(catalogue en cours de chargement, demander au client de r�
 - INTERDIT : ne jamais mentionner de noms de fichiers, d'extensions (.html, .com inclus dans des chemins), de code, de "page web", de "site web technique" ou tout terme informatique. Pour parler du catalogue, dis "notre catalogue", "notre boutique" ou "la section Accessoires/Ordinateurs" — jamais "ordinateurs.html" ou "accessoires.html". Les boutons cliquables affichés sous ta réponse suffisent pour amener le client au bon endroit.
 - Si on te demande qui t'a créé, qui est derrière SDS Pro, ou qui t'a "entraîné" : réponds que tu es l'assistant de SDS Pro, créé pour la boutique de Souleymane Seck, fondateur de SDS Pro à Dakar. Reste bref, chaleureux et professionnel — pas de détails techniques sur ton fonctionnement.`;
 
+    // Activer la recherche web seulement pour les questions "externes" (contrôle des coûts)
+    const motsRecherche = /\b(dernier|derniere|nouveau|nouvelle|sortie|sorti|actualit|news|march[ée]|comparer|comparaison|versus|vs|meilleur du moment|tendance|2026|prix du marché)\b/i;
+    const besoinRecherche = motsRecherche.test(msg);
+
     const res = await fetch('https://sdsprotech-backend.pages.dev/ai-chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         system: systemPrompt,
         messages: _aiHistory,
-        model: _aiModel
+        model: _aiModel,
+        search: besoinRecherche
       })
     });
 
     const data = await res.json();
-    const reply = data.content?.[0]?.text || 'Désolé, une erreur est survenue.';
+    const reply = data.reply_text || data.content?.[0]?.text || 'Désolé, une erreur est survenue.';
 
     typingEl.remove();
     // Supprimer les [ID:X] / [ACC:X] / [PC:X] du texte affiché

@@ -3188,12 +3188,28 @@ let _aiModel = 'haiku';
 
 // Limite de messages gratuits pour les visiteurs non connectés
 const AI_FREE_LIMIT = 10;
+// Limites journalières pour les clients connectés
+const AI_DAILY_MSG_LIMIT = 20;     // messages par jour
+const AI_DAILY_SEARCH_LIMIT = 3;   // recherches web par jour
 function getAiMsgCount(){
   return parseInt(sessionStorage.getItem('sds_ai_msg_count') || '0', 10);
 }
 function incAiMsgCount(){
   const n = getAiMsgCount() + 1;
   sessionStorage.setItem('sds_ai_msg_count', String(n));
+  return n;
+}
+// Compteur journalier (persiste via localStorage, remis à zéro chaque jour)
+function _today(){ return new Date().toISOString().slice(0,10); }
+function getDailyCount(key){
+  try{
+    const raw = JSON.parse(localStorage.getItem(key) || '{}');
+    return (raw.date === _today()) ? (raw.n || 0) : 0;
+  }catch(e){ return 0; }
+}
+function incDailyCount(key){
+  const n = getDailyCount(key) + 1;
+  localStorage.setItem(key, JSON.stringify({ date: _today(), n }));
   return n;
 }
 
@@ -3222,6 +3238,12 @@ async function sendAiMsg(){
     return;
   }
 
+  // Limite journalière de messages pour les clients connectés
+  if(window._currentUser && getDailyCount('sds_ai_daily_msg') >= AI_DAILY_MSG_LIMIT){
+    appendAiMsg('Vous avez atteint votre limite de ' + AI_DAILY_MSG_LIMIT + ' messages pour aujourd\'hui. Revenez demain, ou contactez-nous au 77 069 97 39 pour toute question. 🙏', 'bot');
+    return;
+  }
+
   input.value = '';
   const btn = document.getElementById('aiSendBtn');
   btn.disabled = true;
@@ -3229,6 +3251,7 @@ async function sendAiMsg(){
   appendAiMsg(msg, 'user');
   _aiHistory.push({ role: 'user', content: msg });
   incAiMsgCount();
+  if(window._currentUser) incDailyCount('sds_ai_daily_msg');
 
   const typingEl = appendAiMsg('...', 'bot typing');
 
@@ -3378,7 +3401,9 @@ ${ordinateursTxt || '(catalogue en cours de chargement, demander au client de r�
 
     // Recherche web seulement pour les questions "externes" (contrôle des coûts)
     const motsRecherche = /\b(dernier|derniere|nouveau|nouvelle|sortie|sorti|actualit|news|march[ée]|comparer|comparaison|versus|vs|tendance|2026|prix du marché|vient de sortir)\b/i;
-    const besoinRecherche = motsRecherche.test(msg);
+    // Déclenche la recherche seulement si mot-clé présent ET quota journalier non dépassé
+    let besoinRecherche = motsRecherche.test(msg) && getDailyCount('sds_ai_daily_search') < AI_DAILY_SEARCH_LIMIT;
+    if(besoinRecherche) incDailyCount('sds_ai_daily_search');
 
     const res = await fetch('https://sdsprotech-backend.pages.dev/ai-chat', {
       method: 'POST',
@@ -3387,7 +3412,8 @@ ${ordinateursTxt || '(catalogue en cours de chargement, demander au client de r�
         system: systemPrompt,
         messages: _aiHistory,
         model: _aiModel,
-        search: besoinRecherche
+        search: besoinRecherche,
+        userId: window._currentUser?.id || null
       })
     });
 

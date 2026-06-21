@@ -11,6 +11,10 @@ const MODELS = {
   'opus':   'claude-opus-4-8'
 };
 
+// Limites journalières par client connecté
+const DAILY_MSG_LIMIT = 20;
+const DAILY_SEARCH_LIMIT = 3;
+
 const DEFAULT_SYSTEM = `Tu es l'assistant officiel de Seck Digital Services Pro (SDS Pro), boutique de smartphones premium à Dakar, Sénégal. Site web : https://sdsprotech.com
 
 Tu parles français et wolof (mélange naturel bilingue).
@@ -29,10 +33,47 @@ export async function onRequestOptions() {
   return new Response(null, { status: 204, headers: CORS });
 }
 
+// Lit la conso du jour pour un client. Retourne {messages, recherches}
+async function lireUsage(supaUrl, supaKey, userId){
+  try{
+    const today = new Date().toISOString().slice(0,10);
+    const res = await fetch(
+      `${supaUrl}/rest/v1/ai_usage?user_id=eq.${encodeURIComponent(userId)}&jour=eq.${today}&select=messages,recherches`,
+      { headers: { 'apikey': supaKey, 'Authorization': `Bearer ${supaKey}` } }
+    );
+    const rows = await res.json();
+    if(Array.isArray(rows) && rows.length > 0) return rows[0];
+  }catch(e){}
+  return { messages: 0, recherches: 0 };
+}
+
+// Incrémente la conso du jour (upsert)
+async function incrementUsage(supaUrl, supaKey, userId, addMsg, addSearch){
+  try{
+    const today = new Date().toISOString().slice(0,10);
+    const cur = await lireUsage(supaUrl, supaKey, userId);
+    await fetch(`${supaUrl}/rest/v1/ai_usage`, {
+      method: 'POST',
+      headers: {
+        'apikey': supaKey,
+        'Authorization': `Bearer ${supaKey}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates'
+      },
+      body: JSON.stringify({
+        user_id: userId,
+        jour: today,
+        messages: (cur.messages || 0) + addMsg,
+        recherches: (cur.recherches || 0) + addSearch
+      })
+    });
+  }catch(e){}
+}
+
 export async function onRequestPost({ request, env }) {
   try {
     const body = await request.json();
-    const { system, messages, model, search } = body;
+    const { system, messages, model, search, userId } = body;
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return new Response(JSON.stringify({ error: 'messages requis' }), { status: 400, headers: CORS });
@@ -43,12 +84,28 @@ export async function onRequestPost({ request, env }) {
       return new Response(JSON.stringify({ error: 'Clé API manquante — vérifier variable ANTHROPIC_API_KEY sur Cloudflare' }), { status: 500, headers: CORS });
     }
 
+    const supaUrl = env.SUPABASE_URL;
+    const supaKey = env.SUPABASE_SERVICE_ROLE_KEY;
+
+    // ── Limites côté serveur (impossible à contourner) ──
+    let useSearch = search === true;
+    if (userId && supaUrl && supaKey) {
+      const usage = await lireUsage(supaUrl, supaKey, userId);
+
+      // Limite de messages atteinte → on refuse avant de dépenser
+      if ((usage.messages || 0) >= DAILY_MSG_LIMIT) {
+        return new Response(JSON.stringify({
+          reply_text: "Vous avez atteint votre limite de " + DAILY_MSG_LIMIT + " messages pour aujourd'hui. Revenez demain, ou contactez-nous au 77 069 97 39. 🙏",
+          limited: true
+        }), { status: 200, headers: CORS });
+      }
+      // Limite de recherches atteinte → on garde le message mais sans recherche web
+      if (useSearch && (usage.recherches || 0) >= DAILY_SEARCH_LIMIT) {
+        useSearch = false;
+      }
+    }
+
     const selectedModel = MODELS[model] || MODELS['haiku'];
-
-    // Activer la recherche web seulement si demandée (search:true) — contrôle des coûts
-    const useSearch = search === true;
-
-    // Plus de tokens si recherche web active (sinon la réponse est coupée)
     const maxTokens = useSearch ? 1024
       : (model === 'opus' ? 500 : model === 'sonnet' ? 400 : 300);
 
@@ -60,7 +117,6 @@ export async function onRequestPost({ request, env }) {
     };
 
     if (useSearch) {
-      // Recherche web sur tout le web, limitée à 3 recherches par message (contrôle des coûts)
       payload.tools = [{
         type: 'web_search_20250305',
         name: 'web_search',
@@ -92,7 +148,11 @@ export async function onRequestPost({ request, env }) {
       );
     }
 
-    // Concaténer TOUS les blocs texte (avec web_search, la réponse a plusieurs blocs)
+    // Comptabiliser la conso de ce client (1 message + 1 recherche si utilisée)
+    if (userId && supaUrl && supaKey) {
+      await incrementUsage(supaUrl, supaKey, userId, 1, useSearch ? 1 : 0);
+    }
+
     const fullText = Array.isArray(data.content)
       ? data.content.filter(b => b.type === 'text').map(b => b.text).join('\n').trim()
       : '';
@@ -104,11 +164,7 @@ export async function onRequestPost({ request, env }) {
 
   } catch (e) {
     return new Response(
-      JSON.stringify({
-        error: e.message,
-        type: 'exception',
-        stack: e.stack
-      }),
+      JSON.stringify({ error: e.message, type: 'exception', stack: e.stack }),
       { status: 500, headers: CORS }
     );
   }

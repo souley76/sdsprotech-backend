@@ -60,12 +60,11 @@ export async function onRequestPost({ request, env }) {
     };
 
     if (useSearch) {
-      // Recherche web limitée : max 2 recherches par message, restreinte au site SDS Pro
+      // Recherche web sur tout le web, limitée à 3 recherches par message (contrôle des coûts)
       payload.tools = [{
         type: 'web_search_20250305',
         name: 'web_search',
-        max_uses: 2,
-        allowed_domains: ['sdsprotech.com']
+        max_uses: 3
       }];
     }
 

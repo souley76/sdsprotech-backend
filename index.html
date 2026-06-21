@@ -121,24 +121,6 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;background:rgba(2,9,18,0.85)
 .hero-phone-glow{position:absolute;width:300px;height:300px;background:radial-gradient(circle,rgba(0,100,255,0.2),transparent 70%);border-radius:50%;pointer-events:none;animation:glowPulse 3s ease-in-out infinite;}
 @keyframes glowPulse{0%,100%{transform:scale(0.9);opacity:0.6;}50%{transform:scale(1.1);opacity:1;}}
 
-/* ── LIONS DU SENEGAL — fond supporter Coupe du Monde ── */
-.lions-bg{position:absolute;inset:0;border-radius:24px;overflow:hidden;pointer-events:none;z-index:0;}
-/* Couche drapeau Sénégal flottant — placé en haut, discret */
-.lions-photo{position:absolute;top:0;left:0;right:0;height:42%;overflow:hidden;display:flex;align-items:center;justify-content:center;}
-/* Drapeau tricolore vert-jaune-rouge avec ondulation */
-.sen-drapeau{position:relative;width:120px;height:80px;opacity:0.38;border-radius:4px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,0.5);background:linear-gradient(90deg,#00853f 0 33.33%,#fdef00 33.33% 66.66%,#e31b23 66.66% 100%);animation:drapeauFloat 6s ease-in-out infinite;transform-origin:left center;}
-.sen-drapeau::before{content:'★';position:absolute;top:50%;left:50%;transform:translate(-50%,-54%);font-size:34px;line-height:1;color:#00853f;}
-/* ondulation : voile lumineux qui balaie le drapeau */
-.sen-drapeau::after{content:'';position:absolute;inset:0;background:linear-gradient(105deg,transparent 0%,rgba(255,255,255,0.2) 45%,transparent 60%);background-size:250% 100%;animation:drapeauWave 6s linear infinite;}
-@keyframes drapeauFloat{0%,100%{transform:rotate(-1.5deg) skewX(0deg) scale(1);}25%{transform:rotate(0.5deg) skewX(3deg) scale(1.02);}50%{transform:rotate(1.5deg) skewX(0deg) scale(1);}75%{transform:rotate(0.5deg) skewX(-3deg) scale(1.02);}}
-@keyframes drapeauWave{0%{background-position:200% 0;}100%{background-position:-100% 0;}}
-/* Lueur de stade (projecteurs), douce */
-.stade-glow{position:absolute;inset:0;background:radial-gradient(ellipse 60% 40% at 50% 0%,rgba(253,239,0,0.12),transparent 55%),radial-gradient(ellipse 50% 60% at 20% 100%,rgba(0,133,63,0.12),transparent 55%),radial-gradient(ellipse 50% 60% at 85% 90%,rgba(224,30,55,0.1),transparent 55%);animation:stadePulse 5s ease-in-out infinite;}
-@keyframes stadePulse{0%,100%{opacity:0.7;}50%{opacity:1;}}
-/* Voile sombre pour garder le texte lisible */
-.lions-veil{position:absolute;inset:0;background:radial-gradient(ellipse 70% 70% at 50% 50%,rgba(2,9,18,0.35) 0%,rgba(2,9,18,0.78) 100%);}
-@media(prefers-reduced-motion:reduce){.sen-drapeau,.sen-drapeau::after,.stade-glow{animation:none;}}
-
 /* BRAND BAND */
 .brand-band{background:var(--mid);border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:12px 0;overflow:hidden;}
 .brand-track{display:flex;gap:48px;animation:scroll 20s linear infinite;width:max-content;white-space:nowrap;}
@@ -818,15 +800,7 @@ input, textarea {
   <div class="hero-right">
     <div class="hero-phone-glow"></div>
     <div id="hero3d" style="width:100%;max-width:480px;height:500px;display:flex;align-items:center;justify-content:center;position:relative;">
-      <!-- FOND SUPPORTER LIONS DU SENEGAL — Coupe du Monde -->
-      <div class="lions-bg">
-        <div class="lions-photo">
-          <div class="sen-drapeau"></div>
-        </div>
-        <div class="stade-glow"></div>
-        <div class="lions-veil"></div>
-      </div>
-      <div style="text-align:center;position:relative;z-index:3;">
+      <div style="text-align:center;position:relative;z-index:2;">
         <div style="font-family:'DM Mono',monospace;font-size:11px;letter-spacing:4px;color:rgba(0,200,255,0.6);text-transform:uppercase;margin-bottom:16px;animation:fadeUp 0.8s ease 0.3s both;">— Bienvenue chez —</div>
         <div style="font-family:'Rajdhani',sans-serif;font-size:clamp(42px,7vw,82px);font-weight:700;line-height:0.88;letter-spacing:3px;text-transform:uppercase;text-shadow:0 0 60px rgba(0,229,255,0.5);">
           <span style="display:block;color:#fff;">SDS</span>
@@ -834,13 +808,6 @@ input, textarea {
         </div>
         <div style="width:80px;height:2px;background:linear-gradient(90deg,transparent,var(--cyan),transparent);margin:18px auto;"></div>
         <div style="font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:rgba(0,200,255,0.5);text-transform:uppercase;">Dakar · Senegal</div>
-
-        <!-- BADGE SUPPORTER LIONS -->
-        <div style="margin-top:14px;display:inline-flex;align-items:center;gap:8px;background:rgba(0,133,63,0.12);border:1px solid rgba(0,200,90,0.4);padding:6px 18px;border-radius:100px;">
-          <span style="width:7px;height:7px;background:#00e676;border-radius:50%;display:inline-block;animation:dot 1.5s ease infinite;flex-shrink:0;"></span>
-          <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:2px;color:#00e676;text-transform:uppercase;">Allez les Lions 🦁</span>
-        </div>
-        <div style="margin-top:8px;font-family:'DM Mono',monospace;font-size:9px;letter-spacing:3px;color:rgba(253,239,0,0.7);text-transform:uppercase;">🇸🇳 Coupe du Monde 2026</div>
 
         <!-- MESSAGE OUVERTURE OFFICIELLE -->
         <div style="margin-top:24px;text-align:center;">
@@ -3246,7 +3213,7 @@ async function sendAiMsg(){
     let catalogueTxt = '';
     const _prods = (window.PRODS && window.PRODS.length > 0) ? window.PRODS : (typeof P !== "undefined" ? P : []);
     if(_prods && _prods.length > 0){
-      catalogueTxt = _prods.filter(p=>p.visible!==false).slice(0,20).map(p =>
+      catalogueTxt = _prods.filter(p=>p.visible!==false).slice(0,100).map(p =>
         `- ${p.n} | ${p.m||''} | ${(p.prix_raw||0).toLocaleString('fr-FR')} FCFA | ID:${p.id}`
       ).join('\n');
     }
@@ -3255,10 +3222,10 @@ async function sendAiMsg(){
     let ordinateursTxt = '';
     try{
       const [accRes, ordiRes] = await Promise.all([
-        fetch(`${SUPA_URL}/rest/v1/accessoires?visible=eq.true&select=id,nom,categorie,prix&order=id.asc&limit=25`, {
+        fetch(`${SUPA_URL}/rest/v1/accessoires?visible=eq.true&select=id,nom,categorie,prix&order=id.asc&limit=100`, {
           headers: { 'apikey': SUPA_KEY, 'Authorization': `Bearer ${SUPA_KEY}` }
         }),
-        fetch(`${SUPA_URL}/rest/v1/ordinateurs?visible=eq.true&select=id,nom,categorie,prix,compatible&order=id.asc&limit=25`, {
+        fetch(`${SUPA_URL}/rest/v1/ordinateurs?visible=eq.true&select=id,nom,categorie,prix,compatible&order=id.asc&limit=100`, {
           headers: { 'apikey': SUPA_KEY, 'Authorization': `Bearer ${SUPA_KEY}` }
         })
       ]);
@@ -3306,6 +3273,12 @@ Tu parles UNIQUEMENT en français. Ne jamais utiliser de mots en wolof ou dans u
 
 === CATALOGUE DE PRODUITS ===
 ${catalogueTxt}
+
+=== ACTUALITÉS & NOUVEAUTÉS DU SITE (mettre à jour ici) ===
+- La boutique officielle SDS Pro est désormais OUVERTE pour 2025-2026.
+- La page d'accueil affiche le drapeau du Sénégal pour soutenir les Lions de la Teranga à la Coupe du Monde 2026.
+- Sections disponibles : Smartphones, Accessoires, Ordinateurs portables.
+- (Souleymane : ajoute ici toute nouvelle promo, événement ou nouveauté pour que l'assistant en soit informé.)
 
 === LIVRAISON ===
 - Livraison 24-48h dans tout Dakar

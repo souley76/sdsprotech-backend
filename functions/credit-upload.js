@@ -1,0 +1,153 @@
+import { CORS_HEADERS, handleOptions } from "../_helpers";
+
+export async function onRequestOptions(context) {
+  return handleOptions(context.env);
+}
+
+export async function onRequestPost(context) {
+  const { request, env } = context;
+  const CORS = CORS_HEADERS(env);
+
+  const SUPA_URL = (env.SUPABASE_URL || "").trim().replace(/\/$/, "");
+  const SUPA_KEY = (env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+  if (!SUPA_URL || !SUPA_KEY)
+    return new Response(JSON.stringify({ error: "Supabase non configuré" }), { status: 500, headers: CORS });
+
+  let body;
+  try { body = await request.json(); }
+  catch { return new Response(JSON.stringify({ error: "JSON invalide" }), { status: 400, headers: CORS }); }
+
+  const {
+    user_id, client_nom, client_tel, client_email,
+    numero_cni, appareil, device_id, prix_total,
+    doc_cni, doc_residence, doc_selfie   // chacun = { data: base64, type: "image/jpeg" }
+  } = body;
+
+  // ── Validation des champs obligatoires ──────────────────────
+  if (!user_id || !client_nom || !client_tel || !numero_cni || !appareil)
+    return new Response(JSON.stringify({ error: "Champs requis manquants" }), { status: 400, headers: CORS });
+  if (!doc_cni?.data || !doc_residence?.data || !doc_selfie?.data)
+    return new Response(JSON.stringify({ error: "Les 3 documents sont requis" }), { status: 400, headers: CORS });
+
+  const prixTotalNum = parseInt(prix_total, 10);
+  if (!Number.isInteger(prixTotalNum) || prixTotalNum <= 0)
+    return new Response(JSON.stringify({ error: "Prix invalide" }), { status: 400, headers: CORS });
+
+  // ── Générer un dossier_id unique ────────────────────────────
+  const dossier_id = "CRED-" + Date.now().toString().slice(-8);
+
+  // ── Convertir base64 → octets ───────────────────────────────
+  const b64ToBytes = (b64) => {
+    const clean = b64.includes(",") ? b64.split(",")[1] : b64;
+    const bin = atob(clean);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return bytes;
+  };
+
+  const extFromType = (t) => (t === "application/pdf" ? "pdf" : t === "image/png" ? "png" : t === "image/webp" ? "webp" : "jpg");
+
+  // ── Uploader un document dans le bucket privé credit-docs ───
+  const uploadDoc = async (doc, nom) => {
+    const ext = extFromType(doc.type || "image/jpeg");
+    const chemin = `${dossier_id}/${nom}.${ext}`;
+    const res = await fetch(`${SUPA_URL}/storage/v1/object/credit-docs/${chemin}`, {
+      method: "POST",
+      headers: {
+        "Authorization": "Bearer " + SUPA_KEY,
+        "apikey": SUPA_KEY,
+        "Content-Type": doc.type || "image/jpeg",
+        "x-upsert": "true"
+      },
+      body: b64ToBytes(doc.data)
+    });
+    if (!res.ok) {
+      const t = await res.text();
+      throw new Error(`Upload ${nom} échoué: ${res.status} ${t}`);
+    }
+    return chemin;
+  };
+
+  let chemins;
+  try {
+    chemins = {
+      doc_cni:       await uploadDoc(doc_cni, "cni"),
+      doc_residence: await uploadDoc(doc_residence, "residence"),
+      doc_selfie:    await uploadDoc(doc_selfie, "selfie")
+    };
+  } catch (e) {
+    return new Response(JSON.stringify({ error: "Échec upload documents", details: e.message }), { status: 500, headers: CORS });
+  }
+
+  // ── Calcul échéances (J, J+3, J+6) et acompte 50% ───────────
+  const today = new Date();
+  const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x.toISOString().slice(0, 10); };
+  const acompte  = Math.round(prixTotalNum * 0.5);
+  const reste    = prixTotalNum - acompte;
+  const versement2 = Math.round(reste / 2);
+  const versement3 = reste - versement2;
+
+  // ── Insérer le dossier dans credit_phones ───────────────────
+  const insertBody = {
+    dossier_id, user_id,
+    client_nom, client_tel, client_email: client_email || null,
+    device_id: device_id || "", appareil,
+    numero_cni, prix_total: prixTotalNum,
+    montant_1: acompte, montant_2: versement2, montant_3: versement3,
+    echeance_1: addDays(today, 0),
+    echeance_2: addDays(today, 3),
+    echeance_3: addDays(today, 6),
+    doc_cni: chemins.doc_cni,
+    doc_residence: chemins.doc_residence,
+    doc_selfie: chemins.doc_selfie,
+    statut_compte: "en_verification",
+    docs_envoyes_at: new Date().toISOString(),
+    statut: "actif",
+    created_at: new Date().toISOString()
+  };
+
+  try {
+    const res = await fetch(`${SUPA_URL}/rest/v1/credit_phones`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "apikey": SUPA_KEY,
+        "Authorization": "Bearer " + SUPA_KEY,
+        "Prefer": "return=minimal"
+      },
+      body: JSON.stringify(insertBody)
+    });
+    if (!res.ok) {
+      const t = await res.text();
+      return new Response(JSON.stringify({ error: "Insert dossier échoué", details: t }), { status: 500, headers: CORS });
+    }
+  } catch (e) {
+    return new Response(JSON.stringify({ error: "Erreur Supabase", details: e.message }), { status: 500, headers: CORS });
+  }
+
+  // ── Notification admin 🔔 (ne bloque pas si échoue) ─────────
+  try {
+    await fetch(`${SUPA_URL}/rest/v1/notifications`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "apikey": SUPA_KEY,
+        "Authorization": "Bearer " + SUPA_KEY,
+        "Prefer": "return=minimal"
+      },
+      body: JSON.stringify({
+        dossier_id, pour_admin: true,
+        titre: "Nouvelle demande de crédit",
+        message: `${client_nom} a soumis un dossier pour ${appareil}. À vérifier.`,
+        type: "info"
+      })
+    });
+  } catch (e) {}
+
+  return new Response(JSON.stringify({
+    success: true,
+    dossier_id,
+    statut_compte: "en_verification",
+    montants: { acompte, versement2, versement3 }
+  }), { status: 200, headers: CORS });
+}

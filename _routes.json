@@ -11,7 +11,8 @@
     "/pawapay/*",
     "/ai-chat",
     "/credit-upload",
-    "/credit-doc-url"
+    "/credit-doc-url",
+    "/credit-cron"
   ],
   "exclude": []
 }

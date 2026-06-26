@@ -396,7 +396,7 @@ body{cursor:auto;}
 
 /* Content area */
 .bd-content{max-height:0;overflow:hidden;transition:max-height 0.5s cubic-bezier(0.4,0,0.2,1);background:rgba(4,14,28,0.6);}
-.bd-brand.open .bd-content{max-height:4000px;}
+.bd-brand.open .bd-content{max-height:20000px;}
 .bd-inner{padding:20px 28px 28px;}
 
 /* Sub-filter chips inside drawer */
@@ -1816,11 +1816,23 @@ function buildBrandDrawers(){
 
   // Render all brands initially (collapsed, products pre-loaded invisibly)
   BRANDS.forEach(b=>bdRenderBrand(b.key));
+
+  // Ouvrir automatiquement la marque qui a le plus de produits
+  let topBrand = null, topCount = -1;
+  BRANDS.forEach(b=>{
+    const n = P.filter(p=>(p.c||'').toLowerCase().includes(b.filter) || (p.br||'').toLowerCase().includes(b.filter)).length;
+    if(n > topCount){ topCount = n; topBrand = b.key; }
+  });
+  if(topBrand){
+    document.getElementById('bdbrand-'+topBrand)?.classList.add('open');
+  }
 }
 
 function bdToggle(key){
   const el = document.getElementById('bdbrand-'+key);
   const isOpen = el.classList.contains('open');
+  // Toggle simple : chaque marque s'ouvre/ferme indépendamment.
+  // Pas de fermeture automatique des autres → aucun saut de page.
   el.classList.toggle('open',!isOpen);
 }
 

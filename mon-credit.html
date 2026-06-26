@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mon Crédit — SDS ProTech</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Rajdhani:wght@500;600;700&family=DM+Mono&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+:root{
+  --deep:#020912;--dark:#040f1e;--mid:#071828;
+  --blue:#0055ff;--cyan:#00c8ff;--glow:#00e5ff;
+  --green:#00e676;--gold:#ffd700;--red:#ff4444;
+  --white:#fff;--grey:#7a9abb;--light:#bdd4ea;
+  --border:rgba(0,180,255,0.22);
+  --card:rgba(4,15,30,0.95);
+  --gold-border:rgba(255,215,0,0.3);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--deep);color:var(--white);font-family:'Outfit',sans-serif;overflow-x:hidden;min-height:100vh;}
+.nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(2,9,18,0.92);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;}
+.nav-logo{font-family:'Rajdhani',sans-serif;font-size:20px;font-weight:700;color:var(--cyan);letter-spacing:3px;text-decoration:none;}
+.nav-back{font-size:13px;color:var(--grey);text-decoration:none;display:flex;align-items:center;gap:6px;}
+.nav-back:hover{color:var(--cyan);}
+.wrap{max-width:560px;margin:0 auto;padding:90px 18px 60px;}
+.hero{text-align:center;margin-bottom:24px;}
+.hero-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(0,200,255,0.1);border:1px solid var(--border);border-radius:100px;padding:6px 18px;font-size:11px;font-family:'DM Mono',monospace;letter-spacing:2px;color:var(--cyan);margin-bottom:16px;}
+.hero-title{font-family:'Rajdhani',sans-serif;font-size:26px;font-weight:700;letter-spacing:1px;margin-bottom:8px;}
+.hero-title .c{color:var(--cyan);}
+.hero-desc{font-size:13px;color:var(--light);line-height:1.7;}
+
+.auth-wall{background:rgba(0,20,60,0.8);border:1px solid var(--gold-border);border-radius:16px;padding:30px 20px;text-align:center;}
+.auth-wall-icon{font-size:40px;margin-bottom:12px;}
+.auth-wall-title{font-family:'Rajdhani',sans-serif;font-size:18px;font-weight:700;color:var(--gold);margin-bottom:8px;}
+.auth-wall-desc{font-size:13px;color:var(--grey);line-height:1.7;margin-bottom:20px;}
+.btn-gold{display:inline-block;background:linear-gradient(135deg,#ffd700,#ffb300);color:#1a1200;font-weight:700;font-size:14px;padding:12px 24px;border-radius:10px;text-decoration:none;}
+
+.info-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:18px;}
+.info-icon{font-size:34px;margin-bottom:10px;text-align:center;}
+.info-title{font-family:'Rajdhani',sans-serif;font-size:17px;font-weight:700;color:var(--cyan);text-align:center;margin-bottom:8px;}
+.info-desc{font-size:13px;color:var(--light);line-height:1.7;text-align:center;}
+.info-desc strong{color:var(--white);}
+
+.dossier-head{background:linear-gradient(135deg,rgba(0,85,255,0.12),rgba(0,200,255,0.06));border:1px solid var(--border);border-radius:16px;padding:18px;margin-bottom:18px;}
+.dossier-phone{font-family:'Rajdhani',sans-serif;font-size:20px;font-weight:700;color:var(--white);margin-bottom:4px;}
+.dossier-id{font-size:11px;color:var(--grey);font-family:'DM Mono',monospace;}
+.dossier-progress{margin-top:14px;}
+.progress-bar{background:rgba(0,0,0,0.3);border-radius:8px;height:8px;overflow:hidden;margin-bottom:6px;}
+.progress-fill{height:100%;background:linear-gradient(90deg,var(--blue),var(--cyan));border-radius:8px;transition:width 0.6s;}
+.progress-text{display:flex;justify-content:space-between;font-size:11px;color:var(--grey);}
+
+.vers-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:12px;position:relative;overflow:hidden;}
+.vers-card.paid{border-color:rgba(0,230,118,0.4);background:rgba(0,230,118,0.04);}
+.vers-card.late{border-color:rgba(255,68,68,0.4);}
+.vers-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;}
+.vers-label{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;color:var(--white);}
+.vers-sub{font-size:11px;color:var(--grey);margin-top:2px;}
+.vers-amount{font-family:'Rajdhani',sans-serif;font-size:20px;font-weight:700;color:var(--cyan);text-align:right;}
+.vers-amount .fcfa{font-size:11px;color:var(--grey);font-weight:400;}
+.vers-status{display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:3px 10px;border-radius:100px;font-weight:600;}
+.vers-status.paid{background:rgba(0,230,118,0.15);color:var(--green);}
+.vers-status.due{background:rgba(0,200,255,0.12);color:var(--cyan);}
+.vers-status.late{background:rgba(255,68,68,0.15);color:var(--red);}
+.btn-pay{width:100%;background:linear-gradient(135deg,var(--blue),var(--cyan));border:none;color:#fff;font-weight:700;font-size:14px;padding:12px;border-radius:10px;cursor:pointer;font-family:'Outfit',sans-serif;display:flex;align-items:center;justify-content:center;gap:8px;}
+.btn-pay:active{transform:scale(0.98);}
+.btn-pay:disabled{opacity:0.5;cursor:not-allowed;}
+.btn-paid{width:100%;background:rgba(0,230,118,0.1);border:1px solid rgba(0,230,118,0.3);color:var(--green);font-weight:600;font-size:13px;padding:11px;border-radius:10px;text-align:center;}
+
+.loading{text-align:center;color:var(--grey);padding:50px 20px;font-size:14px;}
+.spinner{width:34px;height:34px;border:3px solid rgba(0,200,255,0.2);border-top-color:var(--cyan);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 14px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--mid);border:1px solid var(--border);color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;z-index:200;opacity:0;transition:opacity 0.3s;max-width:90%;text-align:center;}
+.toast.show{opacity:1;}
+.help-line{text-align:center;font-size:12px;color:var(--grey);margin-top:20px;line-height:1.7;}
+.help-line a{color:var(--cyan);text-decoration:none;}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <a href="/" class="nav-logo">SDS</a>
+  <a href="/credit-halal.html" class="nav-back">← Achat Échelonné</a>
+</nav>
+
+<div class="wrap">
+  <div class="hero">
+    <div class="hero-badge">💳 ESPACE CRÉDIT</div>
+    <h1 class="hero-title">Mon <span class="c">Crédit</span></h1>
+    <p class="hero-desc">Suivez et réglez vos versements en toute simplicité.</p>
+  </div>
+
+  <!-- Chargement -->
+  <div id="loadingBox" class="loading">
+    <div class="spinner"></div>
+    Chargement de votre dossier...
+  </div>
+
+  <!-- Mur auth -->
+  <div class="auth-wall" id="authWall" style="display:none;">
+    <div class="auth-wall-icon">🔐</div>
+    <div class="auth-wall-title">Connexion requise</div>
+    <div class="auth-wall-desc">Connectez-vous pour accéder à votre espace crédit et régler vos versements.</div>
+    <a href="/" class="btn-gold" onclick="localStorage.setItem('redirect_after_auth','mon-credit.html')">Se connecter / S'inscrire</a>
+  </div>
+
+  <!-- Aucun dossier -->
+  <div class="info-card" id="noDossier" style="display:none;">
+    <div class="info-icon">📭</div>
+    <div class="info-title">Aucun dossier de crédit</div>
+    <div class="info-desc">Vous n'avez pas encore de dossier d'achat échelonné.<br><br><a href="/credit-halal.html" style="color:var(--gold);text-decoration:none;font-weight:600;">→ Faire une demande</a></div>
+  </div>
+
+  <!-- En vérification -->
+  <div class="info-card" id="enVerif" style="display:none;">
+    <div class="info-icon">⏳</div>
+    <div class="info-title">Dossier en vérification</div>
+    <div class="info-desc" id="enVerifDesc"></div>
+  </div>
+
+  <!-- Refusé -->
+  <div class="info-card" id="refuse" style="display:none;">
+    <div class="info-icon">❌</div>
+    <div class="info-title">Dossier refusé</div>
+    <div class="info-desc" id="refuseDesc"></div>
+  </div>
+
+  <!-- Dossier validé : versements -->
+  <div id="dossierValide" style="display:none;">
+    <div class="dossier-head">
+      <div class="dossier-phone" id="dPhone">—</div>
+      <div class="dossier-id" id="dId">—</div>
+      <div class="dossier-progress">
+        <div class="progress-bar"><div class="progress-fill" id="dProgress" style="width:0%"></div></div>
+        <div class="progress-text">
+          <span id="dPaid">0 FCFA payé</span>
+          <span id="dPct">0%</span>
+        </div>
+      </div>
+    </div>
+    <div id="versementsList"></div>
+    <div class="help-line">
+      Un problème pour payer ?<br>
+      Contactez-nous au <a href="tel:+221770699739">+221 77 069 97 39</a>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPA_URL = 'https://fvfkawxwtsziqzibzbxt.supabase.co';
+const SUPA_KEY = 'sb_publishable_BTBvJ0drkx8ZWflBG7IhMA_A_b6h7rI';
+const BACKEND  = 'https://sdsprotech-backend.pages.dev';
+const FRAIS_MDM = 10000;
+let _supa = null, _user = null, _dossier = null;
+
+const fmt = n => (n||0).toLocaleString('fr-FR');
+
+(async function init(){
+  _supa = window.supabase.createClient(SUPA_URL, SUPA_KEY, {
+    auth: { storageKey: 'sds-auth', persistSession: true, autoRefreshToken: true }
+  });
+  const { data: { session } } = await _supa.auth.getSession();
+  _user = session?.user || null;
+  await loadDossier();
+})();
+
+function hideAll(){
+  ['loadingBox','authWall','noDossier','enVerif','refuse','dossierValide'].forEach(id=>{
+    document.getElementById(id).style.display = 'none';
+  });
+}
+
+async function loadDossier(){
+  if(!_user){
+    hideAll();
+    document.getElementById('authWall').style.display = 'block';
+    return;
+  }
+
+  try {
+    const res = await fetch(
+      SUPA_URL + '/rest/v1/credit_phones?user_id=eq.' + encodeURIComponent(_user.id) +
+      '&order=created_at.desc&limit=1' +
+      '&select=dossier_id,appareil,statut_compte,motif_refus,prix_total,' +
+      'montant_1,montant_2,montant_3,paye_1,paye_2,paye_3,' +
+      'echeance_1,echeance_2,echeance_3,created_at,lost_mode_actif',
+      { headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY } }
+    );
+    const rows = await res.json();
+    _dossier = Array.isArray(rows) ? rows[0] : null;
+  } catch(e){
+    hideAll();
+    showToast('Erreur de chargement. Réessayez.');
+    return;
+  }
+
+  hideAll();
+
+  if(!_dossier){
+    document.getElementById('noDossier').style.display = 'block';
+    return;
+  }
+
+  const st = _dossier.statut_compte;
+
+  if(st === 'en_verification' || st === 'en_attente_docs'){
+    document.getElementById('enVerif').style.display = 'block';
+    document.getElementById('enVerifDesc').innerHTML =
+      'Votre dossier pour <strong>' + (_dossier.appareil||'—') + '</strong> est en cours de vérification.<br><br>' +
+      'Soumis le ' + new Date(_dossier.created_at).toLocaleDateString('fr-FR') + '.<br>' +
+      'Vous serez notifié dès validation.';
+    return;
+  }
+
+  if(st === 'refuse'){
+    document.getElementById('refuse').style.display = 'block';
+    document.getElementById('refuseDesc').innerHTML =
+      'Nous n\'avons pas pu valider vos documents.' +
+      (_dossier.motif_refus ? '<br><br><strong>Motif :</strong> ' + _dossier.motif_refus : '') +
+      '<br><br><a href="/credit-halal.html" style="color:var(--gold);text-decoration:none;font-weight:600;">→ Refaire une demande</a>';
+    return;
+  }
+
+  // Validé → afficher les versements
+  renderVersements();
+}
+
+function renderVersements(){
+  document.getElementById('dossierValide').style.display = 'block';
+  document.getElementById('dPhone').textContent = _dossier.appareil || '—';
+  document.getElementById('dId').textContent = _dossier.dossier_id;
+
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  const versements = [
+    { n:1, montant:(_dossier.montant_1||0)+FRAIS_MDM, paye:_dossier.paye_1, date:_dossier.echeance_1, label:'Acompte', sub:'50% + frais MDM' },
+    { n:2, montant:_dossier.montant_2||0, paye:_dossier.paye_2, date:_dossier.echeance_2, label:'Versement 2', sub:'25%' },
+    { n:3, montant:_dossier.montant_3||0, paye:_dossier.paye_3, date:_dossier.echeance_3, label:'Versement 3', sub:'25%' }
+  ];
+
+  const totalDu = versements.reduce((s,v)=>s+v.montant,0);
+  const totalPaye = versements.filter(v=>v.paye).reduce((s,v)=>s+v.montant,0);
+  const pct = totalDu ? Math.round(totalPaye/totalDu*100) : 0;
+
+  document.getElementById('dProgress').style.width = pct + '%';
+  document.getElementById('dPaid').textContent = fmt(totalPaye) + ' FCFA payé';
+  document.getElementById('dPct').textContent = pct + '%';
+
+  const list = document.getElementById('versementsList');
+  list.innerHTML = versements.map(v=>{
+    const dateStr = v.date ? new Date(v.date).toLocaleDateString('fr-FR') : '—';
+    const enRetard = !v.paye && v.date && new Date(v.date) < today;
+    let statusHtml, actionHtml, cardCls = '';
+
+    if(v.paye){
+      cardCls = 'paid';
+      statusHtml = '<span class="vers-status paid">✅ Payé</span>';
+      actionHtml = '<div class="btn-paid">✅ Versement réglé</div>';
+    } else {
+      if(enRetard){
+        cardCls = 'late';
+        statusHtml = '<span class="vers-status late">⚠️ En retard</span>';
+      } else {
+        statusHtml = '<span class="vers-status due">📅 ' + dateStr + '</span>';
+      }
+      actionHtml = '<button class="btn-pay" id="btn-'+v.n+'" onclick="payerVersement('+v.n+')">💳 Payer ' + fmt(v.montant) + ' FCFA</button>';
+    }
+
+    return '<div class="vers-card '+cardCls+'">' +
+      '<div class="vers-top">' +
+        '<div><div class="vers-label">'+v.label+'</div><div class="vers-sub">'+v.sub+' · échéance '+dateStr+'</div>'+statusHtml+'</div>' +
+        '<div class="vers-amount">'+fmt(v.montant)+'<span class="fcfa"> FCFA</span></div>' +
+      '</div>' +
+      actionHtml +
+    '</div>';
+  }).join('');
+}
+
+async function payerVersement(n){
+  const btn = document.getElementById('btn-'+n);
+  if(btn){ btn.disabled = true; btn.innerHTML = '⏳ Génération du lien...'; }
+
+  try {
+    const res = await fetch(BACKEND + '/credit-checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dossier_id: _dossier.dossier_id, numero_versement: n })
+    });
+    const data = await res.json();
+
+    if(data.success && data.payment_url){
+      window.location.href = data.payment_url;
+    } else {
+      showToast('❌ ' + (data.error || 'Erreur, réessayez.'));
+      if(btn){ btn.disabled = false; btn.innerHTML = '💳 Réessayer'; }
+    }
+  } catch(e){
+    showToast('❌ Connexion échouée. Réessayez.');
+    if(btn){ btn.disabled = false; btn.innerHTML = '💳 Réessayer'; }
+  }
+}
+
+let _toastTimer;
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(()=>t.classList.remove('show'), 3500);
+}
+
+// Si retour de paiement réussi (return_url), recharger après court délai
+(function checkReturn(){
+  const params = new URLSearchParams(window.location.search);
+  if(params.get('statut') === 'succes'){
+    setTimeout(()=>showToast('✅ Paiement en cours de confirmation...'), 600);
+  }
+})();
+</script>
+</body>
+</html>

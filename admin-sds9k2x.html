@@ -1489,24 +1489,16 @@ async function saveProdModal(){
   loadProducts();
 }
 
-// ── CRÉDIT HALAL ──────────────────────────────────────────────
+// ── CRÉDIT PHONE (KYC + échéances) ─────────────────────────────
+const BACKEND_CREDIT = 'https://sdsprotech-backend.pages.dev';
 let _allCredit = [], _creditFilter = 'tous';
 
 async function loadCredit(){
   const list = document.getElementById('creditList');
   list.innerHTML = '<div style="text-align:center;color:var(--grey);padding:40px;">Chargement...</div>';
   try{
-    const { data, error } = await _supa.from('credit_applications')
+    const { data, error } = await _supa.from('credit_phones')
       .select('*').order('created_at', { ascending: false });
-    // Normaliser les noms de colonnes
-    if(data) data.forEach(c => {
-      c.client_nom = c.client_nom || c.user_name || '—';
-      c.client_tel = c.client_tel || c.user_phone || '—';
-      c.client_email = c.client_email || c.user_email || '—';
-      c.montant_total = c.montant_total || c.produit_prix || 0;
-      c.montant_paye = c.montant_paye || 0;
-      c.montant_restant = c.montant_restant || (c.montant_total - c.montant_paye);
-    });
     if(error) throw error;
     _allCredit = data || [];
     updateCreditStats();
@@ -1516,13 +1508,22 @@ async function loadCredit(){
   }
 }
 
+function creditMontantPaye(c){
+  let p = 0;
+  if(c.paye_1) p += (c.montant_1||0);
+  if(c.paye_2) p += (c.montant_2||0);
+  if(c.paye_3) p += (c.montant_3||0);
+  return p;
+}
+function creditMontantTotal(c){ return (c.montant_1||0)+(c.montant_2||0)+(c.montant_3||0); }
+
 function updateCreditStats(){
   const total = _allCredit.length;
-  const actif = _allCredit.filter(c => c.statut === 'en_cours').length;
-  const montantDu = _allCredit.reduce((s,c) => s + (c.montant_restant||0), 0);
-  const montantPercu = _allCredit.reduce((s,c) => s + (c.montant_paye||0), 0);
+  const enVerif = _allCredit.filter(c => c.statut_compte === 'en_verification').length;
+  const montantDu = _allCredit.reduce((s,c) => s + (creditMontantTotal(c) - creditMontantPaye(c)), 0);
+  const montantPercu = _allCredit.reduce((s,c) => s + creditMontantPaye(c), 0);
   document.getElementById('creditTotal').textContent = total;
-  document.getElementById('creditActif').textContent = actif;
+  document.getElementById('creditActif').textContent = enVerif;
   document.getElementById('creditMontantDu').textContent = montantDu.toLocaleString('fr-FR');
   document.getElementById('creditMontantPercu').textContent = montantPercu.toLocaleString('fr-FR');
 }
@@ -1534,12 +1535,23 @@ function filterCredit(f, el){
   renderCredit();
 }
 
+function creditStatutInfo(c){
+  // Priorité : statut du compte KYC, puis état des paiements
+  if(c.statut_compte === 'en_verification') return { cls:'credit-status-retard', label:'⏳ À vérifier' };
+  if(c.statut_compte === 'refuse')          return { cls:'credit-status-retard', label:'❌ Refusé' };
+  const paye = creditMontantPaye(c), tot = creditMontantTotal(c);
+  if(paye >= tot && tot > 0)                return { cls:'credit-status-solde',  label:'✅ Soldé' };
+  if(c.lost_mode_actif)                     return { cls:'credit-status-retard', label:'🔒 Verrouillé' };
+  if(c.statut_compte === 'valide')          return { cls:'credit-status-encours',label:'🟢 Validé' };
+  return { cls:'credit-status-encours', label:'En cours' };
+}
+
 function renderCredit(){
   const list = document.getElementById('creditList');
   let items = _allCredit;
-  if(_creditFilter === 'en_cours') items = items.filter(c => c.statut === 'en_cours');
-  else if(_creditFilter === 'solde') items = items.filter(c => c.statut === 'solde');
-  else if(_creditFilter === 'retard') items = items.filter(c => c.statut === 'retard');
+  if(_creditFilter === 'en_cours')   items = items.filter(c => c.statut_compte === 'en_verification');
+  else if(_creditFilter === 'solde') items = items.filter(c => creditMontantPaye(c) >= creditMontantTotal(c) && creditMontantTotal(c) > 0);
+  else if(_creditFilter === 'retard')items = items.filter(c => c.lost_mode_actif || c.statut_compte === 'refuse');
 
   if(!items.length){
     list.innerHTML = '<div style="text-align:center;color:var(--grey);padding:40px;">Aucun dossier trouvé</div>';
@@ -1547,143 +1559,211 @@ function renderCredit(){
   }
 
   list.innerHTML = items.map(c => {
-    const statusClass = c.statut === 'en_cours' ? 'credit-status-encours' : c.statut === 'solde' ? 'credit-status-solde' : 'credit-status-retard';
-    const statusLabel = c.statut === 'en_cours' ? 'En cours' : c.statut === 'solde' ? 'Soldé' : 'En retard';
-    const echeances = c.echeances ? JSON.parse(typeof c.echeances === 'string' ? c.echeances : JSON.stringify(c.echeances)) : [];
-    const moisRestant = echeances.filter(e => !e.payee).length;
-    const pct = c.montant_total ? Math.round((c.montant_paye||0) / c.montant_total * 100) : 0;
-
-    return `<div class="credit-card" onclick="openCreditModal(${c.id})">
+    const si = creditStatutInfo(c);
+    const tot = creditMontantTotal(c), paye = creditMontantPaye(c);
+    const restant = tot - paye;
+    const pct = tot ? Math.round(paye / tot * 100) : 0;
+    const versRestants = [c.paye_1,c.paye_2,c.paye_3].filter(p=>!p).length;
+    return `<div class="credit-card" onclick="openCreditModal('${c.dossier_id}')">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
         <div>
           <div style="font-weight:700;font-size:15px;color:var(--white);">${c.client_nom || '—'}</div>
-          <div style="font-size:12px;color:var(--grey);margin-top:2px;">📱 ${c.produit_nom || '—'} &nbsp;|&nbsp; 📞 ${c.client_tel || '—'}</div>
+          <div style="font-size:12px;color:var(--grey);margin-top:2px;">📱 ${c.appareil || '—'} &nbsp;|&nbsp; 📞 ${c.client_tel || '—'}</div>
         </div>
-        <span class="${statusClass}">${statusLabel}</span>
+        <span class="${si.cls}">${si.label}</span>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px;">
         <div style="background:rgba(0,0,0,0.2);border-radius:8px;padding:8px;text-align:center;">
           <div style="font-size:11px;color:var(--grey);">TOTAL</div>
-          <div style="font-size:13px;font-weight:700;color:var(--white);">${(c.montant_total||0).toLocaleString('fr-FR')}</div>
+          <div style="font-size:13px;font-weight:700;color:var(--white);">${tot.toLocaleString('fr-FR')}</div>
         </div>
         <div style="background:rgba(0,229,100,0.06);border-radius:8px;padding:8px;text-align:center;">
           <div style="font-size:11px;color:var(--grey);">PAYÉ</div>
-          <div style="font-size:13px;font-weight:700;color:#00e564;">${(c.montant_paye||0).toLocaleString('fr-FR')}</div>
+          <div style="font-size:13px;font-weight:700;color:#00e564;">${paye.toLocaleString('fr-FR')}</div>
         </div>
         <div style="background:rgba(255,145,0,0.06);border-radius:8px;padding:8px;text-align:center;">
           <div style="font-size:11px;color:var(--grey);">RESTANT</div>
-          <div style="font-size:13px;font-weight:700;color:#ff9100;">${(c.montant_restant||0).toLocaleString('fr-FR')}</div>
+          <div style="font-size:13px;font-weight:700;color:#ff9100;">${restant.toLocaleString('fr-FR')}</div>
         </div>
       </div>
       <div style="background:rgba(0,0,0,0.2);border-radius:6px;height:6px;overflow:hidden;margin-bottom:8px;">
         <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,var(--blue),var(--cyan));border-radius:6px;transition:width 0.5s;"></div>
       </div>
       <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--grey);">
-        <span>⏳ ${moisRestant} mois restant${moisRestant>1?'s':''}</span>
+        <span>⏳ ${versRestants} versement${versRestants>1?'s':''} restant${versRestants>1?'s':''}</span>
         <span>${pct}% remboursé</span>
       </div>
     </div>`;
   }).join('');
 }
 
-async function openCreditModal(id){
-  const c = _allCredit.find(x => x.id === id);
+async function openCreditModal(dossierId){
+  const c = _allCredit.find(x => x.dossier_id === dossierId);
   if(!c) return;
   const modal = document.getElementById('creditModal');
   const content = document.getElementById('creditModalContent');
-  const echeances = c.echeances ? (typeof c.echeances === 'string' ? JSON.parse(c.echeances) : c.echeances) : [];
 
-  const docsHtml = c.documents ? (Array.isArray(c.documents) ? c.documents : [c.documents])
-    .map(d => `<a href="${d}" target="_blank" style="display:inline-block;background:rgba(0,200,255,0.08);border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:12px;color:var(--cyan);text-decoration:none;margin:4px;">📄 Voir document</a>`).join('') 
-    : '<span style="color:var(--grey);font-size:12px;">Aucun document</span>';
+  content.innerHTML = '<div style="text-align:center;color:var(--grey);padding:30px;">Chargement des documents...</div>';
+  modal.style.display = 'flex';
 
-  const echeancesHtml = echeances.map((e, i) => {
-    const cls = e.payee ? 'echeance-payee' : new Date(e.date) < new Date() ? 'echeance-retard' : 'echeance-due';
-    const icon = e.payee ? '✅' : new Date(e.date) < new Date() ? '⚠️' : '📅';
+  // Récupérer les URLs signées des 5 documents
+  const docPaths = [
+    { key:'doc_cni',           label:'CNI Recto' },
+    { key:'doc_cni_verso',     label:'CNI Verso' },
+    { key:'doc_selfie',        label:'Selfie + CNI' },
+    { key:'doc_cni_legalisee', label:'CNI Légalisée' },
+    { key:'doc_residence',     label:'Certificat résidence' }
+  ];
+  const paths = docPaths.map(d => c[d.key]).filter(Boolean);
+  let signedMap = {};
+  try {
+    const res = await fetch(BACKEND_CREDIT + '/credit-doc-url', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ paths })
+    });
+    const data = await res.json();
+    if(data.urls) data.urls.forEach(u => { signedMap[u.path] = u.url; });
+  } catch(e){}
+
+  const docsHtml = docPaths.map(d => {
+    const path = c[d.key];
+    if(!path) return `<div style="font-size:12px;color:var(--grey);margin:4px 0;">${d.label} : non fourni</div>`;
+    const url = signedMap[path];
+    if(!url) return `<div style="font-size:12px;color:#ff9100;margin:4px 0;">${d.label} : erreur de chargement</div>`;
+    return `<a href="${url}" target="_blank" style="display:block;margin:6px 0;background:rgba(0,200,255,0.06);border:1px solid var(--border);border-radius:10px;padding:8px;text-decoration:none;">
+      <div style="font-size:11px;color:var(--grey);margin-bottom:6px;">📄 ${d.label} — toucher pour agrandir</div>
+      <img src="${url}" style="width:100%;border-radius:8px;display:block;" loading="lazy">
+    </a>`;
+  }).join('');
+
+  const tot = creditMontantTotal(c), paye = creditMontantPaye(c);
+  const versements = [
+    { n:1, montant:c.montant_1, paye:c.paye_1, date:c.echeance_1, label:'Acompte (50%)' },
+    { n:2, montant:c.montant_2, paye:c.paye_2, date:c.echeance_2, label:'Versement 2' },
+    { n:3, montant:c.montant_3, paye:c.paye_3, date:c.echeance_3, label:'Versement 3' }
+  ];
+  const echeancesHtml = versements.map(v => {
+    const enRetard = !v.paye && v.date && new Date(v.date) < new Date();
+    const cls = v.paye ? 'echeance-payee' : enRetard ? 'echeance-retard' : 'echeance-due';
+    const icon = v.paye ? '✅' : enRetard ? '⚠️' : '📅';
     return `<div class="echeance-row">
-      <span>${icon} Échéance ${i+1} — ${e.date||'—'}</span>
+      <span>${icon} ${v.label} — ${v.date||'—'}</span>
       <div style="display:flex;align-items:center;gap:8px;">
-        <span class="${cls}" style="font-weight:700;">${(e.montant||0).toLocaleString('fr-FR')} FCFA</span>
-        ${!e.payee ? `<button onclick="marquerPayee(${id},${i})" style="background:rgba(0,229,100,0.15);border:1px solid rgba(0,229,100,0.3);color:#00e564;padding:3px 8px;border-radius:6px;font-size:11px;cursor:pointer;">✓ Payée</button>` : ''}
+        <span class="${cls}" style="font-weight:700;">${(v.montant||0).toLocaleString('fr-FR')} FCFA</span>
+        ${!v.paye ? `<button onclick="marquerVersementPaye('${c.dossier_id}',${v.n})" style="background:rgba(0,229,100,0.15);border:1px solid rgba(0,229,100,0.3);color:#00e564;padding:3px 8px;border-radius:6px;font-size:11px;cursor:pointer;">✓ Payé</button>` : ''}
       </div>
     </div>`;
   }).join('');
+
+  // Bloc actions selon le statut du compte
+  let actionsHtml = '';
+  if(c.statut_compte === 'en_verification'){
+    actionsHtml = `
+      <div style="background:rgba(0,200,255,0.05);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:14px;">
+        <div style="font-size:12px;color:var(--grey);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px;">⚖️ Décision</div>
+        <input id="deviceIdInput" placeholder="ID SimpleMDM du téléphone (ex: 2328240)" style="width:100%;background:rgba(0,0,0,0.3);border:1px solid var(--border);border-radius:8px;padding:10px;color:#fff;margin-bottom:8px;font-size:13px;">
+        <div style="display:flex;gap:8px;">
+          <button onclick="validerDossier('${c.dossier_id}')" style="flex:1;background:linear-gradient(135deg,#00994d,#00e564);border:none;color:#fff;padding:11px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">✅ Valider</button>
+          <button onclick="refuserDossier('${c.dossier_id}')" style="flex:1;background:linear-gradient(135deg,#cc2222,#ff5555);border:none;color:#fff;padding:11px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">❌ Refuser</button>
+        </div>
+      </div>`;
+  } else if(c.statut_compte === 'refuse'){
+    actionsHtml = `<div style="background:rgba(255,80,80,0.08);border:1px solid rgba(255,80,80,0.3);border-radius:12px;padding:14px;margin-bottom:14px;">
+      <div style="color:#ff6b6b;font-weight:700;margin-bottom:4px;">❌ Dossier refusé</div>
+      <div style="font-size:12px;color:var(--grey);">Motif : ${c.motif_refus || '—'}</div>
+    </div>`;
+  } else if(c.statut_compte === 'valide'){
+    actionsHtml = `<div style="background:rgba(0,229,100,0.06);border:1px solid rgba(0,229,100,0.25);border-radius:12px;padding:14px;margin-bottom:14px;">
+      <div style="color:#00e564;font-weight:700;margin-bottom:4px;">🟢 Dossier validé</div>
+      <div style="font-size:12px;color:var(--grey);">Device SimpleMDM : ${c.device_id || 'non renseigné'}</div>
+    </div>`;
+  }
 
   content.innerHTML = `
     <div style="margin-bottom:16px;">
       <div style="font-size:18px;font-weight:700;color:var(--white);margin-bottom:4px;">${c.client_nom||'—'}</div>
       <div style="font-size:13px;color:var(--grey);">📞 ${c.client_tel||'—'} &nbsp;|&nbsp; 📧 ${c.client_email||'—'}</div>
-      <div style="font-size:13px;color:var(--grey);margin-top:4px;">📍 ${c.client_adresse||'—'}</div>
+      <div style="font-size:12px;color:var(--grey);margin-top:4px;">Dossier ${c.dossier_id}</div>
     </div>
 
     <div style="background:rgba(0,0,0,0.2);border-radius:10px;padding:12px;margin-bottom:16px;">
-      <div style="font-size:12px;color:var(--grey);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px;">📱 Téléphone prêté</div>
-      <div style="font-weight:700;color:var(--white);">${c.produit_nom||'—'}</div>
-      <div style="font-size:12px;color:var(--grey);">${c.imei||'IMEI non renseigné'}</div>
-      ${c.imei ? `<button onclick="localiserIphone('${c.imei}','${c.client_nom}')" style="margin-top:8px;background:linear-gradient(135deg,rgba(0,80,255,0.2),rgba(0,200,255,0.15));border:1px solid rgba(0,200,255,0.3);color:var(--cyan);padding:7px 14px;border-radius:8px;font-size:12px;cursor:pointer;width:100%;">🔍 Localiser via Find My / IMEI</button>` : ''}
+      <div style="font-size:12px;color:var(--grey);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px;">📱 Téléphone</div>
+      <div style="font-weight:700;color:var(--white);">${c.appareil||'—'}</div>
+      <div style="font-size:12px;color:var(--grey);margin-top:2px;">Prix : ${(c.prix_total||0).toLocaleString('fr-FR')} FCFA</div>
     </div>
 
+    ${actionsHtml}
+
     <div style="margin-bottom:16px;">
-      <div style="font-size:12px;color:var(--grey);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px;">📄 Documents KYC</div>
+      <div style="font-size:12px;color:var(--grey);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px;">📄 Documents KYC (liens valides 5 min)</div>
       ${docsHtml}
     </div>
 
     <div style="margin-bottom:16px;">
       <div style="font-size:12px;color:var(--grey);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px;">📅 Échéancier</div>
-      ${echeancesHtml || '<div style="color:var(--grey);font-size:12px;">Aucune échéance définie</div>'}
+      ${echeancesHtml}
     </div>
 
-    <div style="display:flex;gap:8px;flex-wrap:wrap;">
-      <a href="https://wa.me/221${(c.client_tel||'').replace(/\s/g,'')}" target="_blank" style="flex:1;background:rgba(37,211,102,0.1);border:1px solid rgba(37,211,102,0.3);color:#25D366;padding:10px;border-radius:10px;text-align:center;text-decoration:none;font-size:13px;font-weight:600;">💬 WhatsApp</a>
-      <button onclick="updateCreditStatut(${id})" style="flex:1;background:rgba(0,229,255,0.08);border:1px solid var(--border);color:var(--cyan);padding:10px;border-radius:10px;font-size:13px;cursor:pointer;font-weight:600;">🔄 Changer statut</button>
+    <div style="display:flex;gap:8px;">
+      <a href="https://wa.me/221${(c.client_tel||'').replace(/\D/g,'')}" target="_blank" style="flex:1;background:rgba(37,211,102,0.1);border:1px solid rgba(37,211,102,0.3);color:#25D366;padding:10px;border-radius:10px;text-align:center;text-decoration:none;font-size:13px;font-weight:600;">💬 WhatsApp</a>
     </div>`;
-
-  modal.style.display = 'flex';
 }
 
-async function marquerPayee(creditId, echeanceIdx){
-  const c = _allCredit.find(x => x.id === creditId);
-  if(!c) return;
-  const echeances = typeof c.echeances === 'string' ? JSON.parse(c.echeances) : [...(c.echeances||[])];
-  echeances[echeanceIdx].payee = true;
-  echeances[echeanceIdx].date_paiement = new Date().toISOString().split('T')[0];
-
-  const montantPaye = (c.montant_paye||0) + (echeances[echeanceIdx].montant||0);
-  const montantRestant = (c.montant_total||0) - montantPaye;
-  const toutPayee = echeances.every(e => e.payee);
-
-  const { error } = await _supa.from('credit_applications').update({
-    echeances,
-    montant_paye: montantPaye,
-    montant_restant: montantRestant,
-    statut: toutPayee ? 'solde' : c.statut
-  }).eq('id', creditId);
-
-  if(!error){
-    showToast('✅ Échéance marquée payée !');
-    await loadCredit();
-    openCreditModal(creditId);
-  } else {
-    showToast('❌ Erreur: ' + error.message);
-  }
+async function validerDossier(dossierId){
+  const deviceId = (document.getElementById('deviceIdInput')?.value || '').trim();
+  if(!deviceId){ alert('⚠️ Renseigne l\'ID SimpleMDM du téléphone avant de valider.'); return; }
+  if(!confirm('Valider ce dossier ? Le client pourra payer l\'acompte.')) return;
+  const c = _allCredit.find(x => x.dossier_id === dossierId);
+  const { error } = await _supa.from('credit_phones').update({
+    statut_compte: 'valide',
+    device_id: deviceId,
+    valide_at: new Date().toISOString()
+  }).eq('dossier_id', dossierId);
+  if(error){ showToast('❌ Erreur: ' + error.message); return; }
+  // Notification client
+  await _supa.from('notifications').insert({
+    dossier_id: dossierId, user_id: c?.user_id || null, pour_admin: false,
+    titre: 'Compte validé ✅',
+    message: 'Votre dossier de crédit a été validé. Vous pouvez procéder au paiement de l\'acompte.',
+    type: 'succes'
+  });
+  showToast('✅ Dossier validé');
+  await loadCredit();
+  openCreditModal(dossierId);
 }
 
-async function updateCreditStatut(id){
-  const c = _allCredit.find(x => x.id === id);
-  if(!c) return;
-  const statuts = ['en_cours','solde','retard'];
-  const labels = {'en_cours':'En cours','solde':'Soldé','retard':'En retard'};
-  const next = statuts[(statuts.indexOf(c.statut)+1) % statuts.length];
-  if(!confirm(`Changer statut vers "${labels[next]}" ?`)) return;
-  const { error } = await _supa.from('credit_applications').update({ statut: next }).eq('id', id);
-  if(!error){ showToast('✅ Statut mis à jour'); await loadCredit(); openCreditModal(id); }
+async function refuserDossier(dossierId){
+  const motif = prompt('Motif du refus (visible par le client) :');
+  if(motif === null) return;
+  const c = _allCredit.find(x => x.dossier_id === dossierId);
+  const { error } = await _supa.from('credit_phones').update({
+    statut_compte: 'refuse',
+    motif_refus: motif || 'Documents non conformes',
+    refuse_at: new Date().toISOString()
+  }).eq('dossier_id', dossierId);
+  if(error){ showToast('❌ Erreur: ' + error.message); return; }
+  await _supa.from('notifications').insert({
+    dossier_id: dossierId, user_id: c?.user_id || null, pour_admin: false,
+    titre: 'Dossier refusé',
+    message: 'Malheureusement, nous n\'avons pas pu valider vos documents. Motif : ' + (motif || 'Documents non conformes'),
+    type: 'refus'
+  });
+  showToast('Dossier refusé');
+  await loadCredit();
+  openCreditModal(dossierId);
 }
 
-function localiserIphone(imei, nom){
-  const msg = `Pour localiser l'iPhone de ${nom} (IMEI: ${imei}), utilisez :\n\n1. iCloud.com → Find My\n2. Ou signalez l'IMEI volé sur les opérateurs\n\nVoulez-vous ouvrir iCloud Find My ?`;
-  if(confirm(msg)){
-    window.open('https://www.icloud.com/find', '_blank');
-  }
+async function marquerVersementPaye(dossierId, n){
+  if(!confirm('Marquer le versement ' + n + ' comme payé ?')) return;
+  const patch = {};
+  patch['paye_' + n] = true;
+  patch['paye_' + n + '_at'] = new Date().toISOString();
+  const { error } = await _supa.from('credit_phones').update(patch).eq('dossier_id', dossierId);
+  if(error){ showToast('❌ Erreur: ' + error.message); return; }
+  showToast('✅ Versement ' + n + ' marqué payé');
+  await loadCredit();
+  openCreditModal(dossierId);
 }
 
 async function deleteProd(id, nom){

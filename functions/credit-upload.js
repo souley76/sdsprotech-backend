@@ -18,16 +18,18 @@ export async function onRequestPost(context) {
   catch { return new Response(JSON.stringify({ error: "JSON invalide" }), { status: 400, headers: CORS }); }
 
   const {
-    user_id, client_nom, client_tel, client_email,
-    numero_cni, appareil, device_id, prix_total,
-    doc_cni, doc_residence, doc_selfie   // chacun = { data: base64, type: "image/jpeg" }
+    user_id, client_nom, client_tel, client_email, client_adresse,
+    numero_cni, appareil, produit_id, prix_total,
+    doc_cni_recto, doc_cni_verso, doc_selfie, doc_cni_legalisee, doc_residence
+    // chaque doc = { data: base64, type: "image/jpeg" }
   } = body;
 
   // ── Validation des champs obligatoires ──────────────────────
-  if (!user_id || !client_nom || !client_tel || !numero_cni || !appareil)
+  if (!user_id || !client_nom || !client_tel || !appareil)
     return new Response(JSON.stringify({ error: "Champs requis manquants" }), { status: 400, headers: CORS });
-  if (!doc_cni?.data || !doc_residence?.data || !doc_selfie?.data)
-    return new Response(JSON.stringify({ error: "Les 3 documents sont requis" }), { status: 400, headers: CORS });
+
+  if (!doc_cni_recto?.data || !doc_cni_verso?.data || !doc_selfie?.data || !doc_cni_legalisee?.data || !doc_residence?.data)
+    return new Response(JSON.stringify({ error: "Les 5 documents sont requis" }), { status: 400, headers: CORS });
 
   const prixTotalNum = parseInt(prix_total, 10);
   if (!Number.isInteger(prixTotalNum) || prixTotalNum <= 0)
@@ -71,35 +73,40 @@ export async function onRequestPost(context) {
   let chemins;
   try {
     chemins = {
-      doc_cni:       await uploadDoc(doc_cni, "cni"),
-      doc_residence: await uploadDoc(doc_residence, "residence"),
-      doc_selfie:    await uploadDoc(doc_selfie, "selfie")
+      doc_cni:           await uploadDoc(doc_cni_recto, "cni_recto"),
+      doc_cni_verso:     await uploadDoc(doc_cni_verso, "cni_verso"),
+      doc_selfie:        await uploadDoc(doc_selfie, "selfie"),
+      doc_cni_legalisee: await uploadDoc(doc_cni_legalisee, "cni_legalisee"),
+      doc_residence:     await uploadDoc(doc_residence, "residence")
     };
   } catch (e) {
     return new Response(JSON.stringify({ error: "Échec upload documents", details: e.message }), { status: 500, headers: CORS });
   }
 
-  // ── Calcul échéances (J, J+3, J+6) et acompte 50% ───────────
+  // ── Calcul échéances (J, J+3, J+6) et répartition 50/25/25 ──
   const today = new Date();
   const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x.toISOString().slice(0, 10); };
-  const acompte  = Math.round(prixTotalNum * 0.5);
-  const reste    = prixTotalNum - acompte;
-  const versement2 = Math.round(reste / 2);
+  const acompte    = Math.ceil(prixTotalNum * 0.5);
+  const reste      = prixTotalNum - acompte;
+  const versement2 = Math.ceil(reste / 2);
   const versement3 = reste - versement2;
 
   // ── Insérer le dossier dans credit_phones ───────────────────
   const insertBody = {
     dossier_id, user_id,
     client_nom, client_tel, client_email: client_email || null,
-    device_id: device_id || "", appareil,
-    numero_cni, prix_total: prixTotalNum,
+    device_id: "", appareil,
+    numero_cni: numero_cni || null,
+    prix_total: prixTotalNum,
     montant_1: acompte, montant_2: versement2, montant_3: versement3,
     echeance_1: addDays(today, 0),
     echeance_2: addDays(today, 3),
     echeance_3: addDays(today, 6),
-    doc_cni: chemins.doc_cni,
-    doc_residence: chemins.doc_residence,
-    doc_selfie: chemins.doc_selfie,
+    doc_cni:           chemins.doc_cni,
+    doc_cni_verso:     chemins.doc_cni_verso,
+    doc_selfie:        chemins.doc_selfie,
+    doc_cni_legalisee: chemins.doc_cni_legalisee,
+    doc_residence:     chemins.doc_residence,
     statut_compte: "en_verification",
     docs_envoyes_at: new Date().toISOString(),
     statut: "actif",
@@ -148,6 +155,6 @@ export async function onRequestPost(context) {
     success: true,
     dossier_id,
     statut_compte: "en_verification",
-    montants: { acompte, versement2, versement3 }
+    montants: { acompte, versement2, versement3, frais_mdm: 10000 }
   }), { status: 200, headers: CORS });
 }

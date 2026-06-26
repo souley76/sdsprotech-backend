@@ -15,11 +15,20 @@ async function runCron(context) {
   const { request, env } = context;
   const CORS = CORS_HEADERS(env);
 
-  // ── Sécurité : vérifier le secret ───────────────────────────
+  // ── Sécurité : vérifier le secret (MODE DIAGNOSTIC TEMPORAIRE) ──
   const url = new URL(request.url);
   const provided = request.headers.get("x-cron-secret") || url.searchParams.get("secret");
   if (!env.CRON_SECRET || provided !== env.CRON_SECRET)
-    return new Response(JSON.stringify({ error: "Non autorisé" }), { status: 401, headers: CORS });
+    return new Response(JSON.stringify({
+      error: "Non autorisé",
+      debug: {
+        secret_recu_dans_url: provided,
+        longueur_recue: provided ? provided.length : 0,
+        variable_existe: !!env.CRON_SECRET,
+        longueur_variable: env.CRON_SECRET ? env.CRON_SECRET.length : 0,
+        comparaison_ok: provided === env.CRON_SECRET
+      }
+    }), { status: 401, headers: CORS });
 
   const SUPA_URL = (env.SUPABASE_URL || "").trim().replace(/\/$/, "");
   const SUPA_KEY = (env.SUPABASE_SERVICE_ROLE_KEY || "").trim();

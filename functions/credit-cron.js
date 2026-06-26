@@ -15,20 +15,11 @@ async function runCron(context) {
   const { request, env } = context;
   const CORS = CORS_HEADERS(env);
 
-  // ── Sécurité : vérifier le secret (MODE DIAGNOSTIC TEMPORAIRE) ──
+  // ── Sécurité : vérifier le secret ───────────────────────────
   const url = new URL(request.url);
   const provided = request.headers.get("x-cron-secret") || url.searchParams.get("secret");
   if (!env.CRON_SECRET || provided !== env.CRON_SECRET)
-    return new Response(JSON.stringify({
-      error: "Non autorisé",
-      debug: {
-        secret_recu_dans_url: provided,
-        longueur_recue: provided ? provided.length : 0,
-        variable_existe: !!env.CRON_SECRET,
-        longueur_variable: env.CRON_SECRET ? env.CRON_SECRET.length : 0,
-        comparaison_ok: provided === env.CRON_SECRET
-      }
-    }), { status: 401, headers: CORS });
+    return new Response(JSON.stringify({ error: "Non autorisé" }), { status: 401, headers: CORS });
 
   const SUPA_URL = (env.SUPABASE_URL || "").trim().replace(/\/$/, "");
   const SUPA_KEY = (env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
@@ -54,7 +45,7 @@ async function runCron(context) {
   }
 
   const MDM_AUTH = "Basic " + btoa(MDM_KEY + ":");
-  const MESSAGE = "Appareil verrouille par SDS ProTech. Paiement en attente. Reglez sur pay.sdsprotech.com";
+  const MESSAGE = "SECK DIGITAL SERVICES PRO. Cher client, votre versement est en attente. Pour debloquer votre telephone, connectez-vous a votre compte sur sdsprotech.com et reglez votre echeance. Pour toute question contactez-nous. Merci de votre confiance.";
   const PHONE   = env.COMPANY_PHONE || "+221770699739";
 
   const verrouilles = [];

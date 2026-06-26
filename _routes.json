@@ -9,7 +9,8 @@
     "/notifier",
     "/payeur",
     "/pawapay/*",
-    "/ai-chat"
+    "/ai-chat",
+    "/credit-upload"
   ],
   "exclude": []
 }

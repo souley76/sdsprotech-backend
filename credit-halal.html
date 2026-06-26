@@ -638,7 +638,8 @@ async function checkDossier(){
     if(dossier.statut_compte === 'valide'){
       badge.className = 'status-badge validated';
       badge.textContent = '✅ Compte validé';
-      details.innerHTML = '🎉 Votre dossier a été validé !<br>Produit : <strong>' + (dossier.appareil||'—') + '</strong><br>Acompte à régler : <strong style="color:var(--gold)">' + formatPrice(dossier.montant_1) + ' FCFA</strong> + ' + formatPrice(FRAIS_MDM) + ' FCFA MDM<br><br>Veuillez procéder au paiement.';
+      details.innerHTML = '🎉 Votre dossier a été validé !<br>Produit : <strong>' + (dossier.appareil||'—') + '</strong><br>Acompte à régler : <strong style="color:var(--gold)">' + formatPrice(dossier.montant_1) + ' FCFA</strong> + ' + formatPrice(FRAIS_MDM) + ' FCFA MDM<br><br>Veuillez procéder au paiement.' +
+        '<br><br><a href="/mon-credit.html" style="display:inline-block;background:linear-gradient(135deg,#0055ff,#00c8ff);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:12px;text-decoration:none;">💳 Régler mes versements →</a>';
     } else if(dossier.statut_compte === 'refuse'){
       badge.className = 'status-badge rejected';
       badge.textContent = '❌ Dossier refusé';

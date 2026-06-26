@@ -10,7 +10,8 @@
     "/payeur",
     "/pawapay/*",
     "/ai-chat",
-    "/credit-upload"
+    "/credit-upload",
+    "/credit-doc-url"
   ],
   "exclude": []
 }

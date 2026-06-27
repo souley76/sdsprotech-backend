@@ -197,6 +197,15 @@ export async function onRequestPost(context) {
           })
         });
       } catch(e) {}
+
+      // 5. Email échéancier au client (récap + liens versements restants)
+      try {
+        await fetch("https://sdsprotech-backend.pages.dev/credit-notify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ dossier_id, evenement: "versement" })
+        });
+      } catch(e) {}
     }
 
     return new Response(JSON.stringify({ ok: true, type: "credit", dossier: dossier_id, versement: numVersement }), { status: 200, headers: CORS });

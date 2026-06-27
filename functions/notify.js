@@ -31,8 +31,6 @@ export async function onRequestPost(context) {
   const refToken       = paydunya_token || "—";
 
   // ── Template HTML partagé (thème CLAIR — lisible partout) ───
-  //    Fond blanc + texte foncé : reste lisible même quand le client
-  //    mail force le mode clair (Zoho, Gmail). Évite le blanc-sur-blanc.
   function buildHtml(isClient) {
     const headerTitle = isClient
       ? "✅ Votre commande est confirmée"
@@ -195,22 +193,49 @@ export async function onRequestPost(context) {
 </html>`;
   }
 
+  // ── Générer le PDF de la facture via PDFShift (HTML client) ──
+  async function genererPdf(htmlContent) {
+    if (!env.PDFSHIFT_API_KEY) return null;
+    try {
+      const pdfRes = await fetch("https://api.pdfshift.io/v3/convert/pdf", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Basic " + btoa("api:" + env.PDFSHIFT_API_KEY)
+        },
+        body: JSON.stringify({ source: htmlContent, landscape: false, use_print: false })
+      });
+      if (!pdfRes.ok) return null;
+      const buf = await pdfRes.arrayBuffer();
+      let binary = "";
+      const bytes = new Uint8Array(buf);
+      const chunk = 8192;
+      for (let i = 0; i < bytes.length; i += chunk) {
+        binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+      }
+      return btoa(binary);
+    } catch (e) { return null; }
+  }
+
+  // Le PDF reprend la version "client" (confirmation), facture propre
+  const pdfBase64 = await genererPdf(buildHtml(true));
+  const nomFichier = `Facture-${refCmd}.pdf`;
+
   const errors = [];
 
   // ── 1. Email marchand ───────────────────────────────────────
   try {
+    const payloadMarchand = {
+      from: `${companyName} <contact@sdsprotech.com>`,
+      to:   [companyEmail],
+      subject: `🔔 Nouvelle commande #${refCmd} — ${client_nom || "Client"} — ${total || ""}`,
+      html: buildHtml(false)
+    };
+    if (pdfBase64) payloadMarchand.attachments = [{ filename: nomFichier, content: pdfBase64 }];
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer " + env.RESEND_API_KEY
-      },
-      body: JSON.stringify({
-        from: `${companyName} <contact@sdsprotech.com>`,
-        to:   [companyEmail],
-        subject: `🔔 Nouvelle commande #${refCmd} — ${client_nom || "Client"} — ${total || ""}`,
-        html: buildHtml(false)
-      })
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + env.RESEND_API_KEY },
+      body: JSON.stringify(payloadMarchand)
     });
     if (!res.ok) {
       const d = await res.json();
@@ -221,18 +246,17 @@ export async function onRequestPost(context) {
   // ── 2. Email client (si email fourni) ───────────────────────
   if (client_email) {
     try {
+      const payloadClient = {
+        from: `${companyName} <contact@sdsprotech.com>`,
+        to:   [client_email],
+        subject: `✅ Confirmation de votre commande — ${companyName}`,
+        html: buildHtml(true)
+      };
+      if (pdfBase64) payloadClient.attachments = [{ filename: nomFichier, content: pdfBase64 }];
       const res = await fetch("https://api.resend.com/emails", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": "Bearer " + env.RESEND_API_KEY
-        },
-        body: JSON.stringify({
-          from: `${companyName} <contact@sdsprotech.com>`,
-          to:   [client_email],
-          subject: `✅ Confirmation de votre commande — ${companyName}`,
-          html: buildHtml(true)
-        })
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + env.RESEND_API_KEY },
+        body: JSON.stringify(payloadClient)
       });
       if (!res.ok) {
         const d = await res.json();
@@ -244,6 +268,7 @@ export async function onRequestPost(context) {
   return new Response(JSON.stringify({
     success: errors.length === 0,
     client_email_sent: !!client_email,
+    pdf_attached: !!pdfBase64,
     errors: errors.length > 0 ? errors : undefined
   }), { status: 200, headers: CORS });
 }

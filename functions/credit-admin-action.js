@@ -217,9 +217,45 @@ export async function onRequestPost(context) {
       }
     }
 
+    // Vérifier si les 3 versements sont désormais payés → passer en "solde"
+    try {
+      const r = await fetch(`${dossierUrl}&select=paye_1,paye_2,paye_3,statut_compte`, { headers: H_READ });
+      const rows = await r.json();
+      const d = rows && rows[0];
+      if (d && d.paye_1 && d.paye_2 && d.paye_3 && d.statut_compte === "valide") {
+        await patchDossier({ statut_compte: "solde", solde_at: new Date().toISOString() });
+        await insertNotif({
+          dossier_id, user_id: dossier.user_id || null, pour_admin: false,
+          titre: "Crédit soldé 🎉",
+          message: "Félicitations, vous avez réglé l'intégralité de votre crédit. Le téléphone vous appartient pleinement.",
+          type: "succes"
+        });
+      }
+    } catch(e) {}
+
     return new Response(JSON.stringify({ success: true, action: "marquer_paye", versement: num }), { status: 200, headers: CORS });
   }
 
+  // ════════════════════════════════════════════════════════════
+  // ── ACTION : MARQUER / RETIRER LITIGE (admin) ──────────────
+  // ════════════════════════════════════════════════════════════
+  if (action === "marquer_litige") {
+    const upd = await patchDossier({ litige_en_cours: true });
+    if (!upd.ok) {
+      const t = await upd.text();
+      return new Response(JSON.stringify({ error: "Échec mise à jour", details: t }), { status: 500, headers: CORS });
+    }
+    return new Response(JSON.stringify({ success: true, action: "marquer_litige" }), { status: 200, headers: CORS });
+  }
+
+  if (action === "retirer_litige") {
+    const upd = await patchDossier({ litige_en_cours: false });
+    if (!upd.ok) {
+      const t = await upd.text();
+      return new Response(JSON.stringify({ error: "Échec mise à jour", details: t }), { status: 500, headers: CORS });
+    }
+    return new Response(JSON.stringify({ success: true, action: "retirer_litige" }), { status: 200, headers: CORS });
+  }
   // ════════════════════════════════════════════════════════════
   // ── ACTION : VERROUILLER (manuel, via SimpleMDM lost mode) ──
   // ════════════════════════════════════════════════════════════

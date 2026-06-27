@@ -111,10 +111,93 @@ async function runCron(context) {
     }
   }
 
+  // ════════════════════════════════════════════════════════════
+  // ── SUPPRESSION RGPD : documents à effacer après J+90 ───────
+  // (statut suppression_demandee, échéance atteinte, hors litige)
+  // ════════════════════════════════════════════════════════════
+  const supprimes = [];
+  const BUCKET = "credit-docs";
+  const DOC_COLS = ["doc_cni", "doc_cni_verso", "doc_selfie", "doc_cni_legalisee", "doc_residence"];
+
+  let aSupprimer = [];
+  try {
+    const res = await fetch(
+      `${SUPA_URL}/rest/v1/credit_phones?statut_compte=eq.suppression_demandee` +
+      `&litige_en_cours=eq.false&suppression_prevue=lte.${today}` +
+      `&select=dossier_id,user_id,client_nom,${DOC_COLS.join(",")}`,
+      { headers: { "apikey": SUPA_KEY, "Authorization": "Bearer " + SUPA_KEY } }
+    );
+    aSupprimer = await res.json();
+  } catch (e) {
+    aSupprimer = [];
+  }
+
+  for (const d of (Array.isArray(aSupprimer) ? aSupprimer : [])) {
+    // Rassembler les chemins de fichiers existants
+    const paths = DOC_COLS.map(col => d[col]).filter(Boolean);
+
+    // 1. Supprimer les fichiers du bucket privé via l'API Storage
+    let fichiersSupprimes = false;
+    if (paths.length > 0) {
+      try {
+        const delRes = await fetch(`${SUPA_URL}/storage/v1/object/${BUCKET}`, {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+            "apikey": SUPA_KEY,
+            "Authorization": "Bearer " + SUPA_KEY
+          },
+          body: JSON.stringify({ prefixes: paths })
+        });
+        fichiersSupprimes = delRes.ok;
+      } catch (e) {}
+    } else {
+      fichiersSupprimes = true; // rien à supprimer
+    }
+
+    // 2. Vider les colonnes documents + passer en "supprime"
+    try {
+      const patch = { statut_compte: "supprime", supprime_at: new Date().toISOString() };
+      DOC_COLS.forEach(col => { patch[col] = null; });
+      await fetch(`${SUPA_URL}/rest/v1/credit_phones?dossier_id=eq.${encodeURIComponent(d.dossier_id)}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": SUPA_KEY,
+          "Authorization": "Bearer " + SUPA_KEY,
+          "Prefer": "return=minimal"
+        },
+        body: JSON.stringify(patch)
+      });
+
+      // 3. Notifier le client
+      await fetch(`${SUPA_URL}/rest/v1/notifications`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": SUPA_KEY,
+          "Authorization": "Bearer " + SUPA_KEY,
+          "Prefer": "return=minimal"
+        },
+        body: JSON.stringify({
+          dossier_id: d.dossier_id, user_id: d.user_id || null, pour_admin: false,
+          titre: "Documents supprimes",
+          message: "Vos documents ont ete definitivement supprimes de nos serveurs. Vous pouvez desormais faire une nouvelle demande de credit si vous le souhaitez.",
+          type: "info"
+        })
+      }).catch(()=>{});
+
+      supprimes.push({ dossier: d.dossier_id, fichiers: paths.length, ok: fichiersSupprimes });
+    } catch (e) {
+      supprimes.push({ dossier: d.dossier_id, error: e.message });
+    }
+  }
+
   return new Response(JSON.stringify({
     success: true,
     date: today,
     dossiers_examines: Array.isArray(dossiers) ? dossiers.length : 0,
-    verrouilles
+    verrouilles,
+    supprimes
   }), { status: 200, headers: CORS });
 }

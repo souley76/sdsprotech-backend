@@ -1491,7 +1491,22 @@ async function saveProdModal(){
 
 // ── CRÉDIT PHONE (KYC + échéances) ─────────────────────────────
 const BACKEND_CREDIT = 'https://sdsprotech-backend.pages.dev';
+// Secret partagé avec le backend (variable ADMIN_SECRET côté Cloudflare)
+const ADMIN_SECRET = 'admin-sds-9k2x-7613';
 let _allCredit = [], _creditFilter = 'tous';
+
+// Appelle le backend service-role pour toute action admin sur un dossier crédit
+async function creditAdminAction(payload){
+  const res = await fetch(BACKEND_CREDIT + '/credit-admin-action', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...payload, admin_secret: ADMIN_SECRET })
+  });
+  let data = {};
+  try { data = await res.json(); } catch(_) {}
+  if(!res.ok || !data.success) throw new Error(data.error || 'Erreur serveur');
+  return data;
+}
 
 async function loadCredit(){
   const list = document.getElementById('creditList');
@@ -1714,56 +1729,39 @@ async function validerDossier(dossierId){
   const deviceId = (document.getElementById('deviceIdInput')?.value || '').trim();
   if(!deviceId){ alert('⚠️ Renseigne l\'ID SimpleMDM du téléphone avant de valider.'); return; }
   if(!confirm('Valider ce dossier ? Le client pourra payer l\'acompte.')) return;
-  const c = _allCredit.find(x => x.dossier_id === dossierId);
-  const { error } = await _supa.from('credit_phones').update({
-    statut_compte: 'valide',
-    device_id: deviceId,
-    valide_at: new Date().toISOString()
-  }).eq('dossier_id', dossierId);
-  if(error){ showToast('❌ Erreur: ' + error.message); return; }
-  // Notification client
-  await _supa.from('notifications').insert({
-    dossier_id: dossierId, user_id: c?.user_id || null, pour_admin: false,
-    titre: 'Compte validé ✅',
-    message: 'Votre dossier de crédit a été validé. Vous pouvez procéder au paiement de l\'acompte.',
-    type: 'succes'
-  });
-  showToast('✅ Dossier validé');
-  await loadCredit();
-  openCreditModal(dossierId);
+  try {
+    await creditAdminAction({ action: 'valider', dossier_id: dossierId, device_id: deviceId });
+    showToast('✅ Dossier validé');
+    await loadCredit();
+    openCreditModal(dossierId);
+  } catch(e){
+    showToast('❌ Erreur : ' + e.message);
+  }
 }
 
 async function refuserDossier(dossierId){
   const motif = prompt('Motif du refus (visible par le client) :');
   if(motif === null) return;
-  const c = _allCredit.find(x => x.dossier_id === dossierId);
-  const { error } = await _supa.from('credit_phones').update({
-    statut_compte: 'refuse',
-    motif_refus: motif || 'Documents non conformes',
-    refuse_at: new Date().toISOString()
-  }).eq('dossier_id', dossierId);
-  if(error){ showToast('❌ Erreur: ' + error.message); return; }
-  await _supa.from('notifications').insert({
-    dossier_id: dossierId, user_id: c?.user_id || null, pour_admin: false,
-    titre: 'Dossier refusé',
-    message: 'Malheureusement, nous n\'avons pas pu valider vos documents. Motif : ' + (motif || 'Documents non conformes'),
-    type: 'refus'
-  });
-  showToast('Dossier refusé');
-  await loadCredit();
-  openCreditModal(dossierId);
+  try {
+    await creditAdminAction({ action: 'refuser', dossier_id: dossierId, motif: motif || 'Documents non conformes' });
+    showToast('Dossier refusé');
+    await loadCredit();
+    openCreditModal(dossierId);
+  } catch(e){
+    showToast('❌ Erreur : ' + e.message);
+  }
 }
 
 async function marquerVersementPaye(dossierId, n){
   if(!confirm('Marquer le versement ' + n + ' comme payé ?')) return;
-  const patch = {};
-  patch['paye_' + n] = true;
-  patch['paye_' + n + '_at'] = new Date().toISOString();
-  const { error } = await _supa.from('credit_phones').update(patch).eq('dossier_id', dossierId);
-  if(error){ showToast('❌ Erreur: ' + error.message); return; }
-  showToast('✅ Versement ' + n + ' marqué payé');
-  await loadCredit();
-  openCreditModal(dossierId);
+  try {
+    await creditAdminAction({ action: 'marquer_paye', dossier_id: dossierId, numero_versement: n });
+    showToast('✅ Versement ' + n + ' marqué payé');
+    await loadCredit();
+    openCreditModal(dossierId);
+  } catch(e){
+    showToast('❌ Erreur : ' + e.message);
+  }
 }
 
 async function deleteProd(id, nom){

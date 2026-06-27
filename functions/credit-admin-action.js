@@ -13,23 +13,54 @@ export async function onRequestPost(context) {
   try { body = await request.json(); }
   catch { return new Response(JSON.stringify({ error: "JSON invalide" }), { status: 400, headers: CORS }); }
 
-  const { action, dossier_id, admin_secret } = body;
-
-  // ── 2. Sécurité : secret admin partagé ──────────────────────
-  // Empêche n'importe qui d'appeler ce backend pour valider un dossier.
-  if (!env.ADMIN_SECRET || admin_secret !== env.ADMIN_SECRET)
-    return new Response(JSON.stringify({ error: "Non autorisé" }), { status: 401, headers: CORS });
+  const { action, dossier_id, access_token } = body;
 
   if (!action)
     return new Response(JSON.stringify({ error: "Action manquante" }), { status: 400, headers: CORS });
 
   const SUPA_URL = (env.SUPABASE_URL || "").trim().replace(/\/$/, "");
   const SUPA_KEY = (env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+  const SUPA_ANON = (env.SUPABASE_ANON_KEY || env.SUPABASE_PUBLISHABLE_KEY || "").trim();
   if (!SUPA_URL || !SUPA_KEY)
     return new Response(JSON.stringify({ error: "Supabase non configuré" }), { status: 500, headers: CORS });
 
   const H_READ  = { "apikey": SUPA_KEY, "Authorization": "Bearer " + SUPA_KEY };
   const H_WRITE = { ...H_READ, "Content-Type": "application/json", "Prefer": "return=minimal" };
+
+  // ── SÉCURITÉ : vérifier le token de session de l'admin ──────
+  // 1) Le token doit être un token de session Supabase valide
+  // 2) Le user correspondant doit avoir role='admin' dans profiles
+  if (!access_token)
+    return new Response(JSON.stringify({ error: "Non autorisé (token manquant)" }), { status: 401, headers: CORS });
+
+  let adminUserId = null;
+  try {
+    const userRes = await fetch(`${SUPA_URL}/auth/v1/user`, {
+      headers: { "apikey": SUPA_ANON || SUPA_KEY, "Authorization": "Bearer " + access_token }
+    });
+    if (!userRes.ok)
+      return new Response(JSON.stringify({ error: "Non autorisé (token invalide)" }), { status: 401, headers: CORS });
+    const userData = await userRes.json();
+    adminUserId = userData && userData.id;
+  } catch (e) {
+    return new Response(JSON.stringify({ error: "Erreur vérification token", details: e.message }), { status: 500, headers: CORS });
+  }
+  if (!adminUserId)
+    return new Response(JSON.stringify({ error: "Non autorisé (utilisateur introuvable)" }), { status: 401, headers: CORS });
+
+  // Vérifier le rôle admin via service role (lecture fiable, contourne RLS)
+  try {
+    const profRes = await fetch(
+      `${SUPA_URL}/rest/v1/profiles?id=eq.${adminUserId}&select=role`,
+      { headers: H_READ }
+    );
+    const profRows = await profRes.json();
+    const role = profRows && profRows[0] && profRows[0].role;
+    if (role !== "admin")
+      return new Response(JSON.stringify({ error: "Accès refusé (rôle non admin)" }), { status: 403, headers: CORS });
+  } catch (e) {
+    return new Response(JSON.stringify({ error: "Erreur vérification rôle", details: e.message }), { status: 500, headers: CORS });
+  }
 
   // ════════════════════════════════════════════════════════════
   // ── ACTION : LISTER tous les dossiers (lecture admin) ───────

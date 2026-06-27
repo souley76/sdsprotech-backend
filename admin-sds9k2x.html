@@ -1719,9 +1719,17 @@ async function openCreditModal(dossierId){
       <div style="font-size:12px;color:var(--grey);">Motif : ${c.motif_refus || '—'}</div>
     </div>`;
   } else if(c.statut_compte === 'valide'){
+    const estVerrouille = c.lost_mode_actif;
+    const boutonVerrou = c.device_id ? (
+      estVerrouille
+        ? `<button onclick="deverrouillerTel('${c.dossier_id}')" style="flex:1;background:linear-gradient(135deg,#00994d,#00e564);border:none;color:#fff;padding:11px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">🔓 Déverrouiller</button>`
+        : `<button onclick="verrouillerTel('${c.dossier_id}')" style="flex:1;background:linear-gradient(135deg,#cc2222,#ff5555);border:none;color:#fff;padding:11px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">🔒 Verrouiller</button>`
+    ) : '<div style="font-size:12px;color:#ff9100;">⚠️ Pas de device_id : verrouillage impossible</div>';
     actionsHtml = `<div style="background:rgba(0,229,100,0.06);border:1px solid rgba(0,229,100,0.25);border-radius:12px;padding:14px;margin-bottom:14px;">
       <div style="color:#00e564;font-weight:700;margin-bottom:4px;">🟢 Dossier validé</div>
-      <div style="font-size:12px;color:var(--grey);">Device SimpleMDM : ${c.device_id || 'non renseigné'}</div>
+      <div style="font-size:12px;color:var(--grey);margin-bottom:4px;">Device SimpleMDM : ${c.device_id || 'non renseigné'}</div>
+      <div style="font-size:12px;color:${estVerrouille ? '#ff6b6b' : '#00e564'};margin-bottom:10px;font-weight:600;">${estVerrouille ? '🔒 Téléphone actuellement VERROUILLÉ' : '🔓 Téléphone actuellement déverrouillé'}</div>
+      <div style="display:flex;gap:8px;">${boutonVerrou}</div>
     </div>`;
   }
 
@@ -1787,6 +1795,30 @@ async function marquerVersementPaye(dossierId, n){
   try {
     await creditAdminAction({ action: 'marquer_paye', dossier_id: dossierId, numero_versement: n });
     showToast('✅ Versement ' + n + ' marqué payé');
+    await loadCredit();
+    openCreditModal(dossierId);
+  } catch(e){
+    showToast('❌ Erreur : ' + e.message);
+  }
+}
+
+async function verrouillerTel(dossierId){
+  if(!confirm('🔒 Verrouiller ce téléphone maintenant via SimpleMDM ?')) return;
+  try {
+    await creditAdminAction({ action: 'verrouiller', dossier_id: dossierId });
+    showToast('🔒 Téléphone verrouillé');
+    await loadCredit();
+    openCreditModal(dossierId);
+  } catch(e){
+    showToast('❌ Erreur : ' + e.message);
+  }
+}
+
+async function deverrouillerTel(dossierId){
+  if(!confirm('🔓 Déverrouiller ce téléphone via SimpleMDM ?')) return;
+  try {
+    await creditAdminAction({ action: 'deverrouiller', dossier_id: dossierId });
+    showToast('🔓 Téléphone déverrouillé');
     await loadCredit();
     openCreditModal(dossierId);
   } catch(e){

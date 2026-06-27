@@ -1517,16 +1517,18 @@ async function saveProdModal(){
 
 // ── CRÉDIT PHONE (KYC + échéances) ─────────────────────────────
 const BACKEND_CREDIT = 'https://sdsprotech-backend.pages.dev';
-// Secret partagé avec le backend (variable ADMIN_SECRET côté Cloudflare)
-const ADMIN_SECRET = 'admin-sds-9k2x-7613';
 let _allCredit = [], _creditFilter = 'tous';
 
-// Appelle le backend service-role pour toute action admin sur un dossier crédit
+// Appelle le backend service-role pour toute action admin sur un dossier crédit.
+// Sécurité : on envoie le token de session de l'admin connecté (vérifié côté backend).
 async function creditAdminAction(payload){
+  const { data: { session } } = await _supa.auth.getSession();
+  const token = session?.access_token;
+  if(!token) throw new Error('Session expirée, reconnecte-toi');
   const res = await fetch(BACKEND_CREDIT + '/credit-admin-action', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...payload, admin_secret: ADMIN_SECRET })
+    body: JSON.stringify({ ...payload, access_token: token })
   });
   let data = {};
   try { data = await res.json(); } catch(_) {}

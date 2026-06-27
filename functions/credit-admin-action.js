@@ -4,30 +4,6 @@ export async function onRequestOptions(context) {
   return handleOptions(context.env);
 }
 
-// ── MODE DIAGNOSTIC TEMPORAIRE (à retirer après) ────────────
-export async function onRequestGet(context) {
-  const { env } = context;
-  const CORS = CORS_HEADERS(env);
-  const SUPA_URL = (env.SUPABASE_URL || "").trim().replace(/\/$/, "");
-  const SUPA_KEY = (env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
-  let count = "?";
-  try {
-    const res = await fetch(`${SUPA_URL}/rest/v1/credit_phones?select=dossier_id`, {
-      headers: { "apikey": SUPA_KEY, "Authorization": "Bearer " + SUPA_KEY }
-    });
-    const rows = await res.json();
-    count = Array.isArray(rows) ? rows.length : JSON.stringify(rows);
-  } catch(e) { count = "ERREUR: " + e.message; }
-  return new Response(JSON.stringify({
-    diag: true,
-    admin_secret_existe: !!env.ADMIN_SECRET,
-    admin_secret_longueur: env.ADMIN_SECRET ? env.ADMIN_SECRET.length : 0,
-    supabase_url_ok: !!SUPA_URL,
-    service_key_ok: !!SUPA_KEY,
-    nombre_dossiers_lus: count
-  }), { status: 200, headers: CORS });
-}
-
 export async function onRequestPost(context) {
   const { request, env } = context;
   const CORS = CORS_HEADERS(env);

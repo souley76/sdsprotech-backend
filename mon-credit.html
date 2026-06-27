@@ -66,6 +66,8 @@ body{background:var(--deep);color:var(--white);font-family:'Outfit',sans-serif;o
 .btn-pay:active{transform:scale(0.98);}
 .btn-pay:disabled{opacity:0.5;cursor:not-allowed;}
 .btn-paid{width:100%;background:rgba(0,230,118,0.1);border:1px solid rgba(0,230,118,0.3);color:var(--green);font-weight:600;font-size:13px;padding:11px;border-radius:10px;text-align:center;}
+.btn-danger{width:100%;background:rgba(255,68,68,0.1);border:1px solid rgba(255,68,68,0.4);color:var(--red);font-weight:700;font-size:14px;padding:12px;border-radius:10px;cursor:pointer;font-family:'Outfit',sans-serif;margin-top:10px;}
+.btn-danger:active{transform:scale(0.98);}
 
 .loading{text-align:center;color:var(--grey);padding:50px 20px;font-size:14px;}
 .spinner{width:34px;height:34px;border:3px solid rgba(0,200,255,0.2);border-top-color:var(--cyan);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 14px;}
@@ -74,6 +76,17 @@ body{background:var(--deep);color:var(--white);font-family:'Outfit',sans-serif;o
 .toast.show{opacity:1;}
 .help-line{text-align:center;font-size:12px;color:var(--grey);margin-top:20px;line-height:1.7;}
 .help-line a{color:var(--cyan);text-decoration:none;}
+
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);backdrop-filter:blur(8px);z-index:300;align-items:center;justify-content:center;padding:18px;}
+.modal-overlay.show{display:flex;}
+.modal-box{background:var(--card);border:1px solid var(--gold-border);border-radius:18px;padding:24px;max-width:440px;width:100%;}
+.modal-title{font-family:'Rajdhani',sans-serif;font-size:18px;font-weight:700;color:var(--gold);margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+.modal-text{font-size:13px;color:var(--light);line-height:1.8;margin-bottom:18px;}
+.modal-text strong{color:var(--white);}
+.modal-warn{background:rgba(255,68,68,0.08);border:1px solid rgba(255,68,68,0.3);border-radius:10px;padding:12px;font-size:12px;color:#ffb0b0;line-height:1.7;margin-bottom:18px;}
+.modal-actions{display:flex;gap:10px;}
+.modal-btn-cancel{flex:1;background:transparent;border:1px solid var(--border);color:var(--grey);padding:12px;border-radius:10px;font-size:13px;cursor:pointer;}
+.modal-btn-confirm{flex:1;background:linear-gradient(135deg,#cc2222,#ff5555);border:none;color:#fff;padding:12px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;}
 </style>
 </head>
 <body>
@@ -125,6 +138,20 @@ body{background:var(--deep);color:var(--white);font-family:'Outfit',sans-serif;o
     <div class="info-desc" id="refuseDesc"></div>
   </div>
 
+  <!-- Suppression demandée -->
+  <div class="info-card" id="suppDemandee" style="display:none;">
+    <div class="info-icon">🗂️</div>
+    <div class="info-title">Suppression en cours</div>
+    <div class="info-desc" id="suppDemandeeDesc"></div>
+  </div>
+
+  <!-- Supprimé -->
+  <div class="info-card" id="supprime" style="display:none;">
+    <div class="info-icon">✅</div>
+    <div class="info-title">Documents supprimés</div>
+    <div class="info-desc">Vos documents ont été définitivement supprimés de nos serveurs.<br><br>Vous pouvez faire une nouvelle demande de crédit.<br><br><a href="/credit-halal.html" style="color:var(--gold);text-decoration:none;font-weight:600;">→ Nouvelle demande</a></div>
+  </div>
+
   <!-- Dossier validé : versements -->
   <div id="dossierValide" style="display:none;">
     <div class="dossier-head">
@@ -139,9 +166,31 @@ body{background:var(--deep);color:var(--white);font-family:'Outfit',sans-serif;o
       </div>
     </div>
     <div id="versementsList"></div>
+    <div id="soldeBox" style="display:none;"></div>
     <div class="help-line">
       Un problème pour payer ?<br>
       Contactez-nous au <a href="tel:+221770699739">+221 77 069 97 39</a>
+    </div>
+  </div>
+</div>
+
+<!-- Modal avertissement suppression -->
+<div class="modal-overlay" id="suppModal">
+  <div class="modal-box">
+    <div class="modal-title">🗑️ Supprimer mes documents</div>
+    <div class="modal-text">
+      Vous demandez la suppression définitive de vos documents personnels (CNI, selfie, justificatifs) de nos serveurs.
+    </div>
+    <div class="modal-warn">
+      ⚠️ <strong>À lire attentivement :</strong><br><br>
+      • Pour des raisons légales, nous conservons vos documents jusqu'à un délai maximum de <strong>90 jours</strong> avant suppression complète.<br><br>
+      • Pendant ce délai, vous <strong>ne pourrez pas</strong> faire de nouvelle demande de crédit.<br><br>
+      • Une fois la suppression complète effectuée, vous serez <strong>notifié</strong>, et vous devrez <strong>fournir à nouveau vos documents</strong> pour toute future demande (que nous pourrons accepter ou refuser).<br><br>
+      • Cette action est <strong>irréversible</strong>.
+    </div>
+    <div class="modal-actions">
+      <button class="modal-btn-cancel" onclick="fermerSuppModal()">Annuler</button>
+      <button class="modal-btn-confirm" id="suppConfirmBtn" onclick="confirmerSuppression()">Je confirme</button>
     </div>
   </div>
 </div>
@@ -167,7 +216,7 @@ const fmt = n => (n||0).toLocaleString('fr-FR');
 })();
 
 function hideAll(){
-  ['loadingBox','authWall','noDossier','enVerif','refuse','dossierValide'].forEach(id=>{
+  ['loadingBox','authWall','noDossier','enVerif','refuse','suppDemandee','supprime','dossierValide'].forEach(id=>{
     document.getElementById(id).style.display = 'none';
   });
 }
@@ -184,7 +233,7 @@ async function loadDossier(){
       .from('credit_phones')
       .select('dossier_id,appareil,statut_compte,motif_refus,prix_total,' +
               'montant_1,montant_2,montant_3,paye_1,paye_2,paye_3,' +
-              'echeance_1,echeance_2,echeance_3,created_at,lost_mode_actif')
+              'echeance_1,echeance_2,echeance_3,created_at,lost_mode_actif,suppression_prevue')
       .eq('user_id', _user.id)
       .order('created_at', { ascending: false })
       .limit(1);
@@ -223,7 +272,22 @@ async function loadDossier(){
     return;
   }
 
-  // Validé → afficher les versements
+  if(st === 'suppression_demandee'){
+    document.getElementById('suppDemandee').style.display = 'block';
+    const dateStr = _dossier.suppression_prevue ? new Date(_dossier.suppression_prevue).toLocaleDateString('fr-FR') : '—';
+    document.getElementById('suppDemandeeDesc').innerHTML =
+      'Votre demande de suppression a bien été enregistrée.<br><br>' +
+      'Vos documents seront définitivement supprimés au plus tard le <strong>' + dateStr + '</strong>.<br><br>' +
+      'Tant que la suppression n\'est pas complète, vous ne pouvez pas faire de nouvelle demande de crédit. Vous serez notifié une fois la suppression effectuée.';
+    return;
+  }
+
+  if(st === 'supprime'){
+    document.getElementById('supprime').style.display = 'block';
+    return;
+  }
+
+  // valide ou solde → afficher les versements
   renderVersements();
 }
 
@@ -276,6 +340,48 @@ function renderVersements(){
       actionHtml +
     '</div>';
   }).join('');
+
+  // Si le crédit est soldé → proposer la suppression des documents
+  const soldeBox = document.getElementById('soldeBox');
+  if(_dossier.statut_compte === 'solde'){
+    soldeBox.style.display = 'block';
+    soldeBox.innerHTML =
+      '<div class="info-card" style="border-color:rgba(0,230,118,0.3);margin-top:6px;">' +
+        '<div class="info-title" style="color:var(--green);">🎉 Crédit soldé</div>' +
+        '<div class="info-desc">Félicitations, vous avez réglé l\'intégralité de votre crédit. Le téléphone vous appartient pleinement.<br><br>' +
+        'Vous pouvez demander la suppression de vos documents personnels.</div>' +
+        '<button class="btn-danger" onclick="ouvrirSuppModal()">🗑️ Supprimer mes documents</button>' +
+      '</div>';
+  } else {
+    soldeBox.style.display = 'none';
+    soldeBox.innerHTML = '';
+  }
+}
+
+function ouvrirSuppModal(){ document.getElementById('suppModal').classList.add('show'); }
+function fermerSuppModal(){ document.getElementById('suppModal').classList.remove('show'); }
+
+async function confirmerSuppression(){
+  const btn = document.getElementById('suppConfirmBtn');
+  btn.disabled = true; btn.textContent = '⏳ Traitement...';
+  try {
+    const { data: { session } } = await _supa.auth.getSession();
+    const token = session?.access_token;
+    if(!token) throw new Error('Session expirée, reconnectez-vous');
+    const res = await fetch(BACKEND + '/credit-client-action', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'demander_suppression', dossier_id: _dossier.dossier_id, access_token: token })
+    });
+    const data = await res.json();
+    if(!res.ok || !data.success) throw new Error(data.error || 'Erreur');
+    fermerSuppModal();
+    showToast('✅ Demande enregistrée');
+    await loadDossier();
+  } catch(e){
+    showToast('❌ ' + e.message);
+    btn.disabled = false; btn.textContent = 'Je confirme';
+  }
 }
 
 async function payerVersement(n){

@@ -180,15 +180,15 @@ async function loadDossier(){
   }
 
   try {
-    const res = await fetch(
-      SUPA_URL + '/rest/v1/credit_phones?user_id=eq.' + encodeURIComponent(_user.id) +
-      '&order=created_at.desc&limit=1' +
-      '&select=dossier_id,appareil,statut_compte,motif_refus,prix_total,' +
-      'montant_1,montant_2,montant_3,paye_1,paye_2,paye_3,' +
-      'echeance_1,echeance_2,echeance_3,created_at,lost_mode_actif',
-      { headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY } }
-    );
-    const rows = await res.json();
+    const { data: rows, error } = await _supa
+      .from('credit_phones')
+      .select('dossier_id,appareil,statut_compte,motif_refus,prix_total,' +
+              'montant_1,montant_2,montant_3,paye_1,paye_2,paye_3,' +
+              'echeance_1,echeance_2,echeance_3,created_at,lost_mode_actif')
+      .eq('user_id', _user.id)
+      .order('created_at', { ascending: false })
+      .limit(1);
+    if (error) throw error;
     _dossier = Array.isArray(rows) ? rows[0] : null;
   } catch(e){
     hideAll();

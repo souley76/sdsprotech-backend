@@ -617,14 +617,13 @@ async function checkDossier(){
   }
   authWall.style.display = 'none';
 
-  // Lire le dossier le plus récent dans credit_phones
-  const res = await fetch(
-    SUPA_URL + '/rest/v1/credit_phones?user_id=eq.' + encodeURIComponent(_user.id) +
-    '&order=created_at.desc&limit=1' +
-    '&select=dossier_id,appareil,statut_compte,motif_refus,montant_1,montant_2,montant_3,prix_total,created_at',
-    { headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY } }
-  );
-  const dossiers = await res.json();
+  // Lire le dossier le plus récent dans credit_phones (via client authentifié)
+  const { data: dossiers } = await _supa
+    .from('credit_phones')
+    .select('dossier_id,appareil,statut_compte,motif_refus,montant_1,montant_2,montant_3,prix_total,created_at')
+    .eq('user_id', _user.id)
+    .order('created_at', { ascending: false })
+    .limit(1);
   const dossier = Array.isArray(dossiers) ? dossiers[0] : null;
 
   if(dossier){

@@ -142,6 +142,15 @@ export async function onRequestPost(context) {
       type: "succes"
     });
 
+    // Email échéancier de crédit (ne bloque pas la réponse en cas d'échec)
+    try {
+      await fetch("https://sdsprotech-backend.pages.dev/credit-notify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dossier_id, evenement: "validation" })
+      });
+    } catch (e) {}
+
     return new Response(JSON.stringify({
       success: true, action: "valider",
       echeances: { echeance_1: patch.echeance_1, echeance_2: patch.echeance_2, echeance_3: patch.echeance_3 }

@@ -108,11 +108,11 @@ export async function onRequestPost(context) {
         });
       } catch(e) {}
 
-      // 2. Récupérer le dossier pour le device_id et l'état de verrouillage
+      // 2. Récupérer le dossier (device_id, verrou, paiements, user)
       let dossier = null;
       try {
         const res = await fetch(
-          `${SUPA_URL}/rest/v1/credit_phones?dossier_id=eq.${encodeURIComponent(dossier_id)}&select=device_id,lost_mode_actif,client_nom`,
+          `${SUPA_URL}/rest/v1/credit_phones?dossier_id=eq.${encodeURIComponent(dossier_id)}&select=device_id,lost_mode_actif,client_nom,user_id,paye_1,paye_2,paye_3,statut_compte`,
           { headers: { "apikey": SUPA_KEY, "Authorization": "Bearer " + SUPA_KEY } }
         );
         const rows = await res.json();
@@ -142,6 +142,41 @@ export async function onRequestPost(context) {
             }
           } catch(e) {}
         }
+      }
+
+      // 3bis. Si les 3 versements sont payés → passer le dossier en "solde"
+      const tousPayes =
+        (numVersement === 1 || dossier?.paye_1) &&
+        (numVersement === 2 || dossier?.paye_2) &&
+        (numVersement === 3 || dossier?.paye_3);
+      if (dossier && tousPayes && dossier.statut_compte === "valide") {
+        try {
+          await fetch(`${SUPA_URL}/rest/v1/credit_phones?dossier_id=eq.${encodeURIComponent(dossier_id)}`, {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+              "apikey": SUPA_KEY,
+              "Authorization": "Bearer " + SUPA_KEY,
+              "Prefer": "return=minimal"
+            },
+            body: JSON.stringify({ statut_compte: "solde", solde_at: new Date().toISOString() })
+          });
+          await fetch(`${SUPA_URL}/rest/v1/notifications`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "apikey": SUPA_KEY,
+              "Authorization": "Bearer " + SUPA_KEY,
+              "Prefer": "return=minimal"
+            },
+            body: JSON.stringify({
+              dossier_id, user_id: dossier.user_id || null, pour_admin: false,
+              titre: "Credit solde",
+              message: "Felicitations, vous avez regle l'integralite de votre credit. Le telephone vous appartient pleinement.",
+              type: "succes"
+            })
+          });
+        } catch(e) {}
       }
 
       // 4. Notification admin

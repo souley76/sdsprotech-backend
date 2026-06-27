@@ -1643,10 +1643,10 @@ function renderCredit(){
 
 async function openCreditModal(dossierId){
   const c = _allCredit.find(x => x.dossier_id === dossierId);
-  if(!c){ alert('Dossier introuvable pour id: ' + dossierId); return; }
+  if(!c) return;
   const modal = document.getElementById('creditModal');
   const content = document.getElementById('creditModalContent');
-  if(!modal || !content){ alert('Modal manquant dans le DOM'); return; }
+  if(!modal || !content) return;
 
   content.innerHTML = '<div style="text-align:center;color:var(--grey);padding:30px;">Chargement des documents...</div>';
   modal.style.display = 'flex';
@@ -1891,18 +1891,17 @@ async function deleteProd(id, nom){
       <button onclick="closeProdModal()" style="padding:13px 20px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--grey);cursor:pointer;font-size:13px;">Annuler</button>
     </div>
   </div>
+</div>
 
-    <!-- MODAL DÉTAIL CRÉDIT -->
-    <div id="creditModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);backdrop-filter:blur(12px);z-index:200;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto;">
-      <div style="background:var(--card);border:1px solid var(--border);border-radius:20px;width:100%;max-width:520px;margin:auto;padding:24px;position:relative;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-          <div style="font-family:'Rajdhani',sans-serif;font-size:18px;font-weight:700;color:var(--cyan);">📋 Dossier Crédit</div>
-          <button onclick="document.getElementById('creditModal').style.display='none'" style="background:rgba(255,255,255,0.06);border:1px solid var(--border);color:#fff;width:30px;height:30px;border-radius:50%;cursor:pointer;">✕</button>
-        </div>
-        <div id="creditModalContent"></div>
-      </div>
+<!-- MODAL DÉTAIL CRÉDIT -->
+<div id="creditModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);backdrop-filter:blur(12px);z-index:200;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto;">
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:20px;width:100%;max-width:520px;margin:auto;padding:24px;position:relative;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <div style="font-family:'Rajdhani',sans-serif;font-size:18px;font-weight:700;color:var(--cyan);">📋 Dossier Crédit</div>
+      <button onclick="document.getElementById('creditModal').style.display='none'" style="background:rgba(255,255,255,0.06);border:1px solid var(--border);color:#fff;width:30px;height:30px;border-radius:50%;cursor:pointer;">✕</button>
     </div>
-
+    <div id="creditModalContent"></div>
+  </div>
 </div>
 
 </body>

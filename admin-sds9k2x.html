@@ -1638,9 +1638,10 @@ function renderCredit(){
 
 async function openCreditModal(dossierId){
   const c = _allCredit.find(x => x.dossier_id === dossierId);
-  if(!c) return;
+  if(!c){ alert('Dossier introuvable pour id: ' + dossierId); return; }
   const modal = document.getElementById('creditModal');
   const content = document.getElementById('creditModalContent');
+  if(!modal || !content){ alert('Modal manquant dans le DOM'); return; }
 
   content.innerHTML = '<div style="text-align:center;color:var(--grey);padding:30px;">Chargement des documents...</div>';
   modal.style.display = 'flex';

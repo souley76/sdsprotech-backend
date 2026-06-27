@@ -639,6 +639,23 @@ async function checkDossier(){
       badge.textContent = '✅ Compte validé';
       details.innerHTML = '🎉 Votre dossier a été validé !<br>Produit : <strong>' + (dossier.appareil||'—') + '</strong><br>Acompte à régler : <strong style="color:var(--gold)">' + formatPrice(dossier.montant_1) + ' FCFA</strong> + ' + formatPrice(FRAIS_MDM) + ' FCFA MDM<br><br>Veuillez procéder au paiement.' +
         '<br><br><a href="/mon-credit.html" style="display:inline-block;background:linear-gradient(135deg,#0055ff,#00c8ff);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:12px;text-decoration:none;">💳 Régler mes versements →</a>';
+    } else if(dossier.statut_compte === 'solde'){
+      badge.className = 'status-badge validated';
+      badge.textContent = '🎉 Crédit soldé';
+      details.innerHTML = 'Vous avez réglé l\'intégralité de votre crédit. Le téléphone vous appartient pleinement.<br><br>Pour faire une nouvelle demande, vous devez d\'abord demander la suppression de vos documents actuels depuis votre espace crédit.' +
+        '<br><br><a href="/mon-credit.html" style="display:inline-block;background:linear-gradient(135deg,#0055ff,#00c8ff);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:12px;text-decoration:none;">→ Mon espace crédit</a>';
+    } else if(dossier.statut_compte === 'suppression_demandee'){
+      badge.className = 'status-badge pending';
+      badge.textContent = '🗂️ Suppression en cours';
+      details.innerHTML = 'Votre demande de suppression de documents est en cours de traitement.<br><br>Vous pourrez faire une nouvelle demande de crédit une fois vos documents définitivement supprimés. Vous serez notifié.';
+    } else if(dossier.statut_compte === 'supprime'){
+      // Documents supprimés → nouvelle demande autorisée
+      statusPanel.style.display = 'none';
+      formSection.style.display = 'block';
+      const meta = _user.user_metadata || {};
+      document.getElementById('formNom').value   = meta.full_name || meta.name || '';
+      document.getElementById('formTel').value   = meta.phone || '';
+      document.getElementById('formEmail').value = _user.email || '';
     } else if(dossier.statut_compte === 'refuse'){
       badge.className = 'status-badge rejected';
       badge.textContent = '❌ Dossier refusé';

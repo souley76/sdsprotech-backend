@@ -1512,10 +1512,8 @@ async function loadCredit(){
   const list = document.getElementById('creditList');
   list.innerHTML = '<div style="text-align:center;color:var(--grey);padding:40px;">Chargement...</div>';
   try{
-    const { data, error } = await _supa.from('credit_phones')
-      .select('*').order('created_at', { ascending: false });
-    if(error) throw error;
-    _allCredit = data || [];
+    const data = await creditAdminAction({ action: 'lister' });
+    _allCredit = data.dossiers || [];
     updateCreditStats();
     renderCredit();
   } catch(e){

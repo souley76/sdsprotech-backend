@@ -20,8 +20,8 @@ export async function onRequestPost(context) {
   if (!env.ADMIN_SECRET || admin_secret !== env.ADMIN_SECRET)
     return new Response(JSON.stringify({ error: "Non autorisé" }), { status: 401, headers: CORS });
 
-  if (!dossier_id || !action)
-    return new Response(JSON.stringify({ error: "Paramètres manquants" }), { status: 400, headers: CORS });
+  if (!action)
+    return new Response(JSON.stringify({ error: "Action manquante" }), { status: 400, headers: CORS });
 
   const SUPA_URL = (env.SUPABASE_URL || "").trim().replace(/\/$/, "");
   const SUPA_KEY = (env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
@@ -30,6 +30,27 @@ export async function onRequestPost(context) {
 
   const H_READ  = { "apikey": SUPA_KEY, "Authorization": "Bearer " + SUPA_KEY };
   const H_WRITE = { ...H_READ, "Content-Type": "application/json", "Prefer": "return=minimal" };
+
+  // ════════════════════════════════════════════════════════════
+  // ── ACTION : LISTER tous les dossiers (lecture admin) ───────
+  // ════════════════════════════════════════════════════════════
+  if (action === "lister") {
+    try {
+      const res = await fetch(
+        `${SUPA_URL}/rest/v1/credit_phones?select=*&order=created_at.desc`,
+        { headers: H_READ }
+      );
+      const rows = await res.json();
+      return new Response(JSON.stringify({ success: true, dossiers: Array.isArray(rows) ? rows : [] }), { status: 200, headers: CORS });
+    } catch (e) {
+      return new Response(JSON.stringify({ error: "Erreur lecture Supabase", details: e.message }), { status: 500, headers: CORS });
+    }
+  }
+
+  // ── Les actions suivantes nécessitent un dossier_id ─────────
+  if (!dossier_id)
+    return new Response(JSON.stringify({ error: "dossier_id manquant" }), { status: 400, headers: CORS });
+
   const dossierUrl = `${SUPA_URL}/rest/v1/credit_phones?dossier_id=eq.${encodeURIComponent(dossier_id)}`;
 
   // Helpers

@@ -328,6 +328,32 @@ body{background:var(--dark);color:var(--white);font-family:'Outfit',sans-serif;m
       </div>
     </div>
 
+    <!-- CRÉDIT HALAL -->
+    <div class="tab-content" id="tab-credit">
+      <div class="sec-title">🤝 Achat Échelonné Halal</div>
+
+      <!-- Stats -->
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:20px;">
+        <div class="stat-card"><div class="stat-val" id="creditTotal">—</div><div class="stat-label">DOSSIERS TOTAL</div></div>
+        <div class="stat-card"><div class="stat-val" id="creditActif" style="color:#00e564;">—</div><div class="stat-label">EN COURS</div></div>
+        <div class="stat-card"><div class="stat-val" id="creditMontantDu" style="color:#ff9100;">—</div><div class="stat-label">MONTANT DÛ (FCFA)</div></div>
+        <div class="stat-card"><div class="stat-val" id="creditMontantPercu" style="color:var(--cyan);">—</div><div class="stat-label">PERÇU (FCFA)</div></div>
+      </div>
+
+      <!-- Filtres -->
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
+        <button onclick="filterCredit('tous',this)" class="credit-filter-btn on">Tous</button>
+        <button onclick="filterCredit('en_cours',this)" class="credit-filter-btn">En cours</button>
+        <button onclick="filterCredit('solde',this)" class="credit-filter-btn">Soldés</button>
+        <button onclick="filterCredit('retard',this)" class="credit-filter-btn" style="color:#ff6b6b;">En retard</button>
+      </div>
+
+      <!-- Liste dossiers -->
+      <div id="creditList" style="display:flex;flex-direction:column;gap:12px;">
+        <div style="text-align:center;color:var(--grey);padding:40px;">Chargement...</div>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -1859,31 +1885,6 @@ async function deleteProd(id, nom){
       <button onclick="closeProdModal()" style="padding:13px 20px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--grey);cursor:pointer;font-size:13px;">Annuler</button>
     </div>
   </div>
-    <!-- CRÉDIT HALAL -->
-    <div class="tab-content" id="tab-credit">
-      <div class="sec-title">🤝 Achat Échelonné Halal</div>
-
-      <!-- Stats -->
-      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:20px;">
-        <div class="stat-card"><div class="stat-val" id="creditTotal">—</div><div class="stat-label">DOSSIERS TOTAL</div></div>
-        <div class="stat-card"><div class="stat-val" id="creditActif" style="color:#00e564;">—</div><div class="stat-label">EN COURS</div></div>
-        <div class="stat-card"><div class="stat-val" id="creditMontantDu" style="color:#ff9100;">—</div><div class="stat-label">MONTANT DÛ (FCFA)</div></div>
-        <div class="stat-card"><div class="stat-val" id="creditMontantPercu" style="color:var(--cyan);">—</div><div class="stat-label">PERÇU (FCFA)</div></div>
-      </div>
-
-      <!-- Filtres -->
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
-        <button onclick="filterCredit('tous',this)" class="credit-filter-btn on">Tous</button>
-        <button onclick="filterCredit('en_cours',this)" class="credit-filter-btn">En cours</button>
-        <button onclick="filterCredit('solde',this)" class="credit-filter-btn">Soldés</button>
-        <button onclick="filterCredit('retard',this)" class="credit-filter-btn" style="color:#ff6b6b;">En retard</button>
-      </div>
-
-      <!-- Liste dossiers -->
-      <div id="creditList" style="display:flex;flex-direction:column;gap:12px;">
-        <div style="text-align:center;color:var(--grey);padding:40px;">Chargement...</div>
-      </div>
-    </div>
 
     <!-- MODAL DÉTAIL CRÉDIT -->
     <div id="creditModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);backdrop-filter:blur(12px);z-index:200;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto;">

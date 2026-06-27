@@ -189,5 +189,72 @@ export async function onRequestPost(context) {
     return new Response(JSON.stringify({ success: true, action: "marquer_paye", versement: num }), { status: 200, headers: CORS });
   }
 
+  // ════════════════════════════════════════════════════════════
+  // ── ACTION : VERROUILLER (manuel, via SimpleMDM lost mode) ──
+  // ════════════════════════════════════════════════════════════
+  if (action === "verrouiller") {
+    if (!dossier.device_id)
+      return new Response(JSON.stringify({ error: "Aucun device_id sur ce dossier" }), { status: 400, headers: CORS });
+
+    const MDM_KEY = (env.SIMPLEMDM_API_KEY || "").trim();
+    if (!MDM_KEY)
+      return new Response(JSON.stringify({ error: "SimpleMDM non configuré" }), { status: 500, headers: CORS });
+
+    const MESSAGE = "SECK DIGITAL SERVICES PRO. Cher client, votre versement est en attente. Pour debloquer votre telephone, connectez-vous a votre compte sur sdsprotech.com et reglez votre echeance. Pour toute question contactez-nous. Merci de votre confiance.";
+    const PHONE   = env.COMPANY_PHONE || "+221770699739";
+
+    try {
+      const form = new URLSearchParams();
+      form.set("message", MESSAGE);
+      form.set("phone_number", PHONE);
+      const mdmRes = await fetch(`https://a.simplemdm.com/api/v1/devices/${dossier.device_id}/lost_mode`, {
+        method: "POST",
+        headers: { "Authorization": "Basic " + btoa(MDM_KEY + ":"), "Content-Type": "application/x-www-form-urlencoded" },
+        body: form.toString()
+      });
+      if (mdmRes.ok || mdmRes.status === 202) {
+        await patchDossier({ lost_mode_actif: true, lock_at: new Date().toISOString() });
+        await insertNotif({
+          dossier_id, pour_admin: true,
+          titre: "Téléphone verrouillé 🔒",
+          message: `${dossier.client_nom || "Client"} : appareil ${dossier.device_id} verrouillé manuellement.`,
+          type: "alerte"
+        });
+        return new Response(JSON.stringify({ success: true, action: "verrouiller" }), { status: 200, headers: CORS });
+      }
+      const t = await mdmRes.text();
+      return new Response(JSON.stringify({ error: "Échec SimpleMDM", status: mdmRes.status, details: t }), { status: 502, headers: CORS });
+    } catch (e) {
+      return new Response(JSON.stringify({ error: "Erreur SimpleMDM", details: e.message }), { status: 500, headers: CORS });
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════
+  // ── ACTION : DEVERROUILLER (manuel) ────────────────────────
+  // ════════════════════════════════════════════════════════════
+  if (action === "deverrouiller") {
+    if (!dossier.device_id)
+      return new Response(JSON.stringify({ error: "Aucun device_id sur ce dossier" }), { status: 400, headers: CORS });
+
+    const MDM_KEY = (env.SIMPLEMDM_API_KEY || "").trim();
+    if (!MDM_KEY)
+      return new Response(JSON.stringify({ error: "SimpleMDM non configuré" }), { status: 500, headers: CORS });
+
+    try {
+      const mdmRes = await fetch(`https://a.simplemdm.com/api/v1/devices/${dossier.device_id}/lost_mode`, {
+        method: "DELETE",
+        headers: { "Authorization": "Basic " + btoa(MDM_KEY + ":") }
+      });
+      if (mdmRes.ok || mdmRes.status === 202) {
+        await patchDossier({ lost_mode_actif: false, unlock_at: new Date().toISOString() });
+        return new Response(JSON.stringify({ success: true, action: "deverrouiller" }), { status: 200, headers: CORS });
+      }
+      const t = await mdmRes.text();
+      return new Response(JSON.stringify({ error: "Échec SimpleMDM", status: mdmRes.status, details: t }), { status: 502, headers: CORS });
+    } catch (e) {
+      return new Response(JSON.stringify({ error: "Erreur SimpleMDM", details: e.message }), { status: 500, headers: CORS });
+    }
+  }
+
   return new Response(JSON.stringify({ error: "Action inconnue" }), { status: 400, headers: CORS });
 }

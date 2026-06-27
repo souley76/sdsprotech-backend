@@ -15,6 +15,7 @@
     "/credit-cron",
     "/credit-checkout",
     "/credit-admin-action"
+   "/credit-client-action"
   ],
   "exclude": []
 }

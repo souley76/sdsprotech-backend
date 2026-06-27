@@ -1585,6 +1585,9 @@ function creditStatutInfo(c){
   // Priorité : statut du compte KYC, puis état des paiements
   if(c.statut_compte === 'en_verification') return { cls:'credit-status-retard', label:'⏳ À vérifier' };
   if(c.statut_compte === 'refuse')          return { cls:'credit-status-retard', label:'❌ Refusé' };
+  if(c.statut_compte === 'supprime')        return { cls:'credit-status-solde',  label:'🗑️ Supprimé' };
+  if(c.statut_compte === 'suppression_demandee') return { cls:'credit-status-retard', label:'🗂️ Suppression' };
+  if(c.statut_compte === 'solde')           return { cls:'credit-status-solde',  label:'🎉 Soldé' };
   const paye = creditMontantPaye(c), tot = creditMontantTotal(c);
   if(paye >= tot && tot > 0)                return { cls:'credit-status-solde',  label:'✅ Soldé' };
   if(c.lost_mode_actif)                     return { cls:'credit-status-retard', label:'🔒 Verrouillé' };
@@ -1733,6 +1736,32 @@ async function openCreditModal(dossierId){
       <div style="font-size:12px;color:${estVerrouille ? '#ff6b6b' : '#00e564'};margin-bottom:10px;font-weight:600;">${estVerrouille ? '🔒 Téléphone actuellement VERROUILLÉ' : '🔓 Téléphone actuellement déverrouillé'}</div>
       <div style="display:flex;gap:8px;">${boutonVerrou}</div>
     </div>`;
+  } else if(c.statut_compte === 'solde'){
+    const btnLitige = c.litige_en_cours
+      ? `<button onclick="retirerLitige('${c.dossier_id}')" style="width:100%;background:linear-gradient(135deg,#00994d,#00e564);border:none;color:#fff;padding:10px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;margin-top:8px;">✓ Retirer le litige</button>`
+      : `<button onclick="marquerLitige('${c.dossier_id}')" style="width:100%;background:rgba(255,145,0,0.15);border:1px solid #ff9100;color:#ff9100;padding:10px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;margin-top:8px;">⚠️ Marquer litige (bloque suppression)</button>`;
+    actionsHtml = `<div style="background:rgba(0,229,100,0.06);border:1px solid rgba(0,229,100,0.25);border-radius:12px;padding:14px;margin-bottom:14px;">
+      <div style="color:#00e564;font-weight:700;margin-bottom:4px;">🎉 Crédit soldé</div>
+      <div style="font-size:12px;color:var(--grey);">Les 3 versements ont été réglés.</div>
+      ${c.litige_en_cours ? '<div style="font-size:12px;color:#ff9100;margin-top:6px;font-weight:600;">⚠️ Litige en cours : suppression bloquée</div>' : ''}
+      ${btnLitige}
+    </div>`;
+  } else if(c.statut_compte === 'suppression_demandee'){
+    const dateStr = c.suppression_prevue ? new Date(c.suppression_prevue).toLocaleDateString('fr-FR') : '—';
+    const btnLitige = c.litige_en_cours
+      ? `<button onclick="retirerLitige('${c.dossier_id}')" style="width:100%;background:linear-gradient(135deg,#00994d,#00e564);border:none;color:#fff;padding:10px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;margin-top:8px;">✓ Retirer le litige</button>`
+      : `<button onclick="marquerLitige('${c.dossier_id}')" style="width:100%;background:rgba(255,145,0,0.15);border:1px solid #ff9100;color:#ff9100;padding:10px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;margin-top:8px;">⚠️ Marquer litige (bloque suppression)</button>`;
+    actionsHtml = `<div style="background:rgba(255,145,0,0.06);border:1px solid rgba(255,145,0,0.3);border-radius:12px;padding:14px;margin-bottom:14px;">
+      <div style="color:#ff9100;font-weight:700;margin-bottom:4px;">🗂️ Suppression demandée</div>
+      <div style="font-size:12px;color:var(--grey);">Suppression prévue le : <strong style="color:#fff;">${dateStr}</strong></div>
+      ${c.litige_en_cours ? '<div style="font-size:12px;color:#ff9100;margin-top:6px;font-weight:600;">⚠️ Litige en cours : suppression bloquée tant qu\'il est actif</div>' : ''}
+      ${btnLitige}
+    </div>`;
+  } else if(c.statut_compte === 'supprime'){
+    actionsHtml = `<div style="background:rgba(120,120,120,0.1);border:1px solid rgba(150,150,150,0.3);border-radius:12px;padding:14px;margin-bottom:14px;">
+      <div style="color:#aaa;font-weight:700;margin-bottom:4px;">🗑️ Documents supprimés</div>
+      <div style="font-size:12px;color:var(--grey);">Les documents de ce dossier ont été définitivement supprimés.</div>
+    </div>`;
   }
 
   content.innerHTML = `
@@ -1821,6 +1850,30 @@ async function deverrouillerTel(dossierId){
   try {
     await creditAdminAction({ action: 'deverrouiller', dossier_id: dossierId });
     showToast('🔓 Téléphone déverrouillé');
+    await loadCredit();
+    openCreditModal(dossierId);
+  } catch(e){
+    showToast('❌ Erreur : ' + e.message);
+  }
+}
+
+async function marquerLitige(dossierId){
+  if(!confirm('⚠️ Marquer ce dossier en litige ? Les documents ne seront PAS supprimés tant que le litige est actif.')) return;
+  try {
+    await creditAdminAction({ action: 'marquer_litige', dossier_id: dossierId });
+    showToast('⚠️ Litige activé');
+    await loadCredit();
+    openCreditModal(dossierId);
+  } catch(e){
+    showToast('❌ Erreur : ' + e.message);
+  }
+}
+
+async function retirerLitige(dossierId){
+  if(!confirm('Retirer le litige ? La suppression des documents pourra reprendre son cours normal.')) return;
+  try {
+    await creditAdminAction({ action: 'retirer_litige', dossier_id: dossierId });
+    showToast('✓ Litige retiré');
     await loadCredit();
     openCreditModal(dossierId);
   } catch(e){

@@ -171,6 +171,9 @@ export async function onRequestPost(context) {
 
     // 4. Réinitialiser la ligne pour le NOUVEAU crédit (garde les documents)
     const nouveau_dossier = "CRED-" + Date.now().toString().slice(-8);
+    // Échéances provisoires (recalculées à la validation admin) — comme credit-upload
+    const today = new Date();
+    const addDays = (n) => { const x = new Date(today); x.setDate(x.getDate() + n); return x.toISOString().slice(0,10); };
     const patch = {
       dossier_id:      nouveau_dossier,
       appareil:        prod.nom + (prod.modele ? " " + prod.modele : ""),
@@ -178,7 +181,7 @@ export async function onRequestPost(context) {
       montant_1, montant_2, montant_3,
       paye_1: false, paye_2: false, paye_3: false,
       paye_1_at: null, paye_2_at: null, paye_3_at: null,
-      echeance_1: null, echeance_2: null, echeance_3: null,
+      echeance_1: addDays(0), echeance_2: addDays(3), echeance_3: addDays(6),
       token_1: null, token_2: null, token_3: null,
       device_id: "",
       lost_mode_actif: false, lock_at: null, unlock_at: null,

@@ -78,10 +78,25 @@ export async function onRequestPost(context) {
   const totalPaye = versements.filter(v=>v.paye).reduce((s,v)=>s+v.montant,0);
   const pct       = totalDu ? Math.round(totalPaye/totalDu*100) : 0;
 
+  // ── Configuration selon le type d'événement ─────────────────
+  // evenement : validation | versement | verrouille | deverrouille | rappel_7j | rappel_2j
+  const EVENTS = {
+    validation:   { titre: "🎉 Votre crédit est validé",   badge: "ÉCHÉANCIER DE CRÉDIT",
+      intro: `Votre dossier de crédit pour <strong>${d.appareil || "votre téléphone"}</strong> a été validé. Voici votre échéancier de paiement.` },
+    versement:    { titre: "💰 Versement bien reçu",        badge: "ÉCHÉANCIER DE CRÉDIT",
+      intro: `Nous confirmons la bonne réception de votre versement. Voici l'état actuel de votre crédit.` },
+    verrouille:   { titre: "🔒 Téléphone verrouillé",        badge: "VERSEMENT EN ATTENTE",
+      intro: `Votre téléphone a été <strong>verrouillé</strong> en raison d'un versement en retard. Réglez votre échéance pour le débloquer immédiatement.` },
+    deverrouille: { titre: "🔓 Téléphone débloqué",          badge: "PAIEMENT CONFIRMÉ",
+      intro: `Bonne nouvelle ! Votre téléphone a été <strong>déverrouillé</strong> suite à votre paiement. Merci de votre confiance.` },
+    rappel_7j:    { titre: "📅 Échéance dans 7 jours",        badge: "RAPPEL DE PAIEMENT",
+      intro: `Petit rappel amical : un versement arrive à échéance dans <strong>7 jours</strong>. Pensez à le régler pour éviter tout verrouillage.` },
+    rappel_2j:    { titre: "⏰ Échéance dans 2 jours",        badge: "RAPPEL URGENT",
+      intro: `Attention : un versement arrive à échéance dans <strong>2 jours</strong>. Réglez-le dès maintenant pour éviter le verrouillage de votre téléphone.` }
+  };
+  const cfg = EVENTS[evenement] || EVENTS.versement;
   const estValidation = evenement === "validation";
-  const headerTitle = estValidation
-    ? "🎉 Votre crédit est validé"
-    : "💰 Versement bien reçu";
+  const headerTitle = cfg.titre;
 
   // ── Lignes des versements ───────────────────────────────────
   const sectionTitle = "padding:12px 20px;border-bottom:1px solid #e2e8f0;font-size:11px;font-weight:700;color:#0066cc;letter-spacing:2px;background:#f1f6fc;";
@@ -125,7 +140,7 @@ export async function onRequestPost(context) {
   <!-- Badge -->
   <tr>
     <td style="padding:20px 32px 0;text-align:center;">
-      <div style="display:inline-block;background:#e7f1ff;border:1px solid #9ec5fe;border-radius:100px;padding:8px 24px;font-size:11px;color:#0066cc;letter-spacing:2px;font-weight:700;">ÉCHÉANCIER DE CRÉDIT</div>
+      <div style="display:inline-block;background:#e7f1ff;border:1px solid #9ec5fe;border-radius:100px;padding:8px 24px;font-size:11px;color:#0066cc;letter-spacing:2px;font-weight:700;">${cfg.badge}</div>
     </td>
   </tr>
 
@@ -134,9 +149,7 @@ export async function onRequestPost(context) {
     <td style="padding:20px 32px 0;">
       <div style="font-size:14px;color:#0f172a;line-height:1.7;">
         Bonjour <strong>${d.client_nom || "cher client"}</strong>,<br>
-        ${estValidation
-          ? `Votre dossier de crédit pour <strong>${d.appareil || "votre téléphone"}</strong> a été validé. Voici votre échéancier de paiement.`
-          : `Nous confirmons la bonne réception de votre versement. Voici l'état actuel de votre crédit.`}
+        ${cfg.intro}
       </div>
     </td>
   </tr>
@@ -221,9 +234,15 @@ export async function onRequestPost(context) {
 </body>
 </html>`;
 
-  const sujet = estValidation
-    ? `🎉 Votre crédit est validé — ${companyName}`
-    : `💰 Versement reçu (${pct}% payé) — ${companyName}`;
+  const SUJETS = {
+    validation:   `🎉 Votre crédit est validé — ${companyName}`,
+    versement:    `💰 Versement reçu (${pct}% payé) — ${companyName}`,
+    verrouille:   `🔒 Téléphone verrouillé — versement en attente — ${companyName}`,
+    deverrouille: `🔓 Téléphone débloqué — ${companyName}`,
+    rappel_7j:    `📅 Rappel : échéance dans 7 jours — ${companyName}`,
+    rappel_2j:    `⏰ Urgent : échéance dans 2 jours — ${companyName}`
+  };
+  const sujet = SUJETS[evenement] || SUJETS.versement;
 
   // ── Générer le PDF de la facture via PDFShift (si clé dispo) ──
   let pdfBase64 = null;

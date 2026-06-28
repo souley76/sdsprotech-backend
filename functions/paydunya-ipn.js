@@ -139,6 +139,12 @@ export async function onRequestPost(context) {
                 },
                 body: JSON.stringify({ lost_mode_actif: false, unlock_at: new Date().toISOString() })
               });
+              // Email au client : téléphone débloqué
+              await fetch("https://sdsprotech-backend.pages.dev/credit-notify", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ dossier_id, evenement: "deverrouille" })
+              }).catch(()=>{});
             }
           } catch(e) {}
         }

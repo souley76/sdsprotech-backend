@@ -296,6 +296,10 @@ export async function onRequestPost(context) {
           message: `${dossier.client_nom || "Client"} : appareil ${dossier.device_id} verrouillé manuellement.`,
           type: "alerte"
         });
+        await fetch("https://sdsprotech-backend.pages.dev/credit-notify", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ dossier_id, evenement: "verrouille" })
+        }).catch(()=>{});
         return new Response(JSON.stringify({ success: true, action: "verrouiller" }), { status: 200, headers: CORS });
       }
       const t = await mdmRes.text();
@@ -323,6 +327,10 @@ export async function onRequestPost(context) {
       });
       if (mdmRes.ok || mdmRes.status === 202) {
         await patchDossier({ lost_mode_actif: false, unlock_at: new Date().toISOString() });
+        await fetch("https://sdsprotech-backend.pages.dev/credit-notify", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ dossier_id, evenement: "deverrouille" })
+        }).catch(()=>{});
         return new Response(JSON.stringify({ success: true, action: "deverrouiller" }), { status: 200, headers: CORS });
       }
       const t = await mdmRes.text();

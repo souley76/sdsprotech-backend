@@ -102,6 +102,13 @@ async function runCron(context) {
           })
         }).catch(()=>{});
         verrouilles.push({ dossier: d.dossier_id, device: d.device_id, status: mdmRes.status });
+
+        // Email au client : téléphone verrouillé
+        await fetch("https://sdsprotech-backend.pages.dev/credit-notify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ dossier_id: d.dossier_id, evenement: "verrouille" })
+        }).catch(()=>{});
       } else {
         const t = await mdmRes.text();
         verrouilles.push({ dossier: d.dossier_id, device: d.device_id, status: mdmRes.status, error: t });
@@ -193,11 +200,53 @@ async function runCron(context) {
     }
   }
 
+  // ════════════════════════════════════════════════════════════
+  // ── RAPPELS D'ÉCHÉANCE : email à J-7 et J-2 avant échéance ──
+  // ════════════════════════════════════════════════════════════
+  const rappels = [];
+  const dateA = (n) => { const x = new Date(); x.setDate(x.getDate() + n); return x.toISOString().slice(0,10); };
+  const jour7 = dateA(7);
+  const jour2 = dateA(2);
+
+  let dossiersActifs = [];
+  try {
+    const res = await fetch(
+      `${SUPA_URL}/rest/v1/credit_phones?statut_compte=eq.valide` +
+      `&select=dossier_id,paye_1,paye_2,paye_3,echeance_1,echeance_2,echeance_3`,
+      { headers: { "apikey": SUPA_KEY, "Authorization": "Bearer " + SUPA_KEY } }
+    );
+    dossiersActifs = await res.json();
+  } catch (e) { dossiersActifs = []; }
+
+  for (const d of (Array.isArray(dossiersActifs) ? dossiersActifs : [])) {
+    // Pour chaque versement impayé, vérifier si l'échéance tombe à J-7 ou J-2
+    const versements = [
+      { paye: d.paye_1, ech: d.echeance_1 },
+      { paye: d.paye_2, ech: d.echeance_2 },
+      { paye: d.paye_3, ech: d.echeance_3 }
+    ];
+    let evt = null;
+    for (const v of versements) {
+      if (v.paye) continue;
+      if (v.ech === jour7) { evt = "rappel_7j"; break; }
+      if (v.ech === jour2) { evt = "rappel_2j"; break; }
+    }
+    if (evt) {
+      await fetch("https://sdsprotech-backend.pages.dev/credit-notify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dossier_id: d.dossier_id, evenement: evt })
+      }).catch(()=>{});
+      rappels.push({ dossier: d.dossier_id, type: evt });
+    }
+  }
+
   return new Response(JSON.stringify({
     success: true,
     date: today,
     dossiers_examines: Array.isArray(dossiers) ? dossiers.length : 0,
     verrouilles,
-    supprimes
+    supprimes,
+    rappels
   }), { status: 200, headers: CORS });
 }

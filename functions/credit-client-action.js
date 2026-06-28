@@ -188,8 +188,8 @@ export async function onRequestPost(context) {
       solde_at: null,
       suppression_demandee_at: null, suppression_prevue: null, supprime_at: null,
       litige_en_cours: false,
-      docs_envoyes_at: new Date().toISOString(),
-      created_at: new Date().toISOString()
+      docs_envoyes_at: new Date().toISOString()
+      // created_at : on ne le modifie pas (souvent en lecture seule / défaut DB)
       // NB : les colonnes documents (doc_cni, etc.) NE sont PAS touchées → conservées
     };
 

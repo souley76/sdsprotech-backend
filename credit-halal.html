@@ -719,12 +719,12 @@ async function repriseCredit(){
       })
     });
     const data = await res.json();
-    if(!res.ok || !data.success) throw new Error(data.error || JSON.stringify(data) || 'Erreur');
+    if(!res.ok || !data.success) throw new Error((data.error||'Erreur') + (data.details ? ' — ' + data.details : ''));
     showToast('✅ Nouvelle demande envoyée !');
     setTimeout(()=> checkDossier(), 1500);
   } catch(e){
     alert('Détail erreur reprise : ' + e.message);
-    showToast('❌ ' + e.message);
+    showToast('❌ Échec');
     btn.disabled = false;
     btn.textContent = '🔁 Reprendre un crédit';
   }

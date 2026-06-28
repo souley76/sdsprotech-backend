@@ -99,6 +99,12 @@ export async function onRequestPost(context) {
       })
     }).catch(()=>{});
 
+    // Email au client : confirmation de la demande de suppression
+    await fetch("https://sdsprotech-backend.pages.dev/credit-notify", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dossier_id, evenement: "suppression" })
+    }).catch(()=>{});
+
     return new Response(JSON.stringify({ success: true, action: "demander_suppression", suppression_prevue }), { status: 200, headers: CORS });
   }
 

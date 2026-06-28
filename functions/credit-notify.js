@@ -31,7 +31,7 @@ export async function onRequestPost(context) {
   try {
     const res = await fetch(
       `${SUPA_URL}/rest/v1/credit_phones?dossier_id=eq.${encodeURIComponent(dossier_id)}` +
-      `&select=dossier_id,client_nom,client_tel,client_email,user_id,appareil,statut_compte,` +
+      `&select=dossier_id,client_nom,client_tel,client_email,user_id,appareil,statut_compte,motif_refus,` +
       `montant_1,montant_2,montant_3,paye_1,paye_2,paye_3,echeance_1,echeance_2,echeance_3`,
       { headers: { "apikey": SUPA_KEY, "Authorization": "Bearer " + SUPA_KEY } }
     );
@@ -92,7 +92,17 @@ export async function onRequestPost(context) {
     rappel_7j:    { titre: "📅 Échéance dans 7 jours",        badge: "RAPPEL DE PAIEMENT",
       intro: `Petit rappel amical : un versement arrive à échéance dans <strong>7 jours</strong>. Pensez à le régler pour éviter tout verrouillage.` },
     rappel_2j:    { titre: "⏰ Échéance dans 2 jours",        badge: "RAPPEL URGENT",
-      intro: `Attention : un versement arrive à échéance dans <strong>2 jours</strong>. Réglez-le dès maintenant pour éviter le verrouillage de votre téléphone.` }
+      intro: `Attention : un versement arrive à échéance dans <strong>2 jours</strong>. Réglez-le dès maintenant pour éviter le verrouillage de votre téléphone.` },
+    docs_recus:   { titre: "📥 Documents bien reçus",         badge: "DOSSIER EN EXAMEN",
+      intro: `Nous avons bien reçu vos documents pour <strong>${d.appareil || "votre téléphone"}</strong>. Notre équipe les examine — cela peut prendre jusqu'à <strong>48h</strong>. Vous recevrez un email ici dès que votre compte sera vérifié.` },
+    refuse:       { titre: "❌ Dossier non validé",           badge: "DEMANDE REFUSÉE",
+      intro: `Nous sommes désolés, nous n'avons pas pu valider votre dossier de crédit.${d.motif_refus ? `<br><br><strong>Motif :</strong> ${d.motif_refus}` : ""}<br><br>Vous pouvez soumettre une nouvelle demande à tout moment.` },
+    suppression:  { titre: "🗑️ Demande de suppression reçue", badge: "SUPPRESSION DES DOCUMENTS",
+      intro: `Votre demande de suppression de documents a bien été enregistrée. Vos documents seront définitivement supprimés au plus tard dans 90 jours. Vous serez notifié une fois la suppression effectuée.` },
+    litige:       { titre: "⚠️ Dossier en litige",            badge: "DOSSIER EN LITIGE",
+      intro: `Votre dossier a été placé en <strong>litige</strong>. La suppression de vos documents est suspendue le temps de résoudre la situation. Contactez-nous pour plus d'informations.` },
+    litige_retire:{ titre: "✓ Litige résolu",                badge: "LITIGE LEVÉ",
+      intro: `Bonne nouvelle : le litige sur votre dossier a été <strong>levé</strong>. Votre dossier suit de nouveau son cours normal.` }
   };
   const cfg = EVENTS[evenement] || EVENTS.versement;
   const estValidation = evenement === "validation";
@@ -240,7 +250,12 @@ export async function onRequestPost(context) {
     verrouille:   `🔒 Téléphone verrouillé — versement en attente — ${companyName}`,
     deverrouille: `🔓 Téléphone débloqué — ${companyName}`,
     rappel_7j:    `📅 Rappel : échéance dans 7 jours — ${companyName}`,
-    rappel_2j:    `⏰ Urgent : échéance dans 2 jours — ${companyName}`
+    rappel_2j:    `⏰ Urgent : échéance dans 2 jours — ${companyName}`,
+    docs_recus:   `📥 Documents reçus — examen en cours — ${companyName}`,
+    refuse:       `Concernant votre demande de crédit — ${companyName}`,
+    suppression:  `🗑️ Demande de suppression enregistrée — ${companyName}`,
+    litige:       `⚠️ Votre dossier est en litige — ${companyName}`,
+    litige_retire:`✓ Litige résolu — ${companyName}`
   };
   const sujet = SUJETS[evenement] || SUJETS.versement;
 

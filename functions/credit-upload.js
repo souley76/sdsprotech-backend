@@ -151,6 +151,15 @@ export async function onRequestPost(context) {
     });
   } catch (e) {}
 
+  // ── Email au client : documents bien reçus (examen 48h) ─────
+  try {
+    await fetch("https://sdsprotech-backend.pages.dev/credit-notify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dossier_id, evenement: "docs_recus" })
+    });
+  } catch (e) {}
+
   return new Response(JSON.stringify({
     success: true,
     dossier_id,

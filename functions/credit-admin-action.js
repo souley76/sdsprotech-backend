@@ -180,6 +180,12 @@ export async function onRequestPost(context) {
       type: "refus"
     });
 
+    // Email au client : dossier refusé (le motif est déjà en base, credit-notify le relira)
+    await fetch("https://sdsprotech-backend.pages.dev/credit-notify", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dossier_id, evenement: "refuse" })
+    }).catch(()=>{});
+
     return new Response(JSON.stringify({ success: true, action: "refuser" }), { status: 200, headers: CORS });
   }
 
@@ -220,11 +226,21 @@ export async function onRequestPost(context) {
             });
             if (mdmRes.ok || mdmRes.status === 202) {
               await patchDossier({ lost_mode_actif: false, unlock_at: new Date().toISOString() });
+              await fetch("https://sdsprotech-backend.pages.dev/credit-notify", {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ dossier_id, evenement: "deverrouille" })
+              }).catch(()=>{});
             }
           } catch(e) {}
         }
       }
     }
+
+    // Email au client : versement reçu
+    await fetch("https://sdsprotech-backend.pages.dev/credit-notify", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dossier_id, evenement: "versement" })
+    }).catch(()=>{});
 
     // Vérifier si les 3 versements sont désormais payés → passer en "solde"
     try {
@@ -254,6 +270,10 @@ export async function onRequestPost(context) {
       const t = await upd.text();
       return new Response(JSON.stringify({ error: "Échec mise à jour", details: t }), { status: 500, headers: CORS });
     }
+    await fetch("https://sdsprotech-backend.pages.dev/credit-notify", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dossier_id, evenement: "litige" })
+    }).catch(()=>{});
     return new Response(JSON.stringify({ success: true, action: "marquer_litige" }), { status: 200, headers: CORS });
   }
 
@@ -263,6 +283,10 @@ export async function onRequestPost(context) {
       const t = await upd.text();
       return new Response(JSON.stringify({ error: "Échec mise à jour", details: t }), { status: 500, headers: CORS });
     }
+    await fetch("https://sdsprotech-backend.pages.dev/credit-notify", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dossier_id, evenement: "litige_retire" })
+    }).catch(()=>{});
     return new Response(JSON.stringify({ success: true, action: "retirer_litige" }), { status: 200, headers: CORS });
   }
   // ════════════════════════════════════════════════════════════

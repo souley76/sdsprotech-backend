@@ -233,6 +233,12 @@ export async function onRequestPost(context) {
       })
     }).catch(()=>{});
 
+    // Email au client : nouvelle demande (reprise) reçue
+    await fetch("https://sdsprotech-backend.pages.dev/credit-notify", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dossier_id: nouveau_dossier, evenement: "reprise" })
+    }).catch(()=>{});
+
     return new Response(JSON.stringify({
       success: true, action: "reprise_credit",
       nouveau_dossier, appareil: patch.appareil,

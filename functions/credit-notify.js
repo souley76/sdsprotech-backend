@@ -102,7 +102,9 @@ export async function onRequestPost(context) {
     litige:       { titre: "⚠️ Dossier en litige",            badge: "DOSSIER EN LITIGE",
       intro: `Votre dossier a été placé en <strong>litige</strong>. La suppression de vos documents est suspendue le temps de résoudre la situation. Contactez-nous pour plus d'informations.` },
     litige_retire:{ titre: "✓ Litige résolu",                badge: "LITIGE LEVÉ",
-      intro: `Bonne nouvelle : le litige sur votre dossier a été <strong>levé</strong>. Votre dossier suit de nouveau son cours normal.` }
+      intro: `Bonne nouvelle : le litige sur votre dossier a été <strong>levé</strong>. Votre dossier suit de nouveau son cours normal.` },
+    reprise:      { titre: "🔁 Nouvelle demande reçue",       badge: "DOSSIER EN EXAMEN",
+      intro: `Votre nouvelle demande de crédit pour <strong>${d.appareil || "votre téléphone"}</strong> a bien été enregistrée. En tant que client fidèle, vos documents existants sont réutilisés. Notre équipe examine votre demande — vous serez notifié dès validation.` }
   };
   const cfg = EVENTS[evenement] || EVENTS.versement;
   const estValidation = evenement === "validation";
@@ -255,7 +257,8 @@ export async function onRequestPost(context) {
     refuse:       `Concernant votre demande de crédit — ${companyName}`,
     suppression:  `🗑️ Demande de suppression enregistrée — ${companyName}`,
     litige:       `⚠️ Votre dossier est en litige — ${companyName}`,
-    litige_retire:`✓ Litige résolu — ${companyName}`
+    litige_retire:`✓ Litige résolu — ${companyName}`,
+    reprise:      `🔁 Nouvelle demande reçue — examen en cours — ${companyName}`
   };
   const sujet = SUJETS[evenement] || SUJETS.versement;
 

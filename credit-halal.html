@@ -532,6 +532,7 @@ input, textarea {
 </div>
 
 <script>
+let _currentDossierId = null;
 const SUPA_URL = 'https://fvfkawxwtsziqzibzbxt.supabase.co';
 const SUPA_KEY = 'sb_publishable_BTBvJ0drkx8ZWflBG7IhMA_A_b6h7rI';
 const BACKEND  = 'https://sdsprotech-backend.pages.dev';
@@ -625,6 +626,7 @@ async function checkDossier(){
     .order('created_at', { ascending: false })
     .limit(1);
   const dossier = Array.isArray(dossiers) ? dossiers[0] : null;
+  _currentDossierId = dossier ? dossier.dossier_id : null;
 
   if(dossier){
     statusPanel.style.display = 'block';
@@ -642,8 +644,21 @@ async function checkDossier(){
     } else if(dossier.statut_compte === 'solde'){
       badge.className = 'status-badge validated';
       badge.textContent = '🎉 Crédit soldé';
-      details.innerHTML = 'Vous avez réglé l\'intégralité de votre crédit. Le téléphone vous appartient pleinement.<br><br>Pour faire une nouvelle demande, vous devez d\'abord demander la suppression de vos documents actuels depuis votre espace crédit.' +
-        '<br><br><a href="/mon-credit.html" style="display:inline-block;background:linear-gradient(135deg,#0055ff,#00c8ff);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:12px;text-decoration:none;">→ Mon espace crédit</a>';
+      const optionsProduits = _products.map(p =>
+        '<option value="' + p.id + '">' + (p.emoji||'📱') + ' ' + p.nom + ' — ' + formatPrice(p.prix) + ' FCFA</option>'
+      ).join('');
+      details.innerHTML =
+        'Félicitations ! Vous avez réglé l\'intégralité de votre crédit. Le téléphone vous appartient pleinement.<br><br>' +
+        'En tant que client fidèle, vous pouvez <strong style="color:#fff;">reprendre un crédit immédiatement</strong> sans refournir vos documents.' +
+        '<div style="margin-top:18px;text-align:left;">' +
+          '<label style="font-size:12px;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:1px;">Choisir un nouveau téléphone</label>' +
+          '<select id="repriseProduit" class="calc-select" style="margin-top:8px;margin-bottom:14px;"><option value="">— Sélectionnez —</option>' + optionsProduits + '</select>' +
+          '<button id="btnReprise" onclick="repriseCredit()" style="width:100%;background:linear-gradient(135deg,#0055ff,#00c8ff);color:#fff;font-weight:700;font-size:15px;padding:14px;border-radius:12px;border:none;cursor:pointer;font-family:Outfit,sans-serif;">🔁 Reprendre un crédit</button>' +
+        '</div>' +
+        '<div style="margin-top:18px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.1);font-size:12px;color:rgba(255,255,255,0.55);">' +
+          'Vous ne souhaitez plus de crédit ? Vous pouvez demander la suppression de vos documents personnels depuis votre ' +
+          '<a href="/mon-credit.html" style="color:var(--cyan);text-decoration:none;">espace crédit</a>.' +
+        '</div>';
     } else if(dossier.statut_compte === 'suppression_demandee'){
       badge.className = 'status-badge pending';
       badge.textContent = '🗂️ Suppression en cours';
@@ -677,6 +692,40 @@ async function checkDossier(){
     document.getElementById('formNom').value   = meta.full_name || meta.name || '';
     document.getElementById('formTel').value   = meta.phone || '';
     document.getElementById('formEmail').value = _user.email || '';
+  }
+}
+
+async function repriseCredit(){
+  const sel = document.getElementById('repriseProduit');
+  const btn = document.getElementById('btnReprise');
+  const produit_id = sel ? sel.value : '';
+  if(!produit_id){ showToast('❌ Choisissez un téléphone'); return; }
+  if(!_currentDossierId){ showToast('❌ Dossier introuvable'); return; }
+
+  btn.disabled = true;
+  btn.textContent = '⏳ Envoi en cours...';
+  try {
+    const { data: { session } } = await _supa.auth.getSession();
+    const token = session?.access_token;
+    if(!token) throw new Error('Session expirée, reconnectez-vous');
+    const res = await fetch(BACKEND + '/credit-client-action', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'reprise_credit',
+        dossier_id: _currentDossierId,
+        produit_id: produit_id,
+        access_token: token
+      })
+    });
+    const data = await res.json();
+    if(!res.ok || !data.success) throw new Error(data.error || 'Erreur');
+    showToast('✅ Nouvelle demande envoyée !');
+    setTimeout(()=> checkDossier(), 1500);
+  } catch(e){
+    showToast('❌ ' + e.message);
+    btn.disabled = false;
+    btn.textContent = '🔁 Reprendre un crédit';
   }
 }
 

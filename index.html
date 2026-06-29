@@ -396,7 +396,7 @@ body{cursor:auto;}
 
 /* Content area */
 .bd-content{max-height:0;overflow:hidden;transition:max-height 0.5s cubic-bezier(0.4,0,0.2,1);background:rgba(4,14,28,0.6);}
-.bd-brand.open .bd-content{max-height:20000px;}
+.bd-brand.open .bd-content{max-height:4000px;}
 .bd-inner{padding:20px 28px 28px;}
 
 /* Sub-filter chips inside drawer */
@@ -1816,23 +1816,11 @@ function buildBrandDrawers(){
 
   // Render all brands initially (collapsed, products pre-loaded invisibly)
   BRANDS.forEach(b=>bdRenderBrand(b.key));
-
-  // Ouvrir automatiquement la marque qui a le plus de produits
-  let topBrand = null, topCount = -1;
-  BRANDS.forEach(b=>{
-    const n = P.filter(p=>(p.c||'').toLowerCase().includes(b.filter) || (p.br||'').toLowerCase().includes(b.filter)).length;
-    if(n > topCount){ topCount = n; topBrand = b.key; }
-  });
-  if(topBrand){
-    document.getElementById('bdbrand-'+topBrand)?.classList.add('open');
-  }
 }
 
 function bdToggle(key){
   const el = document.getElementById('bdbrand-'+key);
   const isOpen = el.classList.contains('open');
-  // Toggle simple : chaque marque s'ouvre/ferme indépendamment.
-  // Pas de fermeture automatique des autres → aucun saut de page.
   el.classList.toggle('open',!isOpen);
 }
 
@@ -2464,6 +2452,37 @@ function formatPrice(n){ return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g,' '
 let _supa = null;
 let _otpEmail = ''; // Email en attente de vérification OTP
 
+// ── Identifiant d'appareil stable (pour alerte nouvelle connexion) ──
+function _deviceHash(){
+  try {
+    let h = localStorage.getItem('sds-device-id');
+    if(!h){
+      h = (crypto.randomUUID ? crypto.randomUUID() : (Date.now()+'-'+Math.random().toString(36).slice(2)));
+      localStorage.setItem('sds-device-id', h);
+    }
+    return h;
+  } catch(e){ return 'no-storage'; }
+}
+
+// ── Notifier le backend pour bienvenue / nouvelle connexion ──
+async function _notifyAuth(evenement){
+  try {
+    const { data: { session } } = await _supa.auth.getSession();
+    const token = session?.access_token;
+    if(!token) return;
+    fetch('https://sdsprotech-backend.pages.dev/auth-notify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        evenement,
+        access_token: token,
+        device_hash: _deviceHash(),
+        user_agent: navigator.userAgent
+      })
+    }).catch(()=>{});
+  } catch(e){}
+}
+
 function initSupabase(){
   if(!window.supabase){ console.error('Supabase SDK non chargé'); return; }
   if(SUPA_URL.includes('REMPLACE') || SUPA_KEY.includes('REMPLACE')){ return; }
@@ -2493,7 +2512,7 @@ function initSupabase(){
         .catch(()=>{});
 
       loadOrders(session.user.id);
-      if(event === 'SIGNED_IN'){ authClose(); }
+      if(event === 'SIGNED_IN'){ authClose(); _notifyAuth('connexion'); }
 
       if(window._pendingProduct){
         const pid = window._pendingProduct;
@@ -2727,6 +2746,7 @@ async function doVerifyOtp(){
     showErr('otpErr', 'Code incorrect ou expiré. Réessaie ou renvoie un nouveau code.');
   } else {
     showOk('otpOk', '✅ Compte vérifié ! Bienvenue 🎉');
+    _notifyAuth('bienvenue');
     setTimeout(()=>{ authClose(); }, 1800);
   }
 }

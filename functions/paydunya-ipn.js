@@ -81,6 +81,51 @@ export async function onRequestPost(context) {
   const SUPA_KEY = (env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
 
   // ════════════════════════════════════════════════════════════
+  // ── CAS FORMATION : commande_id commence par "FORM-" ────────
+  // ════════════════════════════════════════════════════════════
+  if (commande_id && commande_id.startsWith("FORM-") && internalStatus === "PAID" && SUPA_URL && SUPA_KEY) {
+    const course_id = confirmData?.custom_data?.course_id || null;
+    const user_id   = confirmData?.custom_data?.user_id || null;
+
+    // Passer l'achat en "paid" (par commande_id, sinon par user+course)
+    try {
+      const filtre = `commande_id=eq.${encodeURIComponent(commande_id)}`;
+      const upd = await fetch(`${SUPA_URL}/rest/v1/purchases?${filtre}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": SUPA_KEY,
+          "Authorization": "Bearer " + SUPA_KEY,
+          "Prefer": "return=representation"
+        },
+        body: JSON.stringify({ status: "paid", paid_at: new Date().toISOString(), paydunya_token: token })
+      });
+      const rows = await upd.json();
+      // Si aucune ligne mise à jour (achat pending non trouvé), créer la ligne payée
+      if ((!Array.isArray(rows) || rows.length === 0) && user_id && course_id) {
+        await fetch(`${SUPA_URL}/rest/v1/purchases`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "apikey": SUPA_KEY,
+            "Authorization": "Bearer " + SUPA_KEY,
+            "Prefer": "return=minimal"
+          },
+          body: JSON.stringify({
+            user_id, course_id, status: "paid",
+            amount: montant || 15000,
+            email: confirmData?.custom_data?.client_email || null,
+            paydunya_token: token, commande_id,
+            paid_at: new Date().toISOString(), created_at: new Date().toISOString()
+          })
+        });
+      }
+    } catch (e) {}
+
+    return new Response(JSON.stringify({ ok: true, type: "formation", commande_id }), { status: 200, headers: CORS });
+  }
+
+  // ════════════════════════════════════════════════════════════
   // ── CAS CRÉDIT PHONE : commande_id commence par "CRED-" ──────
   // ════════════════════════════════════════════════════════════
   if (commande_id && commande_id.startsWith("CRED-") && internalStatus === "PAID") {

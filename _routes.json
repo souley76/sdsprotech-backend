@@ -16,7 +16,8 @@
     "/credit-checkout",
     "/credit-admin-action",
     "/credit-client-action",
-    "/credit-notify"
+    "/credit-notify",
+    "/formation-checkout"
   ],
   "exclude": []
 }

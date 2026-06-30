@@ -417,6 +417,9 @@ body{cursor:auto;}
   .bd-stats-row{gap:16px;}
   .bd-inner{padding:14px 14px 18px;}
 }
+@media(max-width:680px){
+  .credit-versements{grid-template-columns:1fr!important;}
+}
 
 /* PRODUCT DETAIL MODAL */
 .pdmo{display:none;position:fixed;inset:0;z-index:850;background:rgba(0,0,0,0.95);align-items:flex-start;justify-content:center;padding:12px;overflow-y:auto;}
@@ -949,7 +952,7 @@ input, textarea {
     </p>
 
     <!-- 3 versements illustrés -->
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:40px;max-width:760px;">
+    <div class="credit-versements" style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:40px;max-width:760px;">
       <div style="background:rgba(7,24,40,0.7);border:1px solid rgba(0,200,80,0.25);border-radius:18px;padding:24px 20px;text-align:center;">
         <div style="font-size:13px;color:#00e564;font-weight:700;letter-spacing:1px;">VERSEMENT 1</div>
         <div style="font-size:30px;font-weight:900;color:#fff;margin:8px 0;">50%</div>

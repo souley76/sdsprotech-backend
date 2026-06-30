@@ -474,6 +474,11 @@ async function markComplete(epId){
 let current = null;
 async function playEpisode(ep){
   if(!HAS_ACCESS) return;
+  if(!estDeverrouille(ep)){
+    const precedent = EPISODES[ep.n - 2];
+    $("#nowDesc").textContent = "🔒 Terminez d'abord le module " + (precedent ? precedent.n : (ep.n-1)) + " à 90% pour débloquer celui-ci.";
+    return;
+  }
   current = ep;
   $("#nowTitle").textContent = ep.title;
   $("#nowPill").textContent = "Module "+ep.n;
@@ -491,11 +496,27 @@ async function playEpisode(ep){
     $("#nowDesc").textContent = "Cette vidéo n'est pas encore disponible. (Vérifiez l'upload dans Supabase : "+ep.storage+")";
   }
 }
-video.addEventListener("ended", ()=>{
-  if(current){ markComplete(current.id);
-    const next = EPISODES[current.n]; if(next) playEpisode(next);
+video.addEventListener("timeupdate", ()=>{
+  if(current && video.duration && !progress[current.id]){
+    if(video.currentTime / video.duration >= 0.9){
+      markComplete(current.id); // débloque la vidéo suivante dès 90%
+    }
   }
 });
+video.addEventListener("ended", ()=>{
+  if(current){ markComplete(current.id);
+    const next = EPISODES[current.n];
+    if(next && estDeverrouille(next)) playEpisode(next);
+  }
+});
+
+// Un épisode est déverrouillé si c'est le 1er, OU si le précédent est complété
+function estDeverrouille(ep){
+  if(!HAS_ACCESS) return false;
+  if(ep.n <= 1) return true;
+  const precedent = EPISODES[ep.n - 2]; // ep.n commence à 1
+  return precedent ? !!progress[precedent.id] : true;
+}
 
 /* =========================================================
    PLAYLIST UI
@@ -509,7 +530,7 @@ function buildPlaylist(){
       <div class="thumb">${ep.n}<div class="lock" style="display:none">🔒</div></div>
       <div class="meta"><b>${ep.title}</b><span>Module ${ep.n} · ${ep.dur}</span></div>
       <div class="done" style="display:none">✓</div>`;
-    el.onclick = ()=>{ if(HAS_ACCESS) playEpisode(ep); };
+    el.onclick = ()=>{ if(HAS_ACCESS && estDeverrouille(ep)) playEpisode(ep); };
     list.appendChild(el);
   });
 }
@@ -518,7 +539,8 @@ function refreshPlaylist(){
   EPISODES.forEach(ep=>{
     const el = document.querySelector(`.ep[data-id="${ep.id}"]`);
     if(!el) return;
-    const locked = !HAS_ACCESS;
+    const deverrouille = estDeverrouille(ep);
+    const locked = !deverrouille;
     el.classList.toggle("locked", locked);
     el.querySelector(".lock").style.display = locked ? "grid":"none";
     const d = !!progress[ep.id];

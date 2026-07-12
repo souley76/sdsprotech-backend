@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Tanor Pay</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,900&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap');
+
+  :root{
+    --nuit:#0F1528; --nuit-2:#171F3A; --nuit-3:#232D4F; --nuit-4:#313D63;
+    --or:#F0BC5E; --or-clair:#FADFA0; --or-fonce:#C8923A;
+    --eau:#45D9BC; --eau-fonce:#2BA98F;
+    --violet:#8B7BE8;
+    --sable:#F2EEE2; --sable-2:#A2A8BD; --sable-3:#6C7391;
+    --rouge:#EF6E60;
+    --grad-or:linear-gradient(135deg,#F0BC5E,#FADFA0);
+    --grad-eau:linear-gradient(135deg,#45D9BC,#7BE8D4);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{
+    font-family:'Inter',sans-serif;color:var(--sable);
+    background:var(--nuit);overflow:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* ── fond vivant animé ── */
+  .bg{position:fixed;inset:0;z-index:0;overflow:hidden}
+  .blob{position:absolute;border-radius:50%;filter:blur(70px);opacity:.5;will-change:transform}
+  .blob.b1{width:340px;height:340px;background:radial-gradient(circle,rgba(240,188,94,.5),transparent 70%);top:-90px;right:-80px;animation:drift1 18s ease-in-out infinite}
+  .blob.b2{width:300px;height:300px;background:radial-gradient(circle,rgba(69,217,188,.4),transparent 70%);bottom:-60px;left:-90px;animation:drift2 22s ease-in-out infinite}
+  .blob.b3{width:240px;height:240px;background:radial-gradient(circle,rgba(139,123,232,.3),transparent 70%);top:40%;left:30%;animation:drift3 26s ease-in-out infinite}
+  @keyframes drift1{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-40px,50px) scale(1.15)}}
+  @keyframes drift2{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(50px,-40px) scale(1.1)}}
+  @keyframes drift3{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(30px,30px) scale(1.2)}}
+
+  .app{position:relative;z-index:1;height:100%;max-width:440px;margin:0 auto;display:flex;flex-direction:column;overflow:hidden}
+
+  /* ── en-tête ── */
+  .hdr{display:flex;align-items:center;justify-content:space-between;padding:18px 22px 10px}
+  .hdr .l{display:flex;align-items:center;gap:11px}
+  .avatar{width:40px;height:40px;border-radius:13px;background:linear-gradient(135deg,var(--nuit-3),var(--nuit-4));display:grid;place-items:center;border:1px solid var(--nuit-4)}
+  .avatar svg{width:19px;height:19px;color:var(--sable-2)}
+  .hi{font-size:12px;color:var(--sable-2)}
+  .hi b{display:block;font-size:15px;color:var(--sable);font-weight:600;margin-top:1px}
+  .bell{width:40px;height:40px;border-radius:13px;background:var(--nuit-2);border:1px solid var(--nuit-3);display:grid;place-items:center;position:relative}
+  .bell svg{width:18px;height:18px;color:var(--sable-2)}
+  .bell .pt{position:absolute;top:11px;right:12px;width:7px;height:7px;background:var(--or);border-radius:50%;border:2px solid var(--nuit-2)}
+
+  /* ── contenu défilable ── */
+  .scroll{flex:1;overflow-y:auto;padding:6px 22px 130px;scrollbar-width:none}
+  .scroll::-webkit-scrollbar{display:none}
+
+  /* ── carte solde (héro) ── */
+  .solde{
+    position:relative;border-radius:26px;padding:24px;margin:12px 0 22px;overflow:hidden;
+    background:
+      linear-gradient(135deg,rgba(240,188,94,.16),rgba(69,217,188,.10)),
+      linear-gradient(180deg,var(--nuit-2),var(--nuit));
+    border:1px solid var(--nuit-3);
+    box-shadow:0 20px 50px -20px rgba(0,0,0,.6);
+    animation:rise .7s cubic-bezier(.2,.8,.2,1) both;
+  }
+  .solde::before{
+    content:'';position:absolute;top:-50%;right:-30%;width:200px;height:200px;
+    background:radial-gradient(circle,rgba(240,188,94,.22),transparent 65%);
+  }
+  .solde .lab{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--sable-2);letter-spacing:.6px;position:relative}
+  .solde .lab .drapo{width:20px;height:20px;border-radius:50%;overflow:hidden;display:inline-block}
+  .solde .val{font-family:'Fraunces';font-weight:900;font-size:46px;letter-spacing:-1.5px;margin-top:12px;line-height:1;position:relative}
+  .solde .val .cur{font-size:22px;color:var(--sable-2);margin-left:6px;font-weight:600}
+  .solde .eye{position:absolute;top:24px;right:24px;width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.06);display:grid;place-items:center;border:1px solid var(--nuit-3)}
+  .solde .eye svg{width:16px;height:16px;color:var(--sable-2)}
+
+  /* ── actions ── */
+  .actions{display:flex;gap:12px;margin-bottom:26px}
+  .act{
+    flex:1;background:var(--nuit-2);border:1px solid var(--nuit-3);border-radius:20px;
+    padding:16px 10px;display:flex;flex-direction:column;align-items:center;gap:9px;cursor:pointer;
+    transition:transform .12s, border-color .2s, background .2s;
+    animation:rise .7s cubic-bezier(.2,.8,.2,1) both;
+  }
+  .act:nth-child(1){animation-delay:.06s}
+  .act:nth-child(2){animation-delay:.12s}
+  .act:active{transform:scale(.96)}
+  .act .ic{width:48px;height:48px;border-radius:16px;display:grid;place-items:center}
+  .act.send .ic{background:var(--grad-or)}
+  .act.send .ic svg{color:var(--nuit)}
+  .act.withdraw .ic{background:rgba(69,217,188,.14);border:1px solid rgba(69,217,188,.3)}
+  .act.withdraw .ic svg{color:var(--eau)}
+  .act .ic svg{width:22px;height:22px}
+  .act .t{font-size:13.5px;font-weight:600;text-align:center;line-height:1.3}
+  .act:hover{border-color:var(--nuit-4)}
+
+  .sec-t{font-family:'Fraunces';font-weight:600;font-size:17px;margin:0 0 14px;display:flex;align-items:center;justify-content:space-between}
+  .sec-t a{font-size:13px;color:var(--eau);font-weight:500;font-family:'Inter';text-decoration:none}
+
+  /* ── liste transactions ── */
+  .tx{
+    display:flex;align-items:center;gap:13px;padding:14px 15px;border-radius:18px;
+    background:var(--nuit-2);border:1px solid var(--nuit-3);margin-bottom:10px;
+    animation:rise .6s ease both;
+  }
+  .tx .ic{width:42px;height:42px;border-radius:13px;display:grid;place-items:center;flex-shrink:0;font-size:19px}
+  .tx.out .ic{background:rgba(240,188,94,.12)}
+  .tx.done .ic{background:rgba(69,217,188,.12)}
+  .tx .mid{flex:1;min-width:0}
+  .tx .mid .n{font-size:14.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tx .mid .d{font-size:12px;color:var(--sable-2);margin-top:2px}
+  .tx .amt{text-align:right;white-space:nowrap}
+  .tx .amt .a{font-family:'JetBrains Mono';font-weight:700;font-size:14px}
+  .tx .amt .s{font-size:11px;margin-top:2px}
+  .tx .amt .s.ok{color:var(--eau)}
+  .tx .amt .s.wait{color:var(--or)}
+
+  /* ── bottom nav ── */
+  .nav{
+    position:absolute;bottom:0;left:0;right:0;max-width:440px;margin:0 auto;
+    background:rgba(15,21,40,.85);backdrop-filter:blur(20px);
+    border-top:1px solid var(--nuit-3);padding:12px 30px calc(12px + env(safe-area-inset-bottom));
+    display:flex;justify-content:space-around;z-index:5;
+  }
+  .nav a{display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--sable-3);font-size:11px;text-decoration:none;font-weight:500}
+  .nav a svg{width:22px;height:22px}
+  .nav a.on{color:var(--or)}
+
+  /* ═══ FEUILLE : ENVOYER ═══ */
+  .sheet-scrim{position:fixed;inset:0;background:rgba(6,9,18,.6);backdrop-filter:blur(3px);z-index:10;opacity:0;pointer-events:none;transition:opacity .3s}
+  .sheet-scrim.on{opacity:1;pointer-events:auto}
+  .sheet{
+    position:fixed;bottom:0;left:0;right:0;max-width:440px;margin:0 auto;z-index:11;
+    background:var(--nuit);border-radius:30px 30px 0 0;border-top:1px solid var(--nuit-3);
+    padding:10px 22px calc(28px + env(safe-area-inset-bottom));max-height:94vh;overflow-y:auto;scrollbar-width:none;
+    transform:translateY(100%);transition:transform .38s cubic-bezier(.2,.85,.25,1);
+  }
+  .sheet::-webkit-scrollbar{display:none}
+  .sheet.on{transform:translateY(0)}
+  .grip{width:44px;height:5px;border-radius:3px;background:var(--nuit-4);margin:6px auto 18px}
+  .sheet h2{font-family:'Fraunces';font-weight:900;font-size:27px;letter-spacing:-.5px;margin-bottom:4px}
+  .sheet .subt{font-size:13.5px;color:var(--sable-2);margin-bottom:22px}
+
+  /* convertisseur devise */
+  .conv{background:var(--nuit-2);border:1px solid var(--nuit-3);border-radius:22px;padding:6px;position:relative;margin-bottom:16px}
+  .conv .leg{padding:16px 18px}
+  .conv .leg .cap{font-size:11px;color:var(--sable-2);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px}
+  .conv .leg .in{display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .conv .leg input{
+    border:none;background:transparent;color:var(--sable);font-family:'Fraunces';font-weight:900;
+    font-size:34px;width:100%;outline:none;letter-spacing:-1px;padding:0;
+  }
+  .conv .leg input::placeholder{color:var(--nuit-4)}
+  .cur-pill{display:flex;align-items:center;gap:8px;background:var(--nuit);border:1px solid var(--nuit-3);border-radius:100px;padding:8px 12px;font-weight:700;font-size:15px;white-space:nowrap;cursor:pointer}
+  .cur-pill .fl{width:22px;height:22px;border-radius:50%;font-size:16px;display:grid;place-items:center}
+  .cur-pill svg{width:13px;height:13px;color:var(--sable-2)}
+  .conv .sep{height:1px;background:var(--nuit-3);margin:2px 18px}
+  .rate{
+    position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    background:var(--grad-eau);color:var(--nuit);font-weight:700;font-size:12.5px;
+    padding:7px 14px;border-radius:100px;white-space:nowrap;box-shadow:0 6px 18px -6px rgba(69,217,188,.6);
+    font-family:'JetBrains Mono';z-index:2;
+  }
+
+  .recu-line{display:flex;justify-content:space-between;align-items:center;padding:0 4px;font-size:13px;color:var(--sable-2);margin-bottom:22px}
+  .recu-line b{color:var(--eau);font-family:'JetBrains Mono';font-weight:700}
+
+  .field{margin-bottom:16px}
+  .field label{display:block;font-size:12px;color:var(--sable-2);margin-bottom:8px;font-weight:500}
+  .field .box{display:flex;align-items:center;gap:10px;background:var(--nuit-2);border:1px solid var(--nuit-3);border-radius:16px;padding:14px 16px;transition:border-color .2s}
+  .field .box:focus-within{border-color:var(--or)}
+  .field .box svg{width:18px;height:18px;color:var(--sable-2);flex-shrink:0}
+  .field .box input,.field .box select{border:none;background:transparent;color:var(--sable);font-family:inherit;font-size:15px;font-weight:500;width:100%;outline:none}
+  .field .box select{appearance:none;cursor:pointer}
+  .field .box select option{background:var(--nuit-2)}
+
+  .methode{display:flex;align-items:center;gap:13px;background:rgba(69,217,188,.07);border:1px solid rgba(69,217,188,.25);border-radius:16px;padding:14px 16px;margin-bottom:22px}
+  .methode .mi{width:40px;height:40px;border-radius:12px;background:rgba(69,217,188,.15);display:grid;place-items:center}
+  .methode .mi svg{width:18px;height:18px;color:var(--eau)}
+  .methode .mm{flex:1}
+  .methode .mm .a{font-weight:700;font-size:15px}
+  .methode .mm .b{font-size:12px;color:var(--eau);display:flex;align-items:center;gap:5px;margin-top:2px}
+  .methode .mm .b svg{width:12px;height:12px}
+
+  .go{
+    width:100%;border:none;cursor:pointer;background:var(--grad-or);color:var(--nuit);
+    font-family:'Inter';font-weight:800;font-size:16px;padding:17px;border-radius:18px;
+    display:flex;align-items:center;justify-content:center;gap:9px;
+    box-shadow:0 14px 34px -12px rgba(240,188,94,.6);transition:transform .1s,filter .2s;
+  }
+  .go:active{transform:scale(.98)}
+  .go:disabled{opacity:.45;box-shadow:none;cursor:not-allowed}
+  .go svg{width:18px;height:18px}
+
+  .pied{text-align:center;font-size:11px;color:var(--sable-3);margin-top:16px;line-height:1.6}
+
+  @keyframes rise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<div class="bg">
+  <div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div>
+</div>
+
+<div class="app">
+
+  <!-- en-tête -->
+  <div class="hdr">
+    <div class="l">
+      <div class="avatar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 016-6h4a6 6 0 016 6v1"/></svg></div>
+      <div class="hi">Salaam,<b>Souleymane</b></div>
+    </div>
+    <div class="bell"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0"/></svg><span class="pt"></span></div>
+  </div>
+
+  <div class="scroll">
+
+    <!-- solde -->
+    <div class="solde">
+      <div class="eye"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></div>
+      <div class="lab"><span class="drapo">🇸🇳</span> Tanor Pay · Transfert</div>
+      <div class="val">Envoyez<span class="cur"> partout</span></div>
+    </div>
+
+    <!-- actions -->
+    <div class="actions">
+      <div class="act send" id="openSend">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg></div>
+        <div class="t">Envoyer<br>de l'argent</div>
+      </div>
+      <div class="act withdraw" id="openWithdraw">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 3v14M6 11l6 6 6-6M5 21h14"/></svg></div>
+        <div class="t">Retirer<br>de l'argent</div>
+      </div>
+    </div>
+
+    <!-- transactions récentes -->
+    <div class="sec-t">Activité récente <a href="#">Tout voir</a></div>
+
+    <div class="tx done" style="animation-delay:.1s">
+      <div class="ic">🇨🇮</div>
+      <div class="mid"><div class="n">Aïcha Koné</div><div class="d">Orange Money · Côte d'Ivoire</div></div>
+      <div class="amt"><div class="a">49 250 F</div><div class="s ok">Reçu</div></div>
+    </div>
+    <div class="tx done" style="animation-delay:.16s">
+      <div class="ic">🇲🇱</div>
+      <div class="mid"><div class="n">Ibrahim Traoré</div><div class="d">Orange Mali · il y a 2 h</div></div>
+      <div class="amt"><div class="a">118 200 F</div><div class="s ok">Reçu</div></div>
+    </div>
+    <div class="tx out" style="animation-delay:.22s">
+      <div class="ic">🇹🇬</div>
+      <div class="mid"><div class="n">Kodjo Mensah</div><div class="d">T-Money · en cours…</div></div>
+      <div class="amt"><div class="a">24 625 F</div><div class="s wait">En route</div></div>
+    </div>
+
+  </div>
+
+  <!-- bottom nav -->
+  <div class="nav">
+    <a class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>Accueil</a>
+    <a><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>Transferts</a>
+    <a><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 016-6h4a6 6 0 016 6v1"/></svg>Profil</a>
+  </div>
+</div>
+
+<!-- ═══ FEUILLE ENVOYER ═══ -->
+<div class="sheet-scrim" id="scrim"></div>
+<div class="sheet" id="sheet">
+  <div class="grip"></div>
+  <h2 id="sheetTitle">Envoyer de l'argent</h2>
+  <div class="subt" id="sheetSub">Le destinataire reçoit instantanément, sur son mobile money.</div>
+
+  <!-- convertisseur -->
+  <div class="conv">
+    <div class="leg">
+      <div class="cap">Tu envoies</div>
+      <div class="in">
+        <input id="envoi" type="number" inputmode="numeric" placeholder="0" value="25000">
+        <div class="cur-pill"><span class="fl">🇸🇳</span> XOF</div>
+      </div>
+    </div>
+    <div class="sep"></div>
+    <div class="rate" id="rate">1 XOF = 1 XOF</div>
+    <div class="leg">
+      <div class="cap" id="recuCap">Le bénéficiaire reçoit · Côte d'Ivoire</div>
+      <div class="in">
+        <input id="recu" type="number" inputmode="numeric" placeholder="0" readonly>
+        <div class="cur-pill" id="paysPill"><span class="fl" id="paysFl">🇨🇮</span> <span id="paysCode">XOF</span> <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="recu-line">
+    <span>Frais Tanor Pay (1,5%)</span><b id="fraisTxt">375 F</b>
+  </div>
+
+  <div class="field">
+    <label>Pays de destination</label>
+    <div class="box">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 010 20 15 15 0 010-20z"/></svg>
+      <select id="pays">
+        <option value="CIV" data-fl="🇨🇮">Côte d'Ivoire</option>
+        <option value="MLI" data-fl="🇲🇱">Mali</option>
+        <option value="TGO" data-fl="🇹🇬">Togo</option>
+        <option value="BEN" data-fl="🇧🇯">Bénin</option>
+        <option value="BFA" data-fl="🇧🇫">Burkina Faso</option>
+        <option value="SEN" data-fl="🇸🇳">Sénégal</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="field">
+    <label>Opérateur du destinataire</label>
+    <div class="box">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>
+      <select id="operateur"></select>
+    </div>
+  </div>
+
+  <div class="field">
+    <label>Numéro du bénéficiaire</label>
+    <div class="box">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.9v3a2 2 0 01-2.2 2 19.8 19.8 0 01-8.6-3 19.5 19.5 0 01-6-6 19.8 19.8 0 01-3-8.6A2 2 0 014.1 2h3a2 2 0 012 1.7c.1.9.3 1.8.6 2.6a2 2 0 01-.5 2.1L8.1 9.9a16 16 0 006 6l1.5-1.1a2 2 0 012.1-.5c.8.3 1.7.5 2.6.6a2 2 0 011.7 2z"/></svg>
+      <input id="numero" type="tel" inputmode="tel" placeholder="Ex : 07 00 00 00 00">
+    </div>
+  </div>
+
+  <div class="field">
+    <label>Nom du bénéficiaire</label>
+    <div class="box">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 016-6h4a6 6 0 016 6v1"/></svg>
+      <input id="nom" type="text" placeholder="Prénom Nom">
+    </div>
+  </div>
+
+  <div class="methode">
+    <div class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg></div>
+    <div class="mm">
+      <div class="a" id="methodeNom">Orange Money CI</div>
+      <div class="b"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M13 2L3 14h7l-1 8 10-12h-7z"/></svg> Instantané</div>
+    </div>
+  </div>
+
+  <button class="go" id="go">
+    Envoyer maintenant
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+  </button>
+
+  <div class="pied">
+    Tanor Pay ne conserve aucun solde. Les fonds transitent via nos partenaires<br>agréés et sont versés immédiatement au destinataire.
+  </div>
+</div>
+
+<script>
+// ── Taux de démo (en prod : venir d'une API de change) ──
+const TAUX = { CIV:1, MLI:1, TGO:1, BEN:1, BFA:1, SEN:1 }; // XOF→XOF = 1 (zone franc)
+const COMMISSION = 0.015;
+const FL = { CIV:"🇨🇮", MLI:"🇲🇱", TGO:"🇹🇬", BEN:"🇧🇯", BFA:"🇧🇫", SEN:"🇸🇳" };
+const NOMPAYS = { CIV:"Côte d'Ivoire", MLI:"Mali", TGO:"Togo", BEN:"Bénin", BFA:"Burkina Faso", SEN:"Sénégal" };
+const OPS = {
+  CIV:[["orange-money-ci","Orange Money CI"],["mtn-ci","MTN CI"],["moov-ci","Moov CI"],["wave-ci","Wave CI"]],
+  MLI:[["orange-money-mali","Orange Money Mali"]],
+  TGO:[["t-money-togo","T-Money Togo"],["moov-togo","Moov Togo"]],
+  BEN:[["moov-benin","Moov Bénin"],["mtn-benin","MTN Bénin"]],
+  BFA:[["orange-money-burkina","Orange Money Burkina"],["moov-burkina","Moov Burkina"]],
+  SEN:[["orange-money-senegal","Orange Money"],["wave-senegal","Wave"],["free-money-senegal","Free Money"]]
+};
+const API = "https://tanorpay-backend.pages.dev";
+const $ = id => document.getElementById(id);
+const fmt = n => new Intl.NumberFormat('fr-FR').format(Math.round(n));
+
+let mode = "send";
+
+// ── ouvrir / fermer la feuille ──
+function ouvrir(m){
+  mode = m;
+  if(m==="withdraw"){
+    $("sheetTitle").textContent = "Retirer de l'argent";
+    $("sheetSub").textContent = "Retirez vers un portefeuille mobile money.";
+    $("go").childNodes[0].textContent = "Retirer maintenant ";
+  }else{
+    $("sheetTitle").textContent = "Envoyer de l'argent";
+    $("sheetSub").textContent = "Le destinataire reçoit instantanément, sur son mobile money.";
+    $("go").childNodes[0].textContent = "Envoyer maintenant ";
+  }
+  $("scrim").classList.add("on");
+  $("sheet").classList.add("on");
+}
+function fermer(){ $("scrim").classList.remove("on"); $("sheet").classList.remove("on"); }
+$("openSend").onclick = ()=>ouvrir("send");
+$("openWithdraw").onclick = ()=>ouvrir("withdraw");
+$("scrim").onclick = fermer;
+
+// ── opérateurs selon pays ──
+function majOps(){
+  const p = $("pays").value;
+  const sel = $("operateur"); sel.innerHTML="";
+  (OPS[p]||[]).forEach(([v,l])=>{ const o=document.createElement("option");o.value=v;o.textContent=l;sel.appendChild(o); });
+  $("paysFl").textContent = FL[p];
+  $("recuCap").textContent = "Le bénéficiaire reçoit · " + NOMPAYS[p];
+  majMethode();
+}
+function majMethode(){
+  const opt = $("operateur").options[$("operateur").selectedIndex];
+  if(opt) $("methodeNom").textContent = opt.textContent;
+}
+
+// ── conversion en direct ──
+function conv(){
+  const p = $("pays").value;
+  const env = Number($("envoi").value)||0;
+  const taux = TAUX[p]||1;
+  const frais = Math.ceil(env*COMMISSION);
+  const net = Math.max(0, env-frais);
+  const recu = Math.floor(net*taux);
+  $("recu").value = recu||"";
+  $("fraisTxt").textContent = fmt(frais)+" F";
+  $("rate").textContent = "1 XOF = "+taux.toFixed(2)+" "+($("paysCode").textContent);
+  $("go").disabled = !(env>=500);
+}
+
+$("pays").addEventListener("change", ()=>{ majOps(); conv(); });
+$("operateur").addEventListener("change", majMethode);
+$("envoi").addEventListener("input", conv);
+
+// ── envoi (branché sur le backend Tanor) ──
+$("go").addEventListener("click", async ()=>{
+  const env = Number($("envoi").value)||0;
+  const numero = $("numero").value.trim();
+  const nom = $("nom").value.trim();
+  const op = $("operateur").value;
+  if(env<500 || !numero || !op){ 
+    $("go").style.animation="shake .4s"; 
+    setTimeout(()=>$("go").style.animation="",400);
+    return; 
+  }
+  $("go").disabled=true; $("go").childNodes[0].textContent="Traitement… ";
+
+  const payload = {
+    in_canal:"paydunya_momo", in_operateur:"orange-money-senegal",
+    in_montant:env, in_devise:"XOF", in_pays:"SEN",
+    out_canal:"paydunya_momo", out_operateur:op,
+    out_compte:numero, out_pays:$("pays").value, out_devise:"XOF",
+    client_nom:nom
+  };
+  try{
+    const res = await fetch(API+"/tanor-transfer",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+    const data = await res.json();
+    if(data.payment_url) window.open(data.payment_url,"_blank");
+    else throw new Error(data.error||"Erreur");
+  }catch(e){
+    // en démo sans backend, on ferme simplement
+  }finally{
+    $("go").disabled=false;
+    $("go").childNodes[0].textContent = (mode==="withdraw"?"Retirer":"Envoyer")+" maintenant ";
+  }
+});
+
+// shake keyframe injecté
+const st=document.createElement("style");
+st.textContent="@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}";
+document.head.appendChild(st);
+
+// init
+majOps(); conv();
+</script>
+</body>
+</html>

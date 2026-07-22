@@ -1,5 +1,20 @@
 import { CORS_HEADERS, handleOptions } from "../_helpers";
 
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║ PAYDUNYA-PAY — VERSION CORRIGÉE                                  ║
+// ║ ✅ FAILLE CORRIGÉE : "total_fallback" supprimé. Avant, si le     ║
+// ║    prix n'était pas vérifiable, on acceptait le montant envoyé   ║
+// ║    par le client → un attaquant pouvait payer 1 000 FCFA pour    ║
+// ║    un iPhone. Maintenant : prix invérifiable = refus.            ║
+// ║ ✅ FAILLE CORRIGÉE : les commande_id "CRED-" et "FORM-" sont     ║
+// ║    bloqués ici. Avant, un attaquant pouvait forger un            ║
+// ║    commande_id CRED-xxx-2, payer une petite somme, et l'IPN      ║
+// ║    marquait son versement crédit payé + déverrouillait le tel.   ║
+// ║ ✅ _debug (clés, corps des réponses Supabase) retiré des         ║
+// ║    réponses envoyées au client.                                  ║
+// ║ ✅ commande_id validé + encodé dans les URLs Supabase.           ║
+// ╚══════════════════════════════════════════════════════════════════╝
+
 export async function onRequestOptions(context) {
   return handleOptions(context.env);
 }
@@ -22,13 +37,24 @@ export async function onRequestPost(context) {
 
   const {
     client_nom, client_tel, client_email, client_address, user_id,
-    articles, commande_id, return_url, cancel_url,
+    articles, return_url, cancel_url,
     produit_id, storage, color, qty, charger,
     cart_items
   } = body;
 
+  const commande_id = String(body.commande_id || "").trim();
+
   if (!client_nom || !client_tel || !commande_id)
     return new Response(JSON.stringify({ error: "Champs requis manquants" }), { status: 400, headers: CORS });
+
+  // ✅ Format strict du commande_id (évite l'injection dans les filtres PostgREST)
+  if (!/^[A-Za-z0-9_-]{4,64}$/.test(commande_id))
+    return new Response(JSON.stringify({ error: "commande_id invalide" }), { status: 400, headers: CORS });
+
+  // ✅ Préfixes réservés : le crédit passe par /credit-checkout,
+  //    les formations par leur propre tunnel. Jamais par ici.
+  if (/^(CRED|FORM)-/i.test(commande_id))
+    return new Response(JSON.stringify({ error: "Ce type de commande passe par son propre canal de paiement." }), { status: 400, headers: CORS });
 
   const SUPA_URL = (env.SUPABASE_URL || "").trim().replace(/\/$/, "");
   const SUPA_KEY = (env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
@@ -148,19 +174,14 @@ export async function onRequestPost(context) {
     }
   }
 
-  // ── Fallback sécurisé ────────────────────────────────────────
+  // ── ✅ Plus de fallback client : prix invérifiable = refus ───
   if (montant <= 0) {
-    const totalFallback = Number(body.total_fallback || 0);
-    if (totalFallback > 0 && totalFallback <= 10000000) {
-      montant = totalFallback;
-    } else {
-      return new Response(JSON.stringify({ error: "Impossible de vérifier le prix. Réessayez." }), { status: 400, headers: CORS });
-    }
+    return new Response(JSON.stringify({
+      error: "Impossible de vérifier le prix de la commande. Actualisez la page et réessayez."
+    }), { status: 400, headers: CORS });
   }
 
   // ── 1. Enregistrer la commande AVANT PayDunya ─────────────────
-  let supaDebug = { has_url: !!SUPA_URL, has_key: !!SUPA_KEY, key_length: SUPA_KEY.length };
-
   if (SUPA_URL && SUPA_KEY) {
     try {
       const supaRes = await fetch(SUPA_URL + "/rest/v1/orders", {
@@ -194,10 +215,9 @@ export async function onRequestPost(context) {
           created_at:      new Date().toISOString()
         })
       });
-      const supaBody = await supaRes.text();
-      supaDebug = { ...supaDebug, insert_status: supaRes.status, insert_ok: supaRes.ok, insert_body: supaBody };
+      if (!supaRes.ok) console.error("Orders insert error:", supaRes.status, await supaRes.text());
     } catch (e) {
-      supaDebug = { ...supaDebug, insert_error: e.message };
+      console.error("Orders insert exception:", e.message);
     }
   }
 
@@ -252,18 +272,18 @@ export async function onRequestPost(context) {
       body: JSON.stringify(payload)
     });
   } catch (err) {
-    return new Response(JSON.stringify({ error: "Connexion PayDunya échouée", details: err.message, _debug: supaDebug }), { status: 500, headers: CORS });
+    return new Response(JSON.stringify({ error: "Connexion PayDunya échouée", details: err.message }), { status: 500, headers: CORS });
   }
 
   const result = await pdRes.json();
 
   if (!pdRes.ok || result.response_code !== "00")
-    return new Response(JSON.stringify({ error: "Erreur PayDunya", details: result, _debug: supaDebug }), { status: 400, headers: CORS });
+    return new Response(JSON.stringify({ error: "Erreur PayDunya", details: result }), { status: 400, headers: CORS });
 
   // ── 3. Mettre à jour le token PayDunya dans la commande ───────
   if (SUPA_URL && SUPA_KEY && result.token) {
     try {
-      await fetch(`${SUPA_URL}/rest/v1/orders?commande_id=eq.${commande_id}`, {
+      await fetch(`${SUPA_URL}/rest/v1/orders?commande_id=eq.${encodeURIComponent(commande_id)}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -279,7 +299,6 @@ export async function onRequestPost(context) {
   return new Response(JSON.stringify({
     success:     true,
     payment_url: result.response_text,
-    token:       result.token,
-    _debug:      supaDebug
+    token:       result.token
   }), { status: 200, headers: CORS });
 }

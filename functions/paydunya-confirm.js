@@ -1,5 +1,15 @@
 import { CORS_HEADERS, handleOptions } from "../_helpers";
 
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║ PAYDUNYA-CONFIRM — VERSION CORRIGÉE                              ║
+// ║ ✅ FAILLE CORRIGÉE : avant, on pouvait envoyer le token d'un     ║
+// ║    paiement complété (le sien, pas cher) + le commande_id d'une  ║
+// ║    AUTRE commande → l'autre commande passait "confirmée" sans    ║
+// ║    avoir été payée. Maintenant, la commande mise à jour est      ║
+// ║    TOUJOURS celle inscrite dans le custom_data du token, et un   ║
+// ║    commande_id fourni qui ne correspond pas est rejeté.          ║
+// ╚══════════════════════════════════════════════════════════════════╝
+
 export async function onRequestOptions(context) {
   return handleOptions(context.env);
 }
@@ -46,11 +56,20 @@ export async function onRequestPost(context) {
     return new Response(JSON.stringify({ error: "Erreur vérification PayDunya", details: e.message }), { status: 500, headers: CORS });
   }
 
+  // ── ✅ La seule commande de confiance : celle du custom_data du token
+  const commandeDuToken = pdData?.custom_data?.commande_id || null;
+
+  if (commande_id && commandeDuToken && commande_id !== commandeDuToken) {
+    return new Response(JSON.stringify({
+      error: "Ce commande_id ne correspond pas à ce paiement."
+    }), { status: 400, headers: CORS });
+  }
+
   // ── 2. Mettre à jour Supabase si paiement confirmé ───────────
   if (pdStatus === "completed" && SUPA_URL && SUPA_KEY) {
-    // Chercher la commande par token ou par commande_id
-    const filterParam = commande_id
-      ? `commande_id=eq.${encodeURIComponent(commande_id)}`
+    // ✅ Filtre : commande du token en priorité, sinon par paydunya_token
+    const filterParam = commandeDuToken
+      ? `commande_id=eq.${encodeURIComponent(commandeDuToken)}`
       : `paydunya_token=eq.${encodeURIComponent(token)}`;
 
     try {
@@ -80,7 +99,6 @@ export async function onRequestPost(context) {
   // Paiement pas encore confirmé ou échoué
   return new Response(JSON.stringify({
     success: false,
-    status:  pdStatus || "unknown",
-    details: pdData
+    status:  pdStatus || "unknown"
   }), { status: 200, headers: CORS });
 }

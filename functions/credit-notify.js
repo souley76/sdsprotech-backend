@@ -8,6 +8,15 @@ export async function onRequestPost(context) {
   const { request, env } = context;
   const CORS = CORS_HEADERS(env);
 
+  // ✅ CORRECTIF sécurité : sans cette garde, n'importe qui pouvait déclencher
+  // des emails aux clients (spam / épuisement du quota Resend).
+  // Active-la en définissant la variable d'environnement INTERNAL_KEY,
+  // puis ajoute le header "X-Internal-Key" dans TOUS les appels internes
+  // (paydunya-ipn, credit-admin-action, credit-checkout, credit-cron, credit-upload).
+  const CLE_INTERNE = (env.INTERNAL_KEY || "").trim();
+  if (CLE_INTERNE && request.headers.get("X-Internal-Key") !== CLE_INTERNE)
+    return new Response(JSON.stringify({ error: "Non autorisé" }), { status: 401, headers: CORS });
+
   if (!env.RESEND_API_KEY)
     return new Response(JSON.stringify({ error: "RESEND_API_KEY manquante" }), { status: 500, headers: CORS });
 
@@ -32,7 +41,7 @@ export async function onRequestPost(context) {
     const res = await fetch(
       `${SUPA_URL}/rest/v1/credit_phones?dossier_id=eq.${encodeURIComponent(dossier_id)}` +
       `&select=dossier_id,client_nom,client_tel,client_email,user_id,appareil,statut_compte,motif_refus,` +
-      `montant_1,montant_2,montant_3,paye_1,paye_2,paye_3,echeance_1,echeance_2,echeance_3`,
+      `montant_1,montant_2,montant_3,montant_4,paye_1,paye_2,paye_3,paye_4,echeance_1,echeance_2,echeance_3,echeance_4`,
       { headers: { "apikey": SUPA_KEY, "Authorization": "Bearer " + SUPA_KEY } }
     );
     const rows = await res.json();
@@ -68,11 +77,20 @@ export async function onRequestPost(context) {
   const fmt = n => (n || 0).toLocaleString("fr-FR");
   const dateFr = s => s ? new Date(s).toLocaleDateString("fr-FR") : "—";
 
-  const versements = [
-    { n:1, label:"Acompte (50% + frais MDM)", montant:(d.montant_1||0)+FRAIS_MDM, paye:d.paye_1, ech:d.echeance_1 },
-    { n:2, label:"Versement 2 (25%)",         montant:d.montant_2||0,             paye:d.paye_2, ech:d.echeance_2 },
-    { n:3, label:"Versement 3 (25%)",         montant:d.montant_3||0,             paye:d.paye_3, ech:d.echeance_3 }
-  ];
+  // ✅ 4 versements : acompte + 3 mensualités.
+  // Les anciens dossiers (montant_4 vide) restent affichés sur 3 versements.
+  const versements = [];
+  for (let i = 1; i <= 4; i++) {
+    const m = d[`montant_${i}`];
+    if (i > 1 && (m === null || m === undefined)) continue;
+    versements.push({
+      n: i,
+      label: i === 1 ? "Acompte (50% + frais MDM)" : `Versement ${i} (mensualité)`,
+      montant: i === 1 ? (m || 0) + FRAIS_MDM : (m || 0),
+      paye: d[`paye_${i}`],
+      ech: d[`echeance_${i}`]
+    });
+  }
 
   const totalDu   = versements.reduce((s,v)=>s+v.montant,0);
   const totalPaye = versements.filter(v=>v.paye).reduce((s,v)=>s+v.montant,0);

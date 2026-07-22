@@ -1,5 +1,17 @@
 import { CORS_HEADERS, handleOptions } from "../_helpers";
 
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║ CREDIT-CLIENT-ACTION — VERSION CORRIGÉE (4 versements)           ║
+// ║ ✅ Reprise de crédit : acompte 50% + 3 mensualités,              ║
+// ║    échéances provisoires J/J+30/J+60/J+90, token_4 réinitialisé  ║
+// ║ ✅ Archivage credit_historique étendu (montant_4/paye_4/         ║
+// ║    echeance_4 — colonnes ajoutées par la migration SQL)          ║
+// ║ ✅ dossier_id moins devinable (suffixe aléatoire)                ║
+// ║ ✅ Clé interne sur les appels credit-notify                      ║
+// ║ L'authentification (token session + propriété du dossier)        ║
+// ║ était déjà bien conçue : inchangée.                              ║
+// ╚══════════════════════════════════════════════════════════════════╝
+
 export async function onRequestOptions(context) {
   return handleOptions(context.env);
 }
@@ -25,6 +37,8 @@ export async function onRequestPost(context) {
 
   const H_READ  = { "apikey": SUPA_KEY, "Authorization": "Bearer " + SUPA_KEY };
   const H_WRITE = { ...H_READ, "Content-Type": "application/json", "Prefer": "return=minimal" };
+  // ✅ Clé interne pour credit-notify (anti-spam email)
+  const H_NOTIFY = { "Content-Type": "application/json", "X-Internal-Key": (env.INTERNAL_KEY || "").trim() };
 
   // ── SÉCURITÉ : identifier le client via son token de session ──
   if (!access_token)
@@ -101,7 +115,7 @@ export async function onRequestPost(context) {
 
     // Email au client : confirmation de la demande de suppression
     await fetch("https://sdsprotech-backend.pages.dev/credit-notify", {
-      method: "POST", headers: { "Content-Type": "application/json" },
+      method: "POST", headers: H_NOTIFY,
       body: JSON.stringify({ dossier_id, evenement: "suppression" })
     }).catch(()=>{});
 
@@ -138,11 +152,13 @@ export async function onRequestPost(context) {
     if (!(prix > 0))
       return new Response(JSON.stringify({ error: "Prix du produit invalide" }), { status: 400, headers: CORS });
 
-    // 2. Calcul des montants — identique au formulaire (prix exact du téléphone)
-    const montant_1 = Math.ceil(prix * 0.5);          // acompte 50%
-    const reste     = prix - montant_1;
-    const montant_2 = Math.ceil(reste / 2);           // ~25%
-    const montant_3 = reste - montant_2;              // ~25% (ajuste pour total exact)
+    // 2. ✅ Calcul des montants — acompte 50% + 3 mensualités (prix exact)
+    const montant_1  = Math.ceil(prix * 0.5);       // acompte 50%
+    const reste      = prix - montant_1;
+    const mensualite = Math.ceil(reste / 3);
+    const montant_2  = mensualite;
+    const montant_3  = mensualite;
+    const montant_4  = reste - 2 * mensualite;      // ajuste pour total exact
 
     // 3. Archiver l'ancien crédit soldé dans credit_historique
     try {
@@ -159,12 +175,15 @@ export async function onRequestPost(context) {
           montant_1:       dossier.montant_1,
           montant_2:       dossier.montant_2,
           montant_3:       dossier.montant_3,
+          montant_4:       dossier.montant_4 ?? null,
           paye_1:          dossier.paye_1,
           paye_2:          dossier.paye_2,
           paye_3:          dossier.paye_3,
+          paye_4:          dossier.paye_4 ?? null,
           echeance_1:      dossier.echeance_1,
           echeance_2:      dossier.echeance_2,
           echeance_3:      dossier.echeance_3,
+          echeance_4:      dossier.echeance_4 ?? null,
           device_id:       dossier.device_id,
           statut_final:    "solde",
           credit_ouvert_at: dossier.created_at || null,
@@ -176,19 +195,20 @@ export async function onRequestPost(context) {
     }
 
     // 4. Réinitialiser la ligne pour le NOUVEAU crédit (garde les documents)
-    const nouveau_dossier = "CRED-" + Date.now().toString().slice(-8);
-    // Échéances provisoires (recalculées à la validation admin) — comme credit-upload
+    const suffixe = crypto.randomUUID().replace(/-/g, "").slice(0, 4).toUpperCase();
+    const nouveau_dossier = "CRED-" + Date.now().toString().slice(-8) + "-" + suffixe;
+    // ✅ Échéances provisoires J/J+30/J+60/J+90 (recalculées à la validation admin)
     const today = new Date();
     const addDays = (n) => { const x = new Date(today); x.setDate(x.getDate() + n); return x.toISOString().slice(0,10); };
     const patch = {
       dossier_id:      nouveau_dossier,
       appareil:        prod.nom + (prod.modele ? " " + prod.modele : ""),
       prix_total:      prix,
-      montant_1, montant_2, montant_3,
-      paye_1: false, paye_2: false, paye_3: false,
-      paye_1_at: null, paye_2_at: null, paye_3_at: null,
-      echeance_1: addDays(0), echeance_2: addDays(3), echeance_3: addDays(6),
-      token_1: null, token_2: null, token_3: null,
+      montant_1, montant_2, montant_3, montant_4,
+      paye_1: false, paye_2: false, paye_3: false, paye_4: false,
+      paye_1_at: null, paye_2_at: null, paye_3_at: null, paye_4_at: null,
+      echeance_1: addDays(0), echeance_2: addDays(30), echeance_3: addDays(60), echeance_4: addDays(90),
+      token_1: null, token_2: null, token_3: null, token_4: null,
       device_id: "",
       lost_mode_actif: false, lock_at: null, unlock_at: null,
       statut_compte: "en_verification",
@@ -235,14 +255,14 @@ export async function onRequestPost(context) {
 
     // Email au client : nouvelle demande (reprise) reçue
     await fetch("https://sdsprotech-backend.pages.dev/credit-notify", {
-      method: "POST", headers: { "Content-Type": "application/json" },
+      method: "POST", headers: H_NOTIFY,
       body: JSON.stringify({ dossier_id: nouveau_dossier, evenement: "reprise" })
     }).catch(()=>{});
 
     return new Response(JSON.stringify({
       success: true, action: "reprise_credit",
       nouveau_dossier, appareil: patch.appareil,
-      montant_1, montant_2, montant_3
+      montant_1, montant_2, montant_3, montant_4
     }), { status: 200, headers: CORS });
   }
 

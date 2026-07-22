@@ -3,6 +3,12 @@ import {
   cleanSenegalPhone, normalizeCorrespondent, pawapayBaseUrl
 } from "../_helpers";
 
+// ── PAY (PawaPay) — VERSION CORRIGÉE ─────────────────────────────
+// ✅ statementDescription nettoyé et limité (PawaPay refuse les
+//    caractères spéciaux et les libellés trop longs → paiements qui
+//    échouaient selon le nom du produit).
+// Le reste du fichier est inchangé.
+
 export async function onRequest(context) {
   const { request, env } = context;
   if (request.method === "OPTIONS") return handleOptions(env);
@@ -31,12 +37,19 @@ export async function onRequest(context) {
   const normalizedCorrespondent = normalizeCorrespondent(correspondent);
   const depositId = crypto.randomUUID();
 
+  // ✅ Libellé sûr pour PawaPay : lettres/chiffres/espaces, 22 caractères max
+  const descSure = ("SDS PRO " + (productName || "Commande"))
+    .replace(/[^A-Za-z0-9 ]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 22) || "SDS PRO";
+
   const pawapayPayload = {
     depositId, amount: amountCheck.value, currency: "XOF", country: "SEN",
     correspondent: normalizedCorrespondent,
     payer: { type: "MSISDN", address: { value: phoneCheck.e164 } },
     customerTimestamp: new Date().toISOString(),
-    statementDescription: "SDS PRO - " + (productName || "Commande")
+    statementDescription: descSure
   };
 
   let pawapayResponse;

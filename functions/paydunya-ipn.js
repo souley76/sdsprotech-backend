@@ -1,5 +1,18 @@
 import { CORS_HEADERS, handleOptions } from "../_helpers";
 
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║ PAYDUNYA-IPN — VERSION CORRIGÉE                                  ║
+// ║ ✅ 4 versements crédit (acompte + 3 mensualités)                 ║
+// ║ ✅ FAILLE CORRIGÉE : le montant réellement payé est maintenant   ║
+// ║    comparé au montant attendu du versement AVANT de marquer      ║
+// ║    "payé" et de déverrouiller le téléphone. Avant, une facture   ║
+// ║    de n'importe quel montant avec un commande_id "CRED-xxx-N"    ║
+// ║    suffisait à déverrouiller un téléphone.                       ║
+// ║ ✅ Clé interne ajoutée sur les appels credit-notify / notify     ║
+// ╚══════════════════════════════════════════════════════════════════╝
+
+const FRAIS_MDM = 10000;
+
 export async function onRequestOptions(context) {
   return handleOptions(context.env);
 }
@@ -71,7 +84,7 @@ export async function onRequestPost(context) {
   const client_nom  = confirmData?.custom_data?.client_nom  || "";
   const client_tel  = confirmData?.custom_data?.client_tel  || "";
   const client_adr  = confirmData?.custom_data?.client_address || "";
-  const montant     = confirmData?.invoice?.total_amount;
+  const montant     = Number(confirmData?.invoice?.total_amount || 0);
   const articles    = confirmData?.invoice?.items?.item_0?.name || "";
 
   const statusMap = { completed: "PAID", pending: "PENDING", cancelled: "FAILED", failed: "FAILED" };
@@ -79,6 +92,11 @@ export async function onRequestPost(context) {
 
   const SUPA_URL = (env.SUPABASE_URL || "").trim().replace(/\/$/, "");
   const SUPA_KEY = (env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+
+  // Headers internes (clé anti-spam pour credit-notify / notify)
+  const H_NOTIFY = { "Content-Type": "application/json", "X-Internal-Key": (env.INTERNAL_KEY || "").trim() };
+  const H_SUPA_R = { "apikey": SUPA_KEY, "Authorization": "Bearer " + SUPA_KEY };
+  const H_SUPA_W = { ...H_SUPA_R, "Content-Type": "application/json", "Prefer": "return=minimal" };
 
   // ════════════════════════════════════════════════════════════
   // ── CAS FORMATION : commande_id commence par "FORM-" ────────
@@ -92,12 +110,7 @@ export async function onRequestPost(context) {
       const filtre = `commande_id=eq.${encodeURIComponent(commande_id)}`;
       const upd = await fetch(`${SUPA_URL}/rest/v1/purchases?${filtre}`, {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          "apikey": SUPA_KEY,
-          "Authorization": "Bearer " + SUPA_KEY,
-          "Prefer": "return=representation"
-        },
+        headers: { ...H_SUPA_W, "Prefer": "return=representation" },
         body: JSON.stringify({ status: "paid", paid_at: new Date().toISOString(), paydunya_token: token })
       });
       const rows = await upd.json();
@@ -105,12 +118,7 @@ export async function onRequestPost(context) {
       if ((!Array.isArray(rows) || rows.length === 0) && user_id && course_id) {
         await fetch(`${SUPA_URL}/rest/v1/purchases`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "apikey": SUPA_KEY,
-            "Authorization": "Bearer " + SUPA_KEY,
-            "Prefer": "return=minimal"
-          },
+          headers: H_SUPA_W,
           body: JSON.stringify({
             user_id, course_id, status: "paid",
             amount: montant || 15000,
@@ -134,8 +142,50 @@ export async function onRequestPost(context) {
     const dossier_id = commande_id.substring(0, lastDash);
     const numVersement = parseInt(commande_id.substring(lastDash + 1), 10);
 
-    if (dossier_id && [1,2,3].includes(numVersement) && SUPA_URL && SUPA_KEY) {
-      // 1. Marquer le versement payé
+    if (dossier_id && [1, 2, 3, 4].includes(numVersement) && SUPA_URL && SUPA_KEY) {
+
+      // 1. ✅ D'ABORD récupérer le dossier (montants attendus + état)
+      let dossier = null;
+      try {
+        const res = await fetch(
+          `${SUPA_URL}/rest/v1/credit_phones?dossier_id=eq.${encodeURIComponent(dossier_id)}` +
+          `&select=device_id,lost_mode_actif,client_nom,user_id,statut_compte,` +
+          `montant_1,montant_2,montant_3,montant_4,paye_1,paye_2,paye_3,paye_4`,
+          { headers: H_SUPA_R }
+        );
+        const rows = await res.json();
+        if (rows && rows[0]) dossier = rows[0];
+      } catch(e) {}
+
+      if (!dossier) {
+        return new Response(JSON.stringify({ ok: false, type: "credit", error: "Dossier introuvable" }), { status: 200, headers: CORS });
+      }
+
+      // 2. ✅ FAILLE CORRIGÉE : vérifier le montant réellement payé.
+      //    Sans ce contrôle, une facture forgée de 100 FCFA avec un
+      //    commande_id "CRED-xxx-N" marquait le versement payé et
+      //    déverrouillait le téléphone.
+      const base = Number(dossier[`montant_${numVersement}`] || 0);
+      const attendu = numVersement === 1 ? base + FRAIS_MDM : base;
+
+      if (!(attendu > 0) || montant + 1 < attendu) { // tolérance d'arrondi de 1 FCFA
+        // On n'accrédite rien ; on alerte l'admin.
+        try {
+          await fetch(`${SUPA_URL}/rest/v1/notifications`, {
+            method: "POST",
+            headers: H_SUPA_W,
+            body: JSON.stringify({
+              dossier_id, pour_admin: true,
+              titre: "⚠️ Paiement crédit suspect (montant insuffisant)",
+              message: `Paiement de ${montant} FCFA reçu pour le versement ${numVersement} du dossier ${dossier_id}, montant attendu : ${attendu} FCFA. Versement NON validé — vérifiez ce paiement.`,
+              type: "alerte"
+            })
+          });
+        } catch(e) {}
+        return new Response(JSON.stringify({ ok: false, type: "credit", error: "Montant insuffisant", attendu, recu: montant }), { status: 200, headers: CORS });
+      }
+
+      // 3. Marquer le versement payé
       const patch = {};
       patch[`paye_${numVersement}`] = true;
       patch[`paye_${numVersement}_at`] = new Date().toISOString();
@@ -143,29 +193,13 @@ export async function onRequestPost(context) {
       try {
         await fetch(`${SUPA_URL}/rest/v1/credit_phones?dossier_id=eq.${encodeURIComponent(dossier_id)}`, {
           method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            "apikey": SUPA_KEY,
-            "Authorization": "Bearer " + SUPA_KEY,
-            "Prefer": "return=minimal"
-          },
+          headers: H_SUPA_W,
           body: JSON.stringify(patch)
         });
       } catch(e) {}
 
-      // 2. Récupérer le dossier (device_id, verrou, paiements, user)
-      let dossier = null;
-      try {
-        const res = await fetch(
-          `${SUPA_URL}/rest/v1/credit_phones?dossier_id=eq.${encodeURIComponent(dossier_id)}&select=device_id,lost_mode_actif,client_nom,user_id,paye_1,paye_2,paye_3,statut_compte`,
-          { headers: { "apikey": SUPA_KEY, "Authorization": "Bearer " + SUPA_KEY } }
-        );
-        const rows = await res.json();
-        if (rows && rows[0]) dossier = rows[0];
-      } catch(e) {}
-
-      // 3. Si le téléphone était verrouillé → DELETE SimpleMDM (déverrouiller)
-      if (dossier && dossier.lost_mode_actif && dossier.device_id) {
+      // 4. Si le téléphone était verrouillé → DELETE SimpleMDM (déverrouiller)
+      if (dossier.lost_mode_actif && dossier.device_id) {
         const MDM_KEY = (env.SIMPLEMDM_API_KEY || "").trim();
         if (MDM_KEY) {
           try {
@@ -176,18 +210,13 @@ export async function onRequestPost(context) {
             if (mdmRes.ok || mdmRes.status === 202) {
               await fetch(`${SUPA_URL}/rest/v1/credit_phones?dossier_id=eq.${encodeURIComponent(dossier_id)}`, {
                 method: "PATCH",
-                headers: {
-                  "Content-Type": "application/json",
-                  "apikey": SUPA_KEY,
-                  "Authorization": "Bearer " + SUPA_KEY,
-                  "Prefer": "return=minimal"
-                },
+                headers: H_SUPA_W,
                 body: JSON.stringify({ lost_mode_actif: false, unlock_at: new Date().toISOString() })
               });
               // Email au client : téléphone débloqué
               await fetch("https://sdsprotech-backend.pages.dev/credit-notify", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: H_NOTIFY,
                 body: JSON.stringify({ dossier_id, evenement: "deverrouille" })
               }).catch(()=>{});
             }
@@ -195,31 +224,24 @@ export async function onRequestPost(context) {
         }
       }
 
-      // 3bis. Si les 3 versements sont payés → passer le dossier en "solde"
+      // 5. ✅ Si les 4 versements sont payés → passer le dossier en "solde"
+      //    (compatibilité : un ancien dossier sans montant_4 se solde en 3 versements)
+      const v4Requis = !(dossier.montant_4 === null || dossier.montant_4 === undefined);
       const tousPayes =
-        (numVersement === 1 || dossier?.paye_1) &&
-        (numVersement === 2 || dossier?.paye_2) &&
-        (numVersement === 3 || dossier?.paye_3);
-      if (dossier && tousPayes && dossier.statut_compte === "valide") {
+        (numVersement === 1 || dossier.paye_1) &&
+        (numVersement === 2 || dossier.paye_2) &&
+        (numVersement === 3 || dossier.paye_3) &&
+        (!v4Requis || numVersement === 4 || dossier.paye_4);
+      if (tousPayes && dossier.statut_compte === "valide") {
         try {
           await fetch(`${SUPA_URL}/rest/v1/credit_phones?dossier_id=eq.${encodeURIComponent(dossier_id)}`, {
             method: "PATCH",
-            headers: {
-              "Content-Type": "application/json",
-              "apikey": SUPA_KEY,
-              "Authorization": "Bearer " + SUPA_KEY,
-              "Prefer": "return=minimal"
-            },
+            headers: H_SUPA_W,
             body: JSON.stringify({ statut_compte: "solde", solde_at: new Date().toISOString() })
           });
           await fetch(`${SUPA_URL}/rest/v1/notifications`, {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "apikey": SUPA_KEY,
-              "Authorization": "Bearer " + SUPA_KEY,
-              "Prefer": "return=minimal"
-            },
+            headers: H_SUPA_W,
             body: JSON.stringify({
               dossier_id, user_id: dossier.user_id || null, pour_admin: false,
               titre: "Credit solde",
@@ -230,36 +252,33 @@ export async function onRequestPost(context) {
         } catch(e) {}
       }
 
-      // 4. Notification admin
+      // 6. Notification admin
       try {
         await fetch(`${SUPA_URL}/rest/v1/notifications`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "apikey": SUPA_KEY,
-            "Authorization": "Bearer " + SUPA_KEY,
-            "Prefer": "return=minimal"
-          },
+          headers: H_SUPA_W,
           body: JSON.stringify({
             dossier_id, pour_admin: true,
             titre: "Versement crédit payé 💰",
-            message: `${dossier?.client_nom || client_nom} a payé le versement ${numVersement}. Téléphone déverrouillé si nécessaire.`,
+            message: `${dossier.client_nom || client_nom} a payé le versement ${numVersement} (${montant} FCFA). Téléphone déverrouillé si nécessaire.`,
             type: "succes"
           })
         });
       } catch(e) {}
 
-      // 5. Email échéancier au client (récap + liens versements restants)
+      // 7. Email échéancier au client (récap + liens versements restants)
       try {
         await fetch("https://sdsprotech-backend.pages.dev/credit-notify", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: H_NOTIFY,
           body: JSON.stringify({ dossier_id, evenement: "versement" })
         });
       } catch(e) {}
+
+      return new Response(JSON.stringify({ ok: true, type: "credit", dossier: dossier_id, versement: numVersement }), { status: 200, headers: CORS });
     }
 
-    return new Response(JSON.stringify({ ok: true, type: "credit", dossier: dossier_id, versement: numVersement }), { status: 200, headers: CORS });
+    return new Response(JSON.stringify({ ok: false, type: "credit", error: "Référence versement invalide" }), { status: 200, headers: CORS });
   }
 
   // ════════════════════════════════════════════════════════════
@@ -271,12 +290,7 @@ export async function onRequestPost(context) {
         `${SUPA_URL}/rest/v1/orders?commande_id=eq.${encodeURIComponent(commande_id)}`,
         {
           method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            "apikey":        SUPA_KEY,
-            "Authorization": "Bearer " + SUPA_KEY,
-            "Prefer":        "return=minimal"
-          },
+          headers: H_SUPA_W,
           body: JSON.stringify({
             status:          internalStatus,
             paydunya_status: statut?.toUpperCase() || "PENDING",
@@ -292,7 +306,7 @@ export async function onRequestPost(context) {
     try {
       await fetch("https://sdsprotech-backend.pages.dev/notify", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: H_NOTIFY,
         body: JSON.stringify({
           client_nom, client_tel,
           client_email: confirmData?.custom_data?.client_email || "",

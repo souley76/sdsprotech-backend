@@ -1441,5 +1441,80 @@ document.addEventListener('dragstart', e => {
     <button class="themed-alert-btn" onclick="closeThemedAlert()">Fermer</button>
   </div>
 </div>
+
+<!-- ═══════════ SDS FLUIDITÉ PREMIUM — couche additive (aucune logique modifiée) ═══════════ -->
+<style id="sds-fluidite-css">
+@media (prefers-reduced-motion: no-preference){
+  html{scroll-behavior:smooth;}
+  @keyframes sdsPageIn{from{opacity:0;}to{opacity:1;}}
+  body{animation:sdsPageIn .45s ease-out both;}
+
+  /* ── Micro-interactions : tous les boutons du site ── */
+  button,.btn-glow,.btn-ghost,.auth-btn,.tnl-btn,.qty-btn,.cart-btn,.btn-buy,
+  .pd-btn-cmd,.pg-btn-add,.qty-action-btn,.themed-alert-btn,.logout-btn,
+  .nav-user-btn,.nav-icon-btn{
+    transition:transform .18s cubic-bezier(.2,.9,.3,1.35),box-shadow .25s ease,
+               filter .25s ease,opacity .2s ease;
+  }
+  button:active,.btn-glow:active,.btn-ghost:active,.auth-btn:active,.tnl-btn:active,
+  .qty-btn:active,.cart-btn:active,.btn-buy:active,.pd-btn-cmd:active,.pg-btn-add:active,
+  .qty-action-btn:active,.themed-alert-btn:active{transform:scale(.96);}
+
+  /* ── Cartes : élévation douce ── */
+  .acc-card,.avantage,.step{
+    transition:transform .35s cubic-bezier(.2,.8,.25,1),box-shadow .35s ease,border-color .3s ease;
+  }
+  @media (hover:hover){
+    .btn-glow:hover,.auth-btn:hover,.tnl-btn-primary:hover,.btn-buy:hover,
+    .pd-btn-cmd:hover,.pg-btn-add:hover{filter:brightness(1.07);}
+    .acc-card:hover,.avantage:hover,.step:hover{transform:translateY(-4px);}
+  }
+
+  /* ── Révélation au défilement (cascade) ── */
+  .sds-rv{opacity:0;transform:translateY(18px);}
+  .sds-in{opacity:1 !important;transform:none !important;
+    transition:opacity .55s ease var(--sds-d,0s),
+               transform .6s cubic-bezier(.2,.8,.25,1) var(--sds-d,0s);}
+}
+</style>
+<script id="sds-fluidite-js">
+(function(){
+  try{
+    if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    var SEL='.acc-card,.avantage,.step,.s-title,.s-tag,.hero-desc,.hero-btns,.prod-grid>*,.grid>*';
+    function init(){
+      try{
+        var els=[].slice.call(document.querySelectorAll(SEL));
+        if(!els.length||!('IntersectionObserver' in window)) return;
+        var vh=window.innerHeight||800;
+        // Seulement les éléments SOUS la ligne de flottaison → aucun clignotement
+        var cibles=els.filter(function(el){
+          var r=el.getBoundingClientRect();
+          return r.top>vh*0.86;
+        });
+        if(!cibles.length) return;
+        cibles.forEach(function(el){el.classList.add('sds-rv');});
+        var lot=0,derniere=0;
+        var io=new IntersectionObserver(function(entries){
+          var now=(window.performance&&performance.now)?performance.now():Date.now();
+          if(now-derniere>350)lot=0; derniere=now;
+          entries.forEach(function(e){
+            if(!e.isIntersecting)return;
+            e.target.style.setProperty('--sds-d',(Math.min(lot++,5)*70)+'ms');
+            e.target.classList.add('sds-in');
+            io.unobserve(e.target);
+          });
+        },{threshold:0.12,rootMargin:'0px 0px -6% 0px'});
+        cibles.forEach(function(el){io.observe(el);});
+        // Filet de sécurité : tout révéler après 2,5 s quoi qu'il arrive
+        setTimeout(function(){cibles.forEach(function(el){el.classList.add('sds-in');});},2500);
+      }catch(e){}
+    }
+    if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);
+    else init();
+  }catch(e){}
+})();
+</script>
+<!-- ═══════════ /SDS FLUIDITÉ PREMIUM ═══════════ -->
 </body>
 </html>

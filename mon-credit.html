@@ -232,8 +232,8 @@ async function loadDossier(){
     const { data: rows, error } = await _supa
       .from('credit_phones')
       .select('dossier_id,appareil,statut_compte,motif_refus,prix_total,' +
-              'montant_1,montant_2,montant_3,paye_1,paye_2,paye_3,' +
-              'echeance_1,echeance_2,echeance_3,created_at,lost_mode_actif,suppression_prevue')
+              'montant_1,montant_2,montant_3,montant_4,paye_1,paye_2,paye_3,paye_4,' +
+              'echeance_1,echeance_2,echeance_3,echeance_4,created_at,lost_mode_actif,suppression_prevue')
       .eq('user_id', _user.id)
       .order('created_at', { ascending: false })
       .limit(1);
@@ -298,11 +298,20 @@ function renderVersements(){
 
   const today = new Date(); today.setHours(0,0,0,0);
 
-  const versements = [
-    { n:1, montant:(_dossier.montant_1||0)+FRAIS_MDM, paye:_dossier.paye_1, date:_dossier.echeance_1, label:'Acompte', sub:'50% + frais MDM' },
-    { n:2, montant:_dossier.montant_2||0, paye:_dossier.paye_2, date:_dossier.echeance_2, label:'Versement 2', sub:'25%' },
-    { n:3, montant:_dossier.montant_3||0, paye:_dossier.paye_3, date:_dossier.echeance_3, label:'Versement 3', sub:'25%' }
-  ];
+  // 4 versements : acompte + 3 mensualités (les anciens dossiers à 3 versements restent compatibles)
+  const versements = [];
+  for (let i = 1; i <= 4; i++) {
+    const m = _dossier['montant_' + i];
+    if (i > 1 && (m === null || m === undefined)) continue;
+    versements.push({
+      n: i,
+      montant: i === 1 ? (m || 0) + FRAIS_MDM : (m || 0),
+      paye: _dossier['paye_' + i],
+      date: _dossier['echeance_' + i],
+      label: i === 1 ? 'Acompte' : 'Versement ' + i,
+      sub: i === 1 ? '50% + frais MDM' : 'mensualité'
+    });
+  }
 
   const totalDu = versements.reduce((s,v)=>s+v.montant,0);
   const totalPaye = versements.filter(v=>v.paye).reduce((s,v)=>s+v.montant,0);

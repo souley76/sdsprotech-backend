@@ -153,7 +153,7 @@ input, textarea {
 
   <!-- Description -->
   <p style="color:rgba(255,255,255,0.65);font-size:0.95rem;line-height:1.7;max-width:480px;margin-bottom:2rem;">
-    Notre programme vous permet d'acquérir votre smartphone avec un <strong style="color:#fff;">acompte 50% + 2 versements</strong>, au prix exact du téléphone. Frais MDM de 10 000 FCFA pour la gestion et protection de l'appareil.
+    Notre programme vous permet d'acquérir votre smartphone avec un <strong style="color:#fff;">acompte 50% + 3 mensualités</strong>, au prix exact du téléphone. Frais MDM de 10 000 FCFA pour la gestion et protection de l'appareil.
   </p>
 
   <!-- Why coming soon -->
@@ -236,7 +236,7 @@ input, textarea {
 <div class="hero">
   <div class="hero-badge">🌙 VENTE MOURABAHA · SANS INTÉRÊT · PAIEMENT ÉCHELONNÉ</div>
   <h1 class="hero-title">Achat <span class="g">Échelonné</span> <span class="c">Halal</span></h1>
-  <p class="hero-desc">Obtenez votre smartphone avec un acompte 50% + 2 versements. Payez le prix exact du téléphone, sans frais cachés.</p>
+  <p class="hero-desc">Obtenez votre smartphone avec un acompte 50% + 3 mensualités. Payez le prix exact du téléphone, sans frais cachés.</p>
 
   <div class="principles">
     <div class="principle-card">
@@ -297,7 +297,7 @@ input, textarea {
       <span class="calc-value green" id="calcAujourdhui">—</span>
     </div>
     <div class="calc-note" id="calcNote" style="display:none;">
-      📌 <strong>Exemple :</strong> Vous payez <span id="calcNoteAcompte">—</span> aujourd'hui + les frais MDM de 10 000 FCFA, puis <span id="calcNoteMens">—</span> × 2 versements. <strong>Aucun intérêt.</strong>
+      📌 <strong>Exemple :</strong> Vous payez <span id="calcNoteAcompte">—</span> aujourd'hui + les frais MDM de 10 000 FCFA, puis <span id="calcNoteMens">—</span> × 3 mensualités (une par mois pendant 3 mois). <strong>Aucun intérêt.</strong>
     </div>
   </div>
 </div>
@@ -589,7 +589,7 @@ function updateCalc(){
   const prix      = prod.prix;
   const acompte   = Math.ceil(prix * 0.5);
   const reste     = prix - acompte;
-  const versement = Math.ceil(reste / 2);
+  const versement = Math.ceil(reste / 3);
   const aujdhui   = acompte + FRAIS_MDM;
   infoEl.style.display = 'flex';
   document.getElementById('calcEmoji').textContent = prod.emoji || '📱';
@@ -597,7 +597,7 @@ function updateCalc(){
   document.getElementById('calcPrixTotal').textContent = formatPrice(prix) + ' FCFA';
   document.getElementById('calcPrix').textContent = formatPrice(prix) + ' FCFA';
   document.getElementById('calcAcompte').textContent = formatPrice(acompte) + ' FCFA';
-  document.getElementById('calcMensualite').textContent = formatPrice(versement) + ' FCFA × 2';
+  document.getElementById('calcMensualite').textContent = formatPrice(versement) + ' FCFA × 3';
   document.getElementById('calcMDM').textContent = formatPrice(FRAIS_MDM) + ' FCFA';
   document.getElementById('calcAujourdhui').textContent = formatPrice(aujdhui) + ' FCFA';
   document.getElementById('calcNoteAcompte').textContent = formatPrice(acompte) + ' FCFA';

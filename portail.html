@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="fr">
+<!--
+  ═══════════════════════════════════════════════════════════════════════════
+   SDS PRO — PORTE D'ENTRÉE « RÉSEAU DE BOUTIQUES PARTENAIRES »
+
+   Ce fichier est autonome (tu peux l'ouvrir seul pour tester le design et la
+   recherche). L'étape suivante consistera à replier ce bloc dans index.html,
+   entre la fin de l'animation d'intro et l'affichage du catalogue.
+
+   Il appelle la fonction SQL rpc_chercher_boutique(p_q) livrée dans
+   migration-boutiques.sql.
+  ═══════════════════════════════════════════════════════════════════════════
+-->
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SDS PRO — Trouver ma boutique</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Outfit:wght@300;400;500;600;700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --black:#000;--deep:#020912;--dark:#040f1e;--mid:#071828;
+  --blue:#0055ff;--cyan:#00c8ff;--glow:#00e5ff;
+  --white:#fff;--grey:#7a9abb;--light:#bdd4ea;
+  --border:rgba(0,180,255,0.22);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--deep);color:var(--white);font-family:'Outfit',sans-serif;overflow-x:hidden;min-height:100vh;}
+
+/* ── Halo d'ambiance ── */
+.portail{position:relative;min-height:100vh;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;padding:40px 20px;overflow:hidden;}
+.portail::before{content:'';position:absolute;top:-30%;left:50%;transform:translateX(-50%);
+  width:900px;height:900px;border-radius:50%;
+  background:radial-gradient(circle,rgba(0,200,255,0.12),transparent 62%);pointer-events:none;}
+
+/* ── En-tête ── */
+.p-logo{width:78px;filter:drop-shadow(0 0 34px rgba(0,229,255,0.85));margin-bottom:20px;}
+.p-brand{font-family:'Rajdhani',sans-serif;font-size:clamp(18px,4vw,30px);font-weight:700;
+  letter-spacing:6px;text-transform:uppercase;text-align:center;position:relative;z-index:2;}
+.p-brand .c{color:var(--cyan);}
+.p-tag{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:3px;color:var(--grey);
+  text-transform:uppercase;margin-top:10px;text-align:center;position:relative;z-index:2;}
+
+/* ── Bloc explicatif partenariat ── */
+.p-intro{max-width:620px;text-align:center;margin:34px 0 26px;position:relative;z-index:2;}
+.p-intro h1{font-size:clamp(22px,5vw,34px);font-weight:700;line-height:1.25;margin-bottom:14px;}
+.p-intro h1 .c{color:var(--cyan);}
+.p-intro p{color:var(--light);font-size:15px;line-height:1.7;}
+
+/* ── Carte de recherche ── */
+.p-card{width:100%;max-width:560px;background:linear-gradient(160deg,var(--mid),var(--dark));
+  border:1px solid var(--border);border-radius:22px;padding:28px 24px;position:relative;z-index:2;
+  box-shadow:0 24px 70px rgba(0,0,0,0.5);}
+.p-card-title{font-family:'Rajdhani',sans-serif;font-size:19px;font-weight:600;letter-spacing:1px;
+  margin-bottom:6px;}
+.p-card-sub{color:var(--grey);font-size:12.5px;margin-bottom:18px;line-height:1.6;}
+
+.p-field{position:relative;}
+.p-field input{width:100%;background:rgba(0,20,40,0.6);border:1.5px solid var(--border);
+  border-radius:14px;padding:16px 48px 16px 16px;color:var(--white);font-size:16px;font-family:'Outfit',sans-serif;
+  transition:border-color .2s,box-shadow .2s;}
+.p-field input::placeholder{color:#4d6a86;}
+.p-field input:focus{outline:none;border-color:var(--cyan);box-shadow:0 0 0 3px rgba(0,200,255,0.14);}
+.p-field .ic{position:absolute;right:15px;top:50%;transform:translateY(-50%);color:var(--cyan);
+  font-size:19px;pointer-events:none;}
+
+.p-hint{font-family:'DM Mono',monospace;font-size:10.5px;letter-spacing:1px;color:var(--grey);
+  margin-top:12px;line-height:1.9;}
+.p-hint b{color:var(--light);font-weight:500;}
+
+.p-btn{width:100%;margin-top:18px;background:linear-gradient(135deg,var(--blue),var(--cyan));
+  border:none;border-radius:14px;padding:16px;color:#fff;font-size:15px;font-weight:600;
+  font-family:'Outfit',sans-serif;letter-spacing:.5px;cursor:pointer;transition:transform .15s,box-shadow .2s;}
+.p-btn:hover{transform:translateY(-2px);box-shadow:0 12px 30px rgba(0,150,255,0.4);}
+.p-btn:active{transform:translateY(0);}
+.p-btn:disabled{opacity:.55;cursor:default;transform:none;box-shadow:none;}
+
+/* ── Résultats ── */
+.p-results{margin-top:16px;display:flex;flex-direction:column;gap:10px;}
+.p-shop{display:flex;align-items:center;gap:14px;background:rgba(0,20,40,0.5);
+  border:1px solid var(--border);border-radius:14px;padding:13px 15px;cursor:pointer;
+  transition:border-color .18s,background .18s,transform .12s;text-align:left;}
+.p-shop:hover{border-color:var(--cyan);background:rgba(0,40,70,0.55);transform:translateX(3px);}
+.p-shop-logo{width:46px;height:46px;border-radius:12px;flex-shrink:0;display:flex;align-items:center;
+  justify-content:center;font-size:22px;background:rgba(0,200,255,0.1);border:1px solid var(--border);
+  overflow:hidden;}
+.p-shop-logo img{width:100%;height:100%;object-fit:cover;}
+.p-shop-info{flex:1;min-width:0;}
+.p-shop-name{font-weight:600;font-size:15px;display:flex;align-items:center;gap:6px;}
+.p-shop-name .verif{color:var(--cyan);font-size:13px;}
+.p-shop-meta{color:var(--grey);font-size:11.5px;margin-top:2px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.p-shop-go{color:var(--cyan);font-size:20px;flex-shrink:0;}
+
+.p-msg{text-align:center;color:var(--grey);font-size:13px;padding:22px 10px;line-height:1.6;}
+.p-msg .big{font-size:26px;display:block;margin-bottom:8px;opacity:.7;}
+
+/* ── Pied ── */
+.p-foot{margin-top:30px;position:relative;z-index:2;text-align:center;}
+.p-foot a{color:var(--grey);font-size:12px;text-decoration:none;border-bottom:1px dotted var(--border);
+  padding-bottom:2px;transition:color .2s;}
+.p-foot a:hover{color:var(--cyan);}
+
+.spin{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.3);
+  border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite;vertical-align:-3px;margin-right:8px;}
+@keyframes sp{to{transform:rotate(360deg);}}
+</style>
+</head>
+<body>
+
+<div class="portail">
+  <img class="p-logo" src="logo-sds.svg" alt="SDS" onerror="this.style.display='none'">
+  <div class="p-brand">SECK <span class="c">DIGITAL</span> SERVICES <span class="c">PRO</span></div>
+  <div class="p-tag">Réseau de boutiques partenaires</div>
+
+  <div class="p-intro">
+    <h1>Sécurisez vos ventes de téléphones avec <span class="c">SDS PRO</span></h1>
+    <p>SDS PRO fournit aux boutiques partenaires la technologie qui protège chaque
+       téléphone vendu à crédit : verrouillage à distance en cas d'impayé et suivi
+       des échéances. Vous êtes client d'une de nos boutiques&nbsp;? Retrouvez-la
+       ci-dessous pour accéder à son catalogue.</p>
+  </div>
+
+  <div class="p-card">
+    <div class="p-card-title">Trouver ma boutique</div>
+    <div class="p-card-sub">Saisissez l'identifiant que votre revendeur vous a communiqué.</div>
+
+    <div class="p-field">
+      <input id="q" type="text" autocomplete="off"
+             placeholder="Numéro, nom du gérant ou nom de la boutique…"
+             onkeydown="if(event.key==='Enter')chercher()">
+      <span class="ic">⌕</span>
+    </div>
+
+    <div class="p-hint">
+      Vous pouvez rechercher par&nbsp;: <b>numéro de téléphone</b> de la boutique,
+      <b>nom du propriétaire</b>, <b>nom de la boutique</b> ou <b>code partenaire</b>.
+    </div>
+
+    <button class="p-btn" id="btn" onclick="chercher()">Accéder à ma boutique</button>
+
+    <div class="p-results" id="results"></div>
+  </div>
+
+  <div class="p-foot">
+    <a href="#" onclick="entrerSdsPro();return false;">Continuer sans revendeur (catalogue SDS PRO)</a>
+  </div>
+</div>
+
+<script>
+const SUPA_URL = 'https://fvfkawxwtsziqzibzbxt.supabase.co';
+const SUPA_KEY = 'sb_publishable_BTBvJ0drkx8ZWflBG7IhMA_A_b6h7rI';
+
+let _timer = null;
+
+// Recherche « au fil de la frappe » (léger anti-rebond), + bouton
+document.getElementById('q').addEventListener('input', () => {
+  clearTimeout(_timer);
+  const v = document.getElementById('q').value.trim();
+  if (v.length < 2) { document.getElementById('results').innerHTML = ''; return; }
+  _timer = setTimeout(chercher, 320);
+});
+
+async function chercher(){
+  const q = document.getElementById('q').value.trim();
+  const box = document.getElementById('results');
+  const btn = document.getElementById('btn');
+  if (q.length < 2){
+    box.innerHTML = '<div class="p-msg">Saisissez au moins 2 caractères.</div>';
+    return;
+  }
+
+  btn.disabled = true;
+  box.innerHTML = '<div class="p-msg"><span class="spin"></span>Recherche…</div>';
+
+  try {
+    const res = await fetch(`${SUPA_URL}/rest/v1/rpc/rpc_chercher_boutique`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPA_KEY,
+        'Authorization': `Bearer ${SUPA_KEY}`,
+      },
+      body: JSON.stringify({ p_q: q }),
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const shops = await res.json();
+
+    if (!Array.isArray(shops) || shops.length === 0){
+      box.innerHTML = `<div class="p-msg"><span class="big">🔍</span>
+        Aucune boutique trouvée pour «&nbsp;${escapeHtml(q)}&nbsp;».<br>
+        Vérifiez l'identifiant auprès de votre revendeur.</div>`;
+      return;
+    }
+
+    box.innerHTML = shops.map(renderShop).join('');
+  } catch (e){
+    box.innerHTML = `<div class="p-msg"><span class="big">⚠️</span>
+      Service momentanément indisponible. Réessayez dans un instant.</div>`;
+    console.error(e);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function renderShop(s){
+  const logo = s.logo_url
+    ? `<img src="${escapeAttr(s.logo_url)}" alt="" onerror="this.parentNode.textContent='🏪'">`
+    : '🏪';
+  const verif = s.verifiee ? '<span class="verif" title="Partenaire vérifié">✔</span>' : '';
+  const meta = [s.ville, s.quartier, s.telephone].filter(Boolean).join(' · ');
+  return `<div class="p-shop" onclick="ouvrirBoutique('${escapeAttr(s.slug)}')">
+    <div class="p-shop-logo">${logo}</div>
+    <div class="p-shop-info">
+      <div class="p-shop-name">${escapeHtml(s.nom)} ${verif}</div>
+      <div class="p-shop-meta">${escapeHtml(meta || 'Boutique partenaire')}</div>
+    </div>
+    <div class="p-shop-go">→</div>
+  </div>`;
+}
+
+// Le client entre dans la boutique choisie : on mémorise le revendeur et on
+// bascule vers le catalogue filtré (intégration index.html à l'étape suivante).
+function ouvrirBoutique(slug){
+  try { sessionStorage.setItem('sds_boutique', slug); } catch(e){}
+  // En autonome : on affiche simplement la confirmation.
+  // Dans index.html : remplacer par le passage au catalogue de cette boutique.
+  location.href = `?boutique=${encodeURIComponent(slug)}`;
+}
+
+// Le visiteur n'a pas de revendeur : catalogue SDS PRO en propre.
+function entrerSdsPro(){
+  try { sessionStorage.removeItem('sds_boutique'); } catch(e){}
+  location.href = `?boutique=sds-pro`;
+}
+
+// ── Échappement (jamais injecter du texte brut dans le HTML) ──
+function escapeHtml(t){
+  return String(t).replace(/[&<>"']/g, c => (
+    {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function escapeAttr(t){ return escapeHtml(t).replace(/`/g,'&#96;'); }
+</script>
+</body>
+</html>

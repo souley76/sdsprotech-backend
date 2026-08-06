@@ -1,0 +1,142 @@
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     VITRINE DE BOUTIQUE — bloc a integrer dans index.html
+
+     Principe : on NE cree PAS une seconde page. Le meme index.html devient
+     la vitrine d'une boutique lorsqu'un slug est present dans l'URL
+     (?boutique=mbao-electronics). Toute la difference tient en deux choses :
+
+        1. un BANDEAU en haut du catalogue, aux couleurs de la boutique ;
+        2. le chargement des produits FILTRE sur boutique_id.
+
+     Le moteur d'affichage existant (buildBrandDrawers, makeProductCards,
+     les tiroirs par marque) est reutilise tel quel : les produits filtres
+     y entrent exactement comme les autres.
+
+     ── OU PLACER CHAQUE MORCEAU ──
+     A) le <style> : dans le <head>, avec tes autres styles ;
+     B) le <div id="shopBanner"> : juste avant <div class="brand-drawers"
+        id="brandDrawers"> (ligne 889 de ton index.html) ;
+     C) le <script> : tout en bas, avant </body>, APRES la definition de
+        loadProducts().
+  ═══════════════════════════════════════════════════════════════════════════ -->
+
+
+<!-- ─────────── A) STYLE (a mettre dans le <head>) ─────────── -->
+<style>
+#shopBanner{display:none;max-width:1200px;margin:24px auto 8px;padding:22px 24px;
+  border-radius:20px;position:relative;overflow:hidden;
+  background:linear-gradient(150deg,var(--mid,#071828),var(--dark,#040f1e));
+  border:1px solid var(--shopColor,#00c8ff);}
+#shopBanner.on{display:flex;align-items:center;gap:20px;}
+#shopBanner::before{content:'';position:absolute;inset:0;opacity:.10;pointer-events:none;
+  background:radial-gradient(circle at 15% 20%,var(--shopColor,#00c8ff),transparent 55%);}
+.sb-logo{width:66px;height:66px;border-radius:16px;flex-shrink:0;display:flex;align-items:center;
+  justify-content:center;font-size:30px;background:rgba(0,200,255,.10);
+  border:1px solid var(--shopColor,#00c8ff);overflow:hidden;z-index:2;}
+.sb-logo img{width:100%;height:100%;object-fit:cover;}
+.sb-info{flex:1;min-width:0;z-index:2;}
+.sb-name{font-family:'Rajdhani',sans-serif;font-size:22px;font-weight:700;letter-spacing:1px;
+  display:flex;align-items:center;gap:8px;}
+.sb-name .v{color:var(--shopColor,#00c8ff);font-size:16px;}
+.sb-meta{color:var(--grey,#7a9abb);font-size:13px;margin-top:3px;}
+.sb-desc{color:var(--light,#bdd4ea);font-size:13px;margin-top:8px;line-height:1.5;max-width:640px;}
+.sb-switch{z-index:2;flex-shrink:0;background:transparent;border:1px solid var(--border,rgba(0,180,255,.22));
+  color:var(--grey,#7a9abb);border-radius:10px;padding:9px 14px;font-size:12px;font-family:'Outfit',sans-serif;
+  cursor:pointer;transition:color .2s,border-color .2s;white-space:nowrap;}
+.sb-switch:hover{color:var(--shopColor,#00c8ff);border-color:var(--shopColor,#00c8ff);}
+@media(max-width:640px){
+  #shopBanner.on{flex-wrap:wrap;}
+  .sb-switch{width:100%;text-align:center;margin-top:4px;}
+}
+</style>
+
+
+<!-- ─────────── B) BANDEAU (juste avant #brandDrawers) ─────────── -->
+<div id="shopBanner">
+  <div class="sb-logo" id="sbLogo">🏪</div>
+  <div class="sb-info">
+    <div class="sb-name" id="sbName"></div>
+    <div class="sb-meta" id="sbMeta"></div>
+    <div class="sb-desc" id="sbDesc"></div>
+  </div>
+  <button class="sb-switch" onclick="changerBoutique()">Changer de boutique</button>
+</div>
+
+
+<!-- ─────────── C) SCRIPT (en bas, apres loadProducts) ─────────── -->
+<script>
+/* ══════════════════════════════════════════════════════════════
+   Determine, au chargement, si on est dans une boutique precise.
+   La source de verite est l'URL (?boutique=slug). On garde aussi
+   sessionStorage en secours, pour le cas ou l'utilisateur arrive
+   depuis le portail sans que l'URL ait ete transmise.
+   ══════════════════════════════════════════════════════════════ */
+window.BOUTIQUE = null; // objet boutique courant, ou null = catalogue SDS PRO
+
+function slugBoutiqueCourante(){
+  const url = new URLSearchParams(location.search).get('boutique');
+  if (url) return url;
+  try { return sessionStorage.getItem('sds_boutique') || null; } catch(e){ return null; }
+}
+
+/* Charge l'identite de la boutique (nom, logo, couleur) et remplit le bandeau. */
+async function chargerBoutique(slug){
+  if (!slug || slug === 'sds-pro') return null; // catalogue SDS PRO en propre
+  try {
+    const res = await fetch(`${SUPA_URL}/rest/v1/rpc/rpc_boutique_par_slug`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPA_KEY,
+        'Authorization': `Bearer ${SUPA_KEY}`,
+      },
+      body: JSON.stringify({ p_slug: slug }),
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const rows = await res.json();
+    return (Array.isArray(rows) && rows.length) ? rows[0] : null;
+  } catch(e){
+    console.warn('Boutique introuvable :', slug, e);
+    return null;
+  }
+}
+
+function afficherBanniere(b){
+  const banner = document.getElementById('shopBanner');
+  if (!b){ banner.classList.remove('on'); banner.style.display='none'; return; }
+
+  const couleur = b.couleur || '#00c8ff';
+  banner.style.setProperty('--shopColor', couleur);
+
+  document.getElementById('sbLogo').innerHTML = b.logo_url
+    ? `<img src="${escAttr(b.logo_url)}" alt="" onerror="this.parentNode.textContent='🏪'">`
+    : '🏪';
+  document.getElementById('sbName').innerHTML =
+    escHtml(b.nom) + (b.verifiee ? ' <span class="v" title="Partenaire verifie">✔</span>' : '');
+  document.getElementById('sbMeta').textContent =
+    [b.proprietaire, b.ville, b.quartier].filter(Boolean).join(' · ');
+  document.getElementById('sbDesc').textContent = b.description || '';
+
+  banner.classList.add('on');
+  banner.style.display = 'flex';
+
+  // Titre de l'onglet a l'image de la boutique
+  document.title = `${b.nom} — via SDS PRO`;
+}
+
+/* Revenir au portail pour choisir une autre boutique. */
+function changerBoutique(){
+  try { sessionStorage.removeItem('sds_boutique'); } catch(e){}
+  // Adapte selon ou tu integres le portail :
+  //   - page separee :      location.href = '/portail.html';
+  //   - bloc dans index :   location.href = location.pathname; (recharge sans slug)
+  location.href = location.pathname;
+}
+
+/* Petites fonctions d'echappement (ne jamais injecter de texte brut). */
+function escHtml(t){
+  return String(t==null?'':t).replace(/[&<>"']/g, c => (
+    {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function escAttr(t){ return escHtml(t).replace(/`/g,'&#96;'); }
+</script>

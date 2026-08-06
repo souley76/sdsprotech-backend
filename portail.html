@@ -226,8 +226,10 @@ function renderShop(s){
 // bascule vers le catalogue filtré (intégration index.html à l'étape suivante).
 function ouvrirBoutique(slug){
   try { sessionStorage.setItem('sds_boutique', slug); } catch(e){}
-  // En autonome : on affiche simplement la confirmation.
-  // Dans index.html : remplacer par le passage au catalogue de cette boutique.
+  // Redirige vers le catalogue filtre sur cette boutique.
+  // index.html lit ?boutique=slug et n'affiche que les produits du revendeur.
+  // Si ton portail est une page separee, pointe vers /index.html :
+  //   location.href = `/index.html?boutique=${encodeURIComponent(slug)}`;
   location.href = `?boutique=${encodeURIComponent(slug)}`;
 }
 

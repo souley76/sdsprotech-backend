@@ -142,11 +142,17 @@ a{color:inherit;}
   <div class="tabs">
     <button class="tab on" id="tabCmd" onclick="montrer('cmd')">Commandes</button>
     <button class="tab" id="tabProd" onclick="montrer('prod')">Mes produits</button>
+    <button class="tab" id="tabVers" onclick="montrer('vers')">Versements</button>
   </div>
 
   <!-- Commandes -->
   <div id="viewCmd">
     <div id="listeCmd"><div class="empty">Chargement…</div></div>
+  </div>
+
+  <!-- Versements (lecture seule) -->
+  <div id="viewVers" style="display:none;">
+    <div id="listeVers"><div class="empty">Chargement…</div></div>
   </div>
 
   <!-- Produits -->
@@ -362,12 +368,34 @@ async function supprimerProduit(id){
 
 // ── Onglets ──
 function montrer(quoi){
-  const cmd = quoi === 'cmd';
-  document.getElementById('viewCmd').style.display  = cmd ? 'block' : 'none';
-  document.getElementById('viewProd').style.display = cmd ? 'none' : 'block';
-  document.getElementById('tabCmd').classList.toggle('on', cmd);
-  document.getElementById('tabProd').classList.toggle('on', !cmd);
-  if(!cmd) chargerProduits();
+  document.getElementById('viewCmd').style.display  = quoi==='cmd'  ? 'block' : 'none';
+  document.getElementById('viewProd').style.display = quoi==='prod' ? 'block' : 'none';
+  document.getElementById('viewVers').style.display = quoi==='vers' ? 'block' : 'none';
+  document.getElementById('tabCmd').classList.toggle('on', quoi==='cmd');
+  document.getElementById('tabProd').classList.toggle('on', quoi==='prod');
+  document.getElementById('tabVers').classList.toggle('on', quoi==='vers');
+  if(quoi==='prod') chargerProduits();
+  if(quoi==='vers') chargerVersements();
+}
+
+// Versements et remboursements : le partenaire VOIT, sans agir
+async function chargerVersements(){
+  const box=document.getElementById('listeVers');
+  const { data, error } = await sb.rpc('rpc_mes_mouvements');
+  if(error){ box.innerHTML=`<div class="empty">Erreur de chargement.</div>`; return; }
+  if(!data || !data.length){ box.innerHTML=`<div class="empty">Aucun versement pour le moment.</div>`; return; }
+
+  box.innerHTML = data.map(m => {
+    const remb = m.type==='remboursement';
+    return `<div class="row">
+      <div class="main">
+        <div class="t">${remb?'Remboursement client':'Versement reçu'}</div>
+        <div class="m">Commande #${m.order_id}${m.note?' · '+escHtml(m.note):''} · ${new Date(m.cree_le).toLocaleDateString('fr-FR')}</div>
+      </div>
+      <div class="price" style="color:${remb?'var(--red)':'var(--green)'}">
+        ${remb?'−':'+'}${fmt(m.net)} F</div>
+    </div>`;
+  }).join('');
 }
 
 // ── Utilitaires ──

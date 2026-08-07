@@ -249,33 +249,101 @@ async function charger(){
 async function toggleDetail(boutiqueId, head){
   const el = document.getElementById('detail-' + boutiqueId);
   if(el.classList.contains('on')){ el.classList.remove('on'); return; }
-
   el.innerHTML = `<div class="empty">Chargement…</div>`;
   el.classList.add('on');
+  await rafraichirUnivers(boutiqueId, el);
+}
 
-  const { data, error } = await sb.rpc('rpc_commandes_boutique', { p_boutique_id: boutiqueId });
-  if(error){ el.innerHTML = `<div class="empty">Erreur de chargement.</div>`; return; }
-  if(!data || !data.length){ el.innerHTML = `<div class="empty">Aucune commande.</div>`; return; }
+// ★ Univers d'une boutique : trésorerie + commandes avec actions
+async function rafraichirUnivers(boutiqueId, el){
+  if(!el) el = document.getElementById('detail-' + boutiqueId);
 
-  const payees = data.filter(o=>o.status==='paye');
-  const caReel = payees.reduce((s,o)=>s+Number(o.prix||0),0);
+  // Trésorerie
+  const { data: tData } = await sb.rpc('rpc_treso_boutique', { p_boutique_id: boutiqueId });
+  const t = (tData && tData[0]) || {};
 
-  el.innerHTML = `
+  // Commandes
+  const { data, error } = await sb.rpc('rpc_univers_boutique', { p_boutique_id: boutiqueId });
+  if(error){ el.innerHTML = `<div class="empty">Erreur : ${escHtml(error.message)}</div>`; return; }
+
+  const treso = `
     <div class="kpis">
-      <div class="kpi"><div class="v">${data.length}</div><div class="l">Commandes</div></div>
-      <div class="kpi"><div class="v" style="color:var(--green)">${payees.length}</div><div class="l">Payées</div></div>
-      <div class="kpi"><div class="v" style="color:var(--green)">${fmt(caReel)} F</div><div class="l">Encaissé</div></div>
-    </div>
-    ${data.map(o => {
-      const paye = o.status === 'paye';
-      return `<div class="cmd-row">
-        <div class="m">${escHtml(o.produit||'Produit')}
-          <div class="sub2">${escHtml(o.user_name||'Client')} · ${escHtml(o.telephone||'')} ${o.paiement?'· '+escHtml(o.paiement):''}</div>
-        </div>
-        <div class="p">${fmt(o.prix)} F</div>
-        <span class="pill ${paye?'paye':'attente'}">${paye?'Payé':'Attente'}</span>
-      </div>`;
-    }).join('')}`;
+      <div class="kpi"><div class="v">${fmt(t.ca_total)} F</div><div class="l">Encaissé</div></div>
+      <div class="kpi"><div class="v" style="color:var(--amber)">${fmt(t.reste_a_verser)} F</div><div class="l">À verser</div></div>
+      <div class="kpi"><div class="v" style="color:var(--green)">${fmt(t.deja_verse)} F</div><div class="l">Versé à la boutique</div></div>
+      <div class="kpi"><div class="v" style="color:var(--cyan)">${fmt(t.commission_sds)} F</div><div class="l">Commission SDS</div></div>
+      ${Number(t.rembourse)>0?`<div class="kpi"><div class="v" style="color:var(--red)">${fmt(t.rembourse)} F</div><div class="l">Remboursé</div></div>`:''}
+    </div>`;
+
+  const boutonsBoutique = `
+    <div style="display:flex;gap:8px;margin:8px 0 14px;flex-wrap:wrap;">
+      <button class="mini" onclick="changerEtatBoutique('${boutiqueId}','suspendue')">Suspendre</button>
+      <button class="mini red" onclick="changerEtatBoutique('${boutiqueId}','fermee')">Fermer</button>
+      <button class="mini" onclick="changerEtatBoutique('${boutiqueId}','ouverte')">Rouvrir</button>
+    </div>`;
+
+  const lignes = (!data || !data.length)
+    ? `<div class="empty">Aucune commande.</div>`
+    : data.map(o => {
+        const paye = ['PAID','paye'].includes(String(o.statut));
+        const vs = o.versement_statut;
+        let badge, actions='';
+        if(vs==='verse'){ badge='<span class="pill paye">Versé</span>'; }
+        else if(vs==='rembourse'){ badge='<span class="pill" style="background:rgba(255,90,110,.15);color:var(--red);">Remboursé</span>'; }
+        else { badge=`<span class="pill ${paye?'attente':'attente'}">${o.livraison_confirmee?'À verser':'Payé'}</span>`; }
+
+        if(vs==='a_verser' && paye){
+          if(!o.livraison_confirmee){
+            actions=`<button class="mini" onclick="confirmerLivraison(${o.order_id},'${boutiqueId}')">Livraison OK</button>`;
+          } else {
+            actions=`<button class="act" onclick="verser(${o.order_id},'${boutiqueId}')">Verser</button>`;
+          }
+          actions+=`<button class="mini red" onclick="rembourser(${o.order_id},'${boutiqueId}')">Rembourser</button>`;
+        } else if(vs!=='rembourse'){
+          actions=`<button class="mini red" onclick="rembourser(${o.order_id},'${boutiqueId}')">Rembourser</button>`;
+        }
+
+        return `<div class="cmd-row">
+          <div class="m">${escHtml(o.produit||'Produit')}
+            <div class="sub2">${escHtml(o.client||'Client')} · ${escHtml(o.telephone||'')}</div>
+          </div>
+          <div class="p">${fmt(o.montant)} F</div>
+          ${badge}
+          <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;">${actions}</div>
+        </div>`;
+      }).join('');
+
+  el.innerHTML = treso + boutonsBoutique + lignes;
+}
+
+async function confirmerLivraison(orderId, boutiqueId){
+  const { error } = await sb.rpc('rpc_confirmer_livraison', { p_order_id: orderId });
+  if(error){ alert('Erreur : '+error.message); return; }
+  await rafraichirUnivers(boutiqueId);
+}
+async function verser(orderId, boutiqueId){
+  if(!confirm('Verser le montant net à la boutique pour cette commande ?')) return;
+  const note = prompt('Note (facultatif) :') || null;
+  const { error } = await sb.rpc('rpc_verser_commande', { p_order_id: orderId, p_note: note });
+  if(error){ alert('Erreur : '+error.message); return; }
+  await rafraichirUnivers(boutiqueId);
+  if(typeof charger==='function') charger();
+}
+async function rembourser(orderId, boutiqueId){
+  if(!confirm('Rembourser cette commande au client ? Le partenaire le verra mais ne pourra rien y faire.')) return;
+  const note = prompt('Motif du remboursement (facultatif) :') || null;
+  const { error } = await sb.rpc('rpc_rembourser_commande', { p_order_id: orderId, p_note: note });
+  if(error){ alert('Erreur : '+error.message); return; }
+  await rafraichirUnivers(boutiqueId);
+  if(typeof charger==='function') charger();
+}
+async function changerEtatBoutique(boutiqueId, etat){
+  const libelle = {suspendue:'suspendre',fermee:'fermer',ouverte:'rouvrir'}[etat];
+  if(!confirm(`Voulez-vous ${libelle} cette boutique ?`)) return;
+  const { error } = await sb.rpc('rpc_etat_boutique', { p_boutique_id: boutiqueId, p_etat: etat });
+  if(error){ alert('Erreur : '+error.message); return; }
+  if(typeof charger==='function') charger();
+  await rafraichirUnivers(boutiqueId);
 }
 
 function fmt(n){ return Number(n||0).toLocaleString('fr-FR'); }

@@ -396,7 +396,7 @@ body{cursor:auto;}
 
 /* Content area */
 .bd-content{max-height:0;overflow:hidden;transition:max-height 0.5s cubic-bezier(0.4,0,0.2,1);background:rgba(4,14,28,0.6);}
-.bd-brand.open .bd-content{max-height:20000px;}
+.bd-brand.open .bd-content{max-height:4000px;}
 .bd-inner{padding:20px 28px 28px;}
 
 /* Sub-filter chips inside drawer */
@@ -416,10 +416,6 @@ body{cursor:auto;}
   .bd-count-pill{display:none;}
   .bd-stats-row{gap:16px;}
   .bd-inner{padding:14px 14px 18px;}
-}
-
-@media(max-width:680px){
-  .credit-versements{grid-template-columns:1fr!important;}
 }
 
 /* PRODUCT DETAIL MODAL */
@@ -637,29 +633,6 @@ input, textarea {
   from{ opacity:0; transform:scale(0.92) translateY(8px); }
   to{ opacity:1; transform:scale(1) translateY(0); }
 }
-
-/* ★ BANDEAU DE BOUTIQUE */
-#shopBanner{max-width:1200px;margin:24px auto 8px;padding:22px 24px;border-radius:20px;
-  position:relative;overflow:hidden;background:linear-gradient(150deg,var(--mid,#071828),var(--dark,#040f1e));
-  border:1px solid var(--shopColor,#00c8ff);}
-#shopBanner.on{display:flex !important;align-items:center;gap:20px;}
-#shopBanner::before{content:'';position:absolute;inset:0;opacity:.10;pointer-events:none;
-  background:radial-gradient(circle at 15% 20%,var(--shopColor,#00c8ff),transparent 55%);}
-.sb-logo{width:66px;height:66px;border-radius:16px;flex-shrink:0;display:flex;align-items:center;
-  justify-content:center;font-size:30px;background:rgba(0,200,255,.10);
-  border:1px solid var(--shopColor,#00c8ff);overflow:hidden;z-index:2;}
-.sb-logo img{width:100%;height:100%;object-fit:cover;}
-.sb-info{flex:1;min-width:0;z-index:2;}
-.sb-name{font-family:'Rajdhani',sans-serif;font-size:22px;font-weight:700;letter-spacing:1px;color:#fff;
-  display:flex;align-items:center;gap:8px;}
-.sb-name .v{color:var(--shopColor,#00c8ff);font-size:16px;}
-.sb-meta{color:var(--grey,#7a9abb);font-size:13px;margin-top:3px;}
-.sb-desc{color:var(--light,#bdd4ea);font-size:13px;margin-top:8px;line-height:1.5;max-width:640px;}
-.sb-switch{z-index:2;flex-shrink:0;background:transparent;border:1px solid var(--border,rgba(0,180,255,.22));
-  color:var(--grey,#7a9abb);border-radius:10px;padding:9px 14px;font-size:12px;font-family:'Outfit',sans-serif;
-  cursor:pointer;transition:color .2s,border-color .2s;white-space:nowrap;}
-.sb-switch:hover{color:var(--shopColor,#00c8ff);border-color:var(--shopColor,#00c8ff);}
-@media(max-width:640px){#shopBanner.on{flex-wrap:wrap;}.sb-switch{width:100%;text-align:center;margin-top:4px;}}
 </style>
 </head>
 <body>
@@ -822,7 +795,7 @@ input, textarea {
     <p class="hero-desc">iPhones · Infinix · Tecno de derniere generation. Livres chez vous a Dakar. Paiement 100% mobile via Orange Money et Free Money.</p>
     <div class="hero-btns">
       <a href="#cat" class="btn-glow">Voir le catalogue</a>
-      <a href="#credit" class="btn-ghost" style="border-color:rgba(0,200,80,0.4);color:#00e564;">🤝 Payez en 3 fois</a>
+      <a href="#pay" class="btn-ghost">Modes de paiement</a>
     </div>
     <div class="hero-stats">
       <div><div class="snum">47+</div><div class="slbl">Modeles</div></div>
@@ -909,17 +882,6 @@ input, textarea {
       <button onclick="bdCloseAll()" style="padding:10px 18px;border-radius:9px;background:rgba(0,100,255,0.05);border:1px solid var(--border);color:var(--grey);font-size:12px;cursor:pointer;font-family:'DM Mono',monospace;letter-spacing:1px;transition:all 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='var(--grey)'">TOUT FERMER</button>
     </div>
 
-    <!-- ★ BANDEAU DE BOUTIQUE (rempli quand on arrive via ?boutique=slug) -->
-    <div id="shopBanner" style="display:none;">
-      <div class="sb-logo" id="sbLogo">🏪</div>
-      <div class="sb-info">
-        <div class="sb-name" id="sbName"></div>
-        <div class="sb-meta" id="sbMeta"></div>
-        <div class="sb-desc" id="sbDesc"></div>
-      </div>
-      <button class="sb-switch" onclick="changerBoutique()">Changer de boutique</button>
-    </div>
-
     <div class="brand-drawers" id="brandDrawers"></div>
   </div>
 </section>
@@ -973,52 +935,6 @@ input, textarea {
     <div class="step"><div class="step-n">02</div><div class="step-i">📝</div><h3>Commandez</h3><p>Remplissez le formulaire avec vos coordonnees.</p></div>
     <div class="step"><div class="step-n">03</div><div class="step-i">💳</div><h3>Payez</h3><p>Wave · Mixx by Yas · Djamo · MaxIt SN.<br><span style="font-size:11px;color:var(--grey);">Securise par PayDunya</span></p></div>
     <div class="step"><div class="step-n">04</div><div class="step-i">🚀</div><h3>Recevez</h3><p>Livraison 24-48h a Dakar avec facture officielle.</p></div>
-  </div>
-</section>
-
-<!-- SECTION CRÉDIT ÉCHELONNÉ -->
-<section class="section" id="credit" style="background:linear-gradient(180deg,#000 0%,#04101d 100%);position:relative;overflow:hidden;">
-  <div style="position:absolute;top:-120px;right:-80px;width:380px;height:380px;background:radial-gradient(circle,rgba(0,200,80,0.12),transparent 70%);pointer-events:none;"></div>
-  <div class="wrap" style="position:relative;">
-    <div class="s-tag" style="color:#00e564;">// Achat Échelonné Halal</div>
-    <div class="s-title">PAYEZ EN <span class="ol" style="background:linear-gradient(135deg,#00e564,#00c8ff);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;">3 FOIS</span>, SANS INTÉRÊT</div>
-    <p style="color:var(--grey);max-width:620px;margin:18px 0 0;line-height:1.7;font-size:15px;">
-      Votre smartphone aujourd'hui, payé en 3 versements. <strong style="color:#fff;">Aucun intérêt, aucun frais caché</strong> : vous réglez le prix exact du téléphone. Une formule transparente et conforme, pensée pour Dakar.
-    </p>
-
-    <!-- 3 versements illustrés -->
-    <div class="credit-versements" style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:40px;max-width:760px;">
-      <div style="background:rgba(7,24,40,0.7);border:1px solid rgba(0,200,80,0.25);border-radius:18px;padding:24px 20px;text-align:center;">
-        <div style="font-size:13px;color:#00e564;font-weight:700;letter-spacing:1px;">VERSEMENT 1</div>
-        <div style="font-size:30px;font-weight:900;color:#fff;margin:8px 0;">50%</div>
-        <div style="font-size:12px;color:var(--grey);">À la commande</div>
-      </div>
-      <div style="background:rgba(7,24,40,0.7);border:1px solid var(--border);border-radius:18px;padding:24px 20px;text-align:center;">
-        <div style="font-size:13px;color:var(--cyan);font-weight:700;letter-spacing:1px;">VERSEMENT 2</div>
-        <div style="font-size:30px;font-weight:900;color:#fff;margin:8px 0;">25%</div>
-        <div style="font-size:12px;color:var(--grey);">30 jours après</div>
-      </div>
-      <div style="background:rgba(7,24,40,0.7);border:1px solid var(--border);border-radius:18px;padding:24px 20px;text-align:center;">
-        <div style="font-size:13px;color:var(--cyan);font-weight:700;letter-spacing:1px;">VERSEMENT 3</div>
-        <div style="font-size:30px;font-weight:900;color:#fff;margin:8px 0;">25%</div>
-        <div style="font-size:12px;color:var(--grey);">60 jours après</div>
-      </div>
-    </div>
-
-    <!-- Avantages -->
-    <div style="display:flex;flex-wrap:wrap;gap:14px;margin-top:32px;max-width:760px;">
-      <div style="display:flex;align-items:center;gap:8px;background:rgba(0,200,80,0.08);border:1px solid rgba(0,200,80,0.2);border-radius:100px;padding:9px 18px;font-size:13px;color:#fff;">✅ 0% d'intérêt</div>
-      <div style="display:flex;align-items:center;gap:8px;background:rgba(0,200,255,0.08);border:1px solid rgba(0,200,255,0.2);border-radius:100px;padding:9px 18px;font-size:13px;color:#fff;">📱 iPhone, Samsung, Infinix…</div>
-      <div style="display:flex;align-items:center;gap:8px;background:rgba(0,200,255,0.08);border:1px solid rgba(0,200,255,0.2);border-radius:100px;padding:9px 18px;font-size:13px;color:#fff;">🔒 100% sécurisé</div>
-      <div style="display:flex;align-items:center;gap:8px;background:rgba(0,200,255,0.08);border:1px solid rgba(0,200,255,0.2);border-radius:100px;padding:9px 18px;font-size:13px;color:#fff;">🚚 Livré à Dakar</div>
-    </div>
-
-    <!-- CTA -->
-    <div style="margin-top:38px;">
-      <a href="/credit-halal.html" style="display:inline-flex;align-items:center;gap:10px;background:linear-gradient(135deg,#00b450,#00e564);color:#01121f;font-weight:800;font-size:16px;padding:16px 38px;border-radius:14px;text-decoration:none;box-shadow:0 8px 30px rgba(0,200,80,0.35);">
-        🤝 Demander mon crédit échelonné →
-      </a>
-    </div>
   </div>
 </section>
 
@@ -1652,7 +1568,7 @@ async function loadProducts(){
     const ctrl = new AbortController();
     const timeoutId = setTimeout(()=>ctrl.abort(), 8000);
     const res = await fetch(
-      `${SUPA_URL}/rest/v1/products?visible=eq.true${filtreBoutiqueURL()}&order=ordre.asc,id.asc&select=*`,
+      `${SUPA_URL}/rest/v1/products?visible=eq.true&order=ordre.asc,id.asc&select=*`,
       { headers: { 'apikey': SUPA_KEY, 'Authorization': `Bearer ${SUPA_KEY}` }, signal: ctrl.signal }
     );
     clearTimeout(timeoutId);
@@ -1692,8 +1608,7 @@ async function loadProducts(){
     }));
   } catch(e){
     console.warn('Supabase indisponible — catalogue de secours.', e);
-    // ★ Dans une boutique, pas de catalogue de secours SDS PRO (trompeur).
-    P = window.FALLBACK_CATALOG_BLOQUE ? [] : FALLBACK_CATALOG;
+    P = FALLBACK_CATALOG;
   }
   window.PRODS = P; // Sync global reference
   buildBrandDrawers();
@@ -1901,23 +1816,11 @@ function buildBrandDrawers(){
 
   // Render all brands initially (collapsed, products pre-loaded invisibly)
   BRANDS.forEach(b=>bdRenderBrand(b.key));
-
-  // Ouvrir automatiquement la marque qui a le plus de produits
-  let topBrand = null, topCount = -1;
-  BRANDS.forEach(b=>{
-    const n = P.filter(p=>(p.c||'').toLowerCase().includes(b.filter) || (p.br||'').toLowerCase().includes(b.filter)).length;
-    if(n > topCount){ topCount = n; topBrand = b.key; }
-  });
-  if(topBrand){
-    document.getElementById('bdbrand-'+topBrand)?.classList.add('open');
-  }
 }
 
 function bdToggle(key){
   const el = document.getElementById('bdbrand-'+key);
   const isOpen = el.classList.contains('open');
-  // Toggle simple : chaque marque s'ouvre/ferme indépendamment.
-  // Pas de fermeture automatique des autres → aucun saut de page.
   el.classList.toggle('open',!isOpen);
 }
 
@@ -2406,7 +2309,6 @@ async function sub(){
             paiement:   selP === 'free' ? 'Free Money' : 'Orange Money',
             status:     pStatus === 'COMPLETED' ? 'en_attente' : 'en_attente',
             deposit_id: data.depositId || data.raw?.depositId || null,
-            boutique_id: window.BOUTIQUE?.id || null, // ★ rattache la commande au revendeur
           });
           console.log('Commande enregistrée');
         } catch(e){ console.log('Erreur save commande:', e.message); }
@@ -2550,37 +2452,6 @@ function formatPrice(n){ return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g,' '
 let _supa = null;
 let _otpEmail = ''; // Email en attente de vérification OTP
 
-// ── Identifiant d'appareil stable (pour alerte nouvelle connexion) ──
-function _deviceHash(){
-  try {
-    let h = localStorage.getItem('sds-device-id');
-    if(!h){
-      h = (crypto.randomUUID ? crypto.randomUUID() : (Date.now()+'-'+Math.random().toString(36).slice(2)));
-      localStorage.setItem('sds-device-id', h);
-    }
-    return h;
-  } catch(e){ return 'no-storage'; }
-}
-
-// ── Notifier le backend pour bienvenue / nouvelle connexion ──
-async function _notifyAuth(evenement){
-  try {
-    const { data: { session } } = await _supa.auth.getSession();
-    const token = session?.access_token;
-    if(!token) return;
-    fetch('https://sdsprotech-backend.pages.dev/auth-notify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        evenement,
-        access_token: token,
-        device_hash: _deviceHash(),
-        user_agent: navigator.userAgent
-      })
-    }).catch(()=>{});
-  } catch(e){}
-}
-
 function initSupabase(){
   if(!window.supabase){ console.error('Supabase SDK non chargé'); return; }
   if(SUPA_URL.includes('REMPLACE') || SUPA_KEY.includes('REMPLACE')){ return; }
@@ -2610,7 +2481,7 @@ function initSupabase(){
         .catch(()=>{});
 
       loadOrders(session.user.id);
-      if(event === 'SIGNED_IN'){ authClose(); _notifyAuth('connexion'); }
+      if(event === 'SIGNED_IN'){ authClose(); }
 
       if(window._pendingProduct){
         const pid = window._pendingProduct;
@@ -2688,8 +2559,7 @@ window._placeOrder = async function(orderData){
       telephone:  orderData.telephone,
       items:      orderData.items,
       total:      orderData.total,
-      status:     'en_attente',
-      boutique_id: window.BOUTIQUE?.id || null, // ★ rattache la commande au revendeur
+      status:     'en_attente'
     });
     return !error;
   } catch(e){ return false; }
@@ -2845,7 +2715,6 @@ async function doVerifyOtp(){
     showErr('otpErr', 'Code incorrect ou expiré. Réessaie ou renvoie un nouveau code.');
   } else {
     showOk('otpOk', '✅ Compte vérifié ! Bienvenue 🎉');
-    _notifyAuth('bienvenue');
     setTimeout(()=>{ authClose(); }, 1800);
   }
 }
@@ -3308,74 +3177,7 @@ async function doNotify(){
   draw();
 })();
 initSupabase(); // Lance Supabase Auth + charge les produits
-/* ══════════ ★ VITRINE DE BOUTIQUE ══════════
-   Si l'URL contient ?boutique=slug, le site n'affiche que les produits de
-   cette boutique, avec un bandeau a son nom. Sinon : catalogue SDS PRO. */
-window.BOUTIQUE = null;
-
-function slugBoutiqueCourante(){
-  const url = new URLSearchParams(location.search).get('boutique');
-  if(url) return url;
-  try { return sessionStorage.getItem('sds_boutique') || null; } catch(e){ return null; }
-}
-
-// Fragment d'URL de filtrage, utilise par loadProducts()
-function filtreBoutiqueURL(){
-  if(window.BOUTIQUE && window.BOUTIQUE.id) return `&boutique_id=eq.${window.BOUTIQUE.id}`;
-  const slug = slugBoutiqueCourante();
-  if(slug && slug !== 'sds-pro') return `&boutique_id=eq.00000000-0000-0000-0000-000000000000`;
-  return `&boutique_id=is.null`; // catalogue SDS PRO en propre
-}
-
-async function chargerBoutique(slug){
-  if(!slug || slug === 'sds-pro') return null;
-  try {
-    const res = await fetch(`${SUPA_URL}/rest/v1/rpc/rpc_boutique_par_slug`, {
-      method:'POST',
-      headers:{'Content-Type':'application/json','apikey':SUPA_KEY,'Authorization':`Bearer ${SUPA_KEY}`},
-      body: JSON.stringify({ p_slug: slug }),
-    });
-    if(!res.ok) throw new Error('HTTP '+res.status);
-    const rows = await res.json();
-    return (Array.isArray(rows) && rows.length) ? rows[0] : null;
-  } catch(e){ console.warn('Boutique introuvable:', slug, e); return null; }
-}
-
-function afficherBanniere(b){
-  const banner = document.getElementById('shopBanner');
-  if(!banner) return;
-  if(!b){ banner.classList.remove('on'); banner.style.display='none'; return; }
-  const couleur = b.couleur || '#00c8ff';
-  banner.style.setProperty('--shopColor', couleur);
-  document.getElementById('sbLogo').innerHTML = b.logo_url
-    ? `<img src="${escAttrB(b.logo_url)}" alt="" onerror="this.parentNode.textContent='\u{1F3EA}'">`
-    : '\u{1F3EA}';
-  document.getElementById('sbName').innerHTML =
-    escHtmlB(b.nom) + (b.verifiee ? ' <span class="v" title="Partenaire verifie">\u2714</span>' : '');
-  document.getElementById('sbMeta').textContent =
-    [b.proprietaire, b.ville, b.quartier].filter(Boolean).join(' \u00b7 ');
-  document.getElementById('sbDesc').textContent = b.description || '';
-  banner.classList.add('on'); banner.style.display='flex';
-  document.title = `${b.nom} \u2014 via SDS PRO`;
-}
-
-function changerBoutique(){
-  try { sessionStorage.removeItem('sds_boutique'); } catch(e){}
-  location.href = location.pathname; // recharge sans slug -> catalogue SDS PRO
-}
-
-function escHtmlB(t){ return String(t==null?'':t).replace(/[&<>"']/g,c=>(
-  {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-function escAttrB(t){ return escHtmlB(t).replace(/`/g,'&#96;'); }
-
-// ★ Demarrage : on identifie la boutique AVANT de charger les produits
-(async () => {
-  const slug = slugBoutiqueCourante();
-  window.BOUTIQUE = await chargerBoutique(slug);
-  afficherBanniere(window.BOUTIQUE);
-  if(slug && slug !== 'sds-pro') window.FALLBACK_CATALOG_BLOQUE = true;
-  loadProducts();
-})();
+loadProducts();
 
 // Countdown supprimé — boutique officielle ouverte
 

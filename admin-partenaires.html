@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Suivi partenaires — SDS PRO Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Outfit:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{--deep:#020912;--dark:#040f1e;--mid:#071828;--blue:#0055ff;--cyan:#00c8ff;
+  --white:#fff;--grey:#7a9abb;--light:#bdd4ea;--border:rgba(0,180,255,.22);
+  --green:#00c864;--amber:#ffb020;--red:#ff5a6e;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--deep);color:var(--white);font-family:'Outfit',sans-serif;min-height:100vh;}
+
+#login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;}
+.card{width:100%;max-width:420px;background:linear-gradient(160deg,var(--mid),var(--dark));
+  border:1px solid var(--border);border-radius:20px;padding:30px 26px;}
+.brand{font-family:'Rajdhani',sans-serif;font-size:24px;font-weight:700;letter-spacing:4px;text-align:center;}
+.brand .c{color:var(--cyan);}
+.sub{text-align:center;color:var(--grey);font-size:12px;font-family:'DM Mono',monospace;letter-spacing:2px;margin:4px 0 24px;}
+.field{margin-bottom:14px;}
+.field label{display:block;font-size:11px;color:var(--grey);letter-spacing:1px;margin-bottom:6px;text-transform:uppercase;}
+.field input{width:100%;background:rgba(0,20,40,.6);border:1.5px solid var(--border);border-radius:12px;
+  padding:14px;color:#fff;font-size:15px;font-family:'Outfit';}
+.field input:focus{outline:none;border-color:var(--cyan);}
+.btn{width:100%;background:linear-gradient(135deg,var(--blue),var(--cyan));border:none;border-radius:12px;
+  padding:15px;color:#fff;font-size:15px;font-weight:600;cursor:pointer;}
+.err{color:var(--red);font-size:13px;margin-top:12px;text-align:center;min-height:18px;}
+
+#app{display:none;max-width:1100px;margin:0 auto;padding:20px 16px 60px;}
+.topbar{display:flex;align-items:center;gap:14px;padding:16px 0 20px;border-bottom:1px solid var(--border);margin-bottom:22px;}
+.topbar .brand{text-align:left;font-size:20px;flex:1;}
+.logout{background:transparent;border:1px solid var(--border);color:var(--grey);border-radius:10px;
+  padding:9px 14px;font-size:12px;cursor:pointer;}
+.logout:hover{color:var(--red);border-color:var(--red);}
+
+.totals{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:26px;}
+.tot{background:linear-gradient(160deg,var(--mid),var(--dark));border:1px solid var(--border);
+  border-radius:16px;padding:18px;}
+.tot .v{font-family:'Rajdhani',sans-serif;font-size:26px;font-weight:700;}
+.tot .l{color:var(--grey);font-size:11px;text-transform:uppercase;letter-spacing:1px;margin-top:4px;}
+.tot.green .v{color:var(--green);} .tot.amber .v{color:var(--amber);} .tot.cyan .v{color:var(--cyan);}
+
+h2{font-family:'Rajdhani',sans-serif;font-size:18px;letter-spacing:1px;margin-bottom:14px;color:var(--light);}
+
+.shop{background:linear-gradient(160deg,var(--mid),var(--dark));border:1px solid var(--border);
+  border-radius:16px;padding:18px 20px;margin-bottom:12px;}
+.shop-head{display:flex;align-items:center;gap:14px;cursor:pointer;}
+.shop-logo{width:44px;height:44px;border-radius:11px;background:rgba(0,200,255,.1);border:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;}
+.shop-info{flex:1;min-width:0;}
+.shop-name{font-weight:600;font-size:16px;}
+.shop-meta{color:var(--grey);font-size:12px;margin-top:2px;}
+.shop-ca{text-align:right;}
+.shop-ca .big{font-family:'Rajdhani',sans-serif;font-size:20px;font-weight:700;color:var(--green);}
+.shop-ca .sm{color:var(--grey);font-size:11px;}
+.shop-detail{display:none;margin-top:16px;padding-top:16px;border-top:1px solid var(--border);}
+.shop-detail.on{display:block;}
+.kpis{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;}
+.kpi{background:rgba(0,20,40,.5);border:1px solid var(--border);border-radius:10px;padding:9px 14px;}
+.kpi .v{font-weight:700;font-size:15px;}
+.kpi .l{color:var(--grey);font-size:10px;text-transform:uppercase;}
+.cmd-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(0,180,255,.08);}
+.cmd-row:last-child{border-bottom:none;}
+.cmd-row .m{flex:1;min-width:0;font-size:13px;}
+.cmd-row .m .sub2{color:var(--grey);font-size:11px;}
+.cmd-row .p{font-family:'Rajdhani',sans-serif;font-weight:700;white-space:nowrap;}
+.pill{font-size:9px;font-weight:600;padding:3px 8px;border-radius:100px;text-transform:uppercase;white-space:nowrap;}
+.pill.paye{background:rgba(0,200,100,.15);color:var(--green);}
+.pill.attente{background:rgba(255,176,32,.15);color:var(--amber);}
+.empty{text-align:center;color:var(--grey);padding:30px;font-size:13px;}
+</style>
+</head>
+<body>
+
+<div id="login">
+  <div class="card">
+    <div class="brand">SDS <span class="c">PRO</span></div>
+    <div class="sub">Suivi des partenaires</div>
+    <div class="field"><label>Email admin</label>
+      <input type="email" id="email" autocomplete="email"></div>
+    <div class="field"><label>Mot de passe</label>
+      <input type="password" id="pass" autocomplete="current-password"
+             onkeydown="if(event.key==='Enter')connexion()"></div>
+    <button class="btn" id="loginBtn" onclick="connexion()">Se connecter</button>
+    <div class="err" id="loginErr"></div>
+  </div>
+</div>
+
+<div id="app">
+  <div class="topbar">
+    <div class="brand">SDS <span class="c">PRO</span> · Partenaires</div>
+    <button class="logout" onclick="deconnexion()">Déconnexion</button>
+  </div>
+
+  <div class="totals">
+    <div class="tot green"><div class="v" id="tCA">—</div><div class="l">Total encaissé</div></div>
+    <div class="tot amber"><div class="v" id="tAtt">—</div><div class="l">Total en attente</div></div>
+    <div class="tot cyan"><div class="v" id="tBout">—</div><div class="l">Boutiques actives</div></div>
+  </div>
+
+  <h2>Boutiques partenaires</h2>
+  <div id="liste"><div class="empty">Chargement…</div></div>
+</div>
+
+<script>
+const SUPA_URL = 'https://fvfkawxwtsziqzibzbxt.supabase.co';
+const SUPA_KEY = 'sb_publishable_BTBvJ0drkx8ZWflBG7IhMA_A_b6h7rI';
+const sb = supabase.createClient(SUPA_URL, SUPA_KEY);
+
+async function connexion(){
+  const email = document.getElementById('email').value.trim();
+  const pass  = document.getElementById('pass').value;
+  const btn   = document.getElementById('loginBtn');
+  const err   = document.getElementById('loginErr');
+  err.textContent = '';
+  btn.disabled = true; btn.textContent = 'Connexion…';
+  const { error } = await sb.auth.signInWithPassword({ email, password: pass });
+  btn.disabled = false; btn.textContent = 'Se connecter';
+  if(error){ err.textContent = 'Identifiants incorrects.'; return; }
+  await demarrer();
+}
+async function deconnexion(){ await sb.auth.signOut(); location.reload(); }
+
+async function demarrer(){
+  // Vérifier que le compte est bien admin SDS PRO
+  const { data: estAdmin } = await sb.rpc('est_admin_sds');
+  if(!estAdmin){
+    document.getElementById('loginErr').textContent = "Accès réservé à l'administration SDS PRO.";
+    await sb.auth.signOut();
+    return;
+  }
+  document.getElementById('login').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  await charger();
+}
+
+async function charger(){
+  const box = document.getElementById('liste');
+  // La vue vue_ca_boutiques agrège commandes et CA par boutique.
+  // Elle est réservée au service_role ; l'admin y accède via cette RPC.
+  const { data, error } = await sb.rpc('rpc_ca_boutiques');
+  if(error){ box.innerHTML = `<div class="empty">Erreur : ${escHtml(error.message)}</div>`; return; }
+  if(!data || !data.length){ box.innerHTML = `<div class="empty">Aucune boutique enregistrée.</div>`; return; }
+
+  let totCA = 0, totAtt = 0, actives = 0;
+  data.forEach(b => { totCA += Number(b.ca_encaisse||0); totAtt += Number(b.ca_en_attente||0);
+    if(Number(b.commandes_total) > 0) actives++; });
+  document.getElementById('tCA').textContent  = fmt(totCA) + ' F';
+  document.getElementById('tAtt').textContent = fmt(totAtt) + ' F';
+  document.getElementById('tBout').textContent = data.length;
+
+  box.innerHTML = data.map((b,i) => `
+    <div class="shop">
+      <div class="shop-head" onclick="toggleDetail('${b.boutique_id}', this)">
+        <div class="shop-logo">🏪</div>
+        <div class="shop-info">
+          <div class="shop-name">${escHtml(b.nom)}</div>
+          <div class="shop-meta">${escHtml([b.proprietaire, b.ville, b.telephone].filter(Boolean).join(' · '))}</div>
+        </div>
+        <div class="shop-ca">
+          <div class="big">${fmt(b.ca_encaisse)} F</div>
+          <div class="sm">${b.commandes_payees} payée(s) · ${b.commandes_attente} en attente</div>
+        </div>
+      </div>
+      <div class="shop-detail" id="detail-${b.boutique_id}"></div>
+    </div>`).join('');
+}
+
+// Ouvrir le détail d'une boutique : ses commandes
+async function toggleDetail(boutiqueId, head){
+  const el = document.getElementById('detail-' + boutiqueId);
+  if(el.classList.contains('on')){ el.classList.remove('on'); return; }
+
+  el.innerHTML = `<div class="empty">Chargement…</div>`;
+  el.classList.add('on');
+
+  const { data, error } = await sb.rpc('rpc_commandes_boutique', { p_boutique_id: boutiqueId });
+  if(error){ el.innerHTML = `<div class="empty">Erreur de chargement.</div>`; return; }
+  if(!data || !data.length){ el.innerHTML = `<div class="empty">Aucune commande.</div>`; return; }
+
+  const payees = data.filter(o=>o.status==='paye');
+  const caReel = payees.reduce((s,o)=>s+Number(o.prix||0),0);
+
+  el.innerHTML = `
+    <div class="kpis">
+      <div class="kpi"><div class="v">${data.length}</div><div class="l">Commandes</div></div>
+      <div class="kpi"><div class="v" style="color:var(--green)">${payees.length}</div><div class="l">Payées</div></div>
+      <div class="kpi"><div class="v" style="color:var(--green)">${fmt(caReel)} F</div><div class="l">Encaissé</div></div>
+    </div>
+    ${data.map(o => {
+      const paye = o.status === 'paye';
+      return `<div class="cmd-row">
+        <div class="m">${escHtml(o.produit||'Produit')}
+          <div class="sub2">${escHtml(o.user_name||'Client')} · ${escHtml(o.telephone||'')} ${o.paiement?'· '+escHtml(o.paiement):''}</div>
+        </div>
+        <div class="p">${fmt(o.prix)} F</div>
+        <span class="pill ${paye?'paye':'attente'}">${paye?'Payé':'Attente'}</span>
+      </div>`;
+    }).join('')}`;
+}
+
+function fmt(n){ return Number(n||0).toLocaleString('fr-FR'); }
+function escHtml(t){ return String(t==null?'':t).replace(/[&<>"']/g,c=>(
+  {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+(async () => {
+  const { data } = await sb.auth.getSession();
+  if(data && data.session){ await demarrer(); }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Espace partenaire — SDS PRO</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Outfit:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{--deep:#020912;--dark:#040f1e;--mid:#071828;--blue:#0055ff;--cyan:#00c8ff;
+  --white:#fff;--grey:#7a9abb;--light:#bdd4ea;--border:rgba(0,180,255,.22);
+  --green:#00c864;--amber:#ffb020;--red:#ff5a6e;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--deep);color:var(--white);font-family:'Outfit',sans-serif;min-height:100vh;}
+a{color:inherit;}
+
+/* ── Connexion ── */
+#login{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;}
+.card{width:100%;max-width:420px;background:linear-gradient(160deg,var(--mid),var(--dark));
+  border:1px solid var(--border);border-radius:20px;padding:30px 26px;box-shadow:0 24px 60px rgba(0,0,0,.5);}
+.brand{font-family:'Rajdhani',sans-serif;font-size:24px;font-weight:700;letter-spacing:4px;text-align:center;margin-bottom:4px;}
+.brand .c{color:var(--cyan);}
+.sub{text-align:center;color:var(--grey);font-size:12px;font-family:'DM Mono',monospace;letter-spacing:2px;margin-bottom:24px;}
+.field{margin-bottom:14px;}
+.field label{display:block;font-size:11px;color:var(--grey);letter-spacing:1px;margin-bottom:6px;text-transform:uppercase;}
+.field input{width:100%;background:rgba(0,20,40,.6);border:1.5px solid var(--border);border-radius:12px;
+  padding:14px;color:#fff;font-size:15px;font-family:'Outfit';}
+.field input:focus{outline:none;border-color:var(--cyan);}
+.btn{width:100%;background:linear-gradient(135deg,var(--blue),var(--cyan));border:none;border-radius:12px;
+  padding:15px;color:#fff;font-size:15px;font-weight:600;cursor:pointer;transition:transform .15s;}
+.btn:hover{transform:translateY(-2px);}
+.btn:disabled{opacity:.5;transform:none;cursor:default;}
+.err{color:var(--red);font-size:13px;margin-top:12px;text-align:center;min-height:18px;}
+
+/* ── Application ── */
+#app{display:none;max-width:1000px;margin:0 auto;padding:20px 16px 60px;}
+.topbar{display:flex;align-items:center;gap:14px;padding:16px 0 22px;border-bottom:1px solid var(--border);margin-bottom:22px;}
+.topbar .logo{width:46px;height:46px;border-radius:12px;background:rgba(0,200,255,.1);border:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;font-size:22px;overflow:hidden;}
+.topbar .logo img{width:100%;height:100%;object-fit:cover;}
+.topbar .who{flex:1;min-width:0;}
+.topbar .who .n{font-family:'Rajdhani',sans-serif;font-size:19px;font-weight:700;}
+.topbar .who .r{color:var(--grey);font-size:12px;}
+.logout{background:transparent;border:1px solid var(--border);color:var(--grey);border-radius:10px;
+  padding:9px 14px;font-size:12px;cursor:pointer;}
+.logout:hover{color:var(--red);border-color:var(--red);}
+
+/* ── Cartes de résumé ── */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:24px;}
+.stat{background:linear-gradient(160deg,var(--mid),var(--dark));border:1px solid var(--border);
+  border-radius:16px;padding:18px;}
+.stat .v{font-family:'Rajdhani',sans-serif;font-size:26px;font-weight:700;}
+.stat .l{color:var(--grey);font-size:11px;text-transform:uppercase;letter-spacing:1px;margin-top:4px;}
+.stat.green .v{color:var(--green);} .stat.amber .v{color:var(--amber);} .stat.cyan .v{color:var(--cyan);}
+
+/* ── Onglets ── */
+.tabs{display:flex;gap:8px;margin-bottom:18px;}
+.tab{background:transparent;border:1px solid var(--border);color:var(--grey);border-radius:10px;
+  padding:10px 18px;font-size:13px;font-weight:600;cursor:pointer;font-family:'Outfit';}
+.tab.on{background:var(--cyan);color:#001018;border-color:var(--cyan);}
+
+/* ── Listes ── */
+.row{background:linear-gradient(160deg,var(--mid),var(--dark));border:1px solid var(--border);
+  border-radius:14px;padding:15px 16px;margin-bottom:10px;display:flex;align-items:center;gap:14px;}
+.row .main{flex:1;min-width:0;}
+.row .t{font-weight:600;font-size:15px;}
+.row .m{color:var(--grey);font-size:12px;margin-top:3px;}
+.row .price{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:16px;white-space:nowrap;}
+.pill{font-size:10px;font-weight:600;padding:4px 9px;border-radius:100px;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;}
+.pill.paye{background:rgba(0,200,100,.15);color:var(--green);}
+.pill.attente{background:rgba(255,176,32,.15);color:var(--amber);}
+.act{background:var(--green);border:none;color:#001810;border-radius:9px;padding:8px 13px;font-size:12px;
+  font-weight:700;cursor:pointer;white-space:nowrap;}
+.act:hover{filter:brightness(1.1);}
+.act:disabled{opacity:.5;cursor:default;}
+.empty{text-align:center;color:var(--grey);padding:40px 20px;font-size:14px;}
+
+/* ── Produits ── */
+.addbtn{background:linear-gradient(135deg,var(--blue),var(--cyan));border:none;color:#fff;border-radius:12px;
+  padding:13px 20px;font-size:14px;font-weight:600;cursor:pointer;margin-bottom:16px;}
+.prod-actions{display:flex;gap:8px;}
+.mini{background:transparent;border:1px solid var(--border);color:var(--grey);border-radius:8px;
+  padding:7px 11px;font-size:12px;cursor:pointer;}
+.mini:hover{color:var(--cyan);border-color:var(--cyan);}
+.mini.red:hover{color:var(--red);border-color:var(--red);}
+
+/* ── Fenêtre produit ── */
+.modal{display:none;position:fixed;inset:0;background:rgba(0,5,15,.8);z-index:100;
+  align-items:center;justify-content:center;padding:20px;}
+.modal.on{display:flex;}
+.modal-card{width:100%;max-width:480px;max-height:90vh;overflow-y:auto;
+  background:linear-gradient(160deg,var(--mid),var(--dark));border:1px solid var(--cyan);
+  border-radius:18px;padding:24px;}
+.modal-card h3{font-family:'Rajdhani',sans-serif;font-size:20px;margin-bottom:18px;}
+.modal-card .field{margin-bottom:13px;}
+.modal-card textarea{width:100%;background:rgba(0,20,40,.6);border:1.5px solid var(--border);border-radius:12px;
+  padding:12px;color:#fff;font-size:14px;font-family:'Outfit';resize:vertical;min-height:60px;}
+.modal-actions{display:flex;gap:10px;margin-top:18px;}
+.modal-actions .btn{flex:1;}
+.modal-actions .cancel{background:transparent;border:1px solid var(--border);color:var(--grey);}
+</style>
+</head>
+<body>
+
+<!-- ═══════════ CONNEXION ═══════════ -->
+<div id="login">
+  <div class="card">
+    <div class="brand">SECK <span class="c">DIGITAL</span> SERVICES PRO</div>
+    <div class="sub">Espace partenaire</div>
+    <div class="field">
+      <label>Email</label>
+      <input type="email" id="email" autocomplete="email" placeholder="vous@exemple.com">
+    </div>
+    <div class="field">
+      <label>Mot de passe</label>
+      <input type="password" id="pass" autocomplete="current-password"
+             onkeydown="if(event.key==='Enter')connexion()">
+    </div>
+    <button class="btn" id="loginBtn" onclick="connexion()">Se connecter</button>
+    <div class="err" id="loginErr"></div>
+  </div>
+</div>
+
+<!-- ═══════════ APPLICATION ═══════════ -->
+<div id="app">
+  <div class="topbar">
+    <div class="logo" id="shopLogo">🏪</div>
+    <div class="who">
+      <div class="n" id="shopName">—</div>
+      <div class="r" id="shopRole">Espace partenaire</div>
+    </div>
+    <button class="logout" onclick="deconnexion()">Déconnexion</button>
+  </div>
+
+  <div class="stats">
+    <div class="stat green"><div class="v" id="stCA">—</div><div class="l">Encaissé (payé)</div></div>
+    <div class="stat amber"><div class="v" id="stAttente">—</div><div class="l">En attente</div></div>
+    <div class="stat cyan"><div class="v" id="stCmd">—</div><div class="l">Commandes payées</div></div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab on" id="tabCmd" onclick="montrer('cmd')">Commandes</button>
+    <button class="tab" id="tabProd" onclick="montrer('prod')">Mes produits</button>
+  </div>
+
+  <!-- Commandes -->
+  <div id="viewCmd">
+    <div id="listeCmd"><div class="empty">Chargement…</div></div>
+  </div>
+
+  <!-- Produits -->
+  <div id="viewProd" style="display:none;">
+    <button class="addbtn" onclick="ouvrirProduit()">+ Ajouter un produit</button>
+    <div id="listeProd"><div class="empty">Chargement…</div></div>
+  </div>
+</div>
+
+<!-- ═══════════ FENÊTRE PRODUIT ═══════════ -->
+<div class="modal" id="prodModal">
+  <div class="modal-card">
+    <h3 id="prodModalTitle">Nouveau produit</h3>
+    <input type="hidden" id="pId">
+    <div class="field"><label>Nom *</label><input type="text" id="pNom" placeholder="iPhone 13"></div>
+    <div class="field"><label>Modèle / variante</label><input type="text" id="pModele" placeholder="128 GB · Noir"></div>
+    <div class="field"><label>Prix (FCFA) *</label><input type="number" id="pPrix" placeholder="220000"></div>
+    <div class="field"><label>Emoji</label><input type="text" id="pEmoji" placeholder="📱" maxlength="4"></div>
+    <div class="field"><label>Marque</label><input type="text" id="pMarque" placeholder="Apple"></div>
+    <div class="field"><label>Caractéristiques (séparées par des virgules)</label>
+      <textarea id="pSpecs" placeholder="128GB, 5G, Face ID"></textarea></div>
+    <div class="field"><label>Images (une URL par ligne)</label>
+      <textarea id="pImages" placeholder="https://…"></textarea></div>
+    <div class="err" id="prodErr"></div>
+    <div class="modal-actions">
+      <button class="btn cancel" onclick="fermerProduit()">Annuler</button>
+      <button class="btn" id="prodSaveBtn" onclick="sauverProduit()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUPA_URL = 'https://fvfkawxwtsziqzibzbxt.supabase.co';
+const SUPA_KEY = 'sb_publishable_BTBvJ0drkx8ZWflBG7IhMA_A_b6h7rI';
+const sb = supabase.createClient(SUPA_URL, SUPA_KEY);
+
+let MA_BOUTIQUE = null; // { id, nom, logo_url... }
+
+// ── Connexion ──
+async function connexion(){
+  const email = document.getElementById('email').value.trim();
+  const pass  = document.getElementById('pass').value;
+  const btn   = document.getElementById('loginBtn');
+  const err   = document.getElementById('loginErr');
+  err.textContent = '';
+  if(!email || !pass){ err.textContent = 'Email et mot de passe requis.'; return; }
+
+  btn.disabled = true; btn.textContent = 'Connexion…';
+  const { error } = await sb.auth.signInWithPassword({ email, password: pass });
+  btn.disabled = false; btn.textContent = 'Se connecter';
+  if(error){ err.textContent = 'Email ou mot de passe incorrect.'; return; }
+  await demarrer();
+}
+
+async function deconnexion(){
+  await sb.auth.signOut();
+  location.reload();
+}
+
+// ── Démarrage : identifier la boutique du compte ──
+async function demarrer(){
+  // ma_boutique() renvoie l'id de la boutique rattachée au compte
+  const { data: bid, error } = await sb.rpc('ma_boutique');
+  if(error || !bid){
+    document.getElementById('loginErr').textContent =
+      "Ce compte n'est rattaché à aucune boutique. Contactez SDS PRO.";
+    await sb.auth.signOut();
+    return;
+  }
+  // Charger l'identité de la boutique
+  const { data: rows } = await sb
+    .from('boutiques').select('id,nom,logo_url,proprietaire,ville').eq('id', bid).limit(1);
+  MA_BOUTIQUE = (rows && rows[0]) || { id: bid, nom: 'Ma boutique' };
+
+  document.getElementById('login').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  document.getElementById('shopName').textContent = MA_BOUTIQUE.nom || 'Ma boutique';
+  document.getElementById('shopRole').textContent =
+    [MA_BOUTIQUE.proprietaire, MA_BOUTIQUE.ville].filter(Boolean).join(' · ') || 'Espace partenaire';
+  if(MA_BOUTIQUE.logo_url){
+    document.getElementById('shopLogo').innerHTML =
+      `<img src="${escAttr(MA_BOUTIQUE.logo_url)}" onerror="this.parentNode.textContent='🏪'">`;
+  }
+
+  await chargerResume();
+  await chargerCommandes();
+}
+
+// ── Résumé (chiffre d'affaires) ──
+async function chargerResume(){
+  const { data, error } = await sb.rpc('rpc_mon_resume');
+  if(error || !data || !data[0]) return;
+  const r = data[0];
+  document.getElementById('stCA').textContent      = fmt(r.ca_encaisse) + ' F';
+  document.getElementById('stAttente').textContent = fmt(r.ca_en_attente) + ' F';
+  document.getElementById('stCmd').textContent     = r.commandes_payees;
+}
+
+// ── Commandes ──
+async function chargerCommandes(){
+  const box = document.getElementById('listeCmd');
+  const { data, error } = await sb.from('orders')
+    .select('id,produit,prix,status,user_name,telephone,paiement,created_at')
+    .order('created_at', { ascending:false });
+  if(error){ box.innerHTML = `<div class="empty">Erreur de chargement.</div>`; return; }
+  if(!data || !data.length){ box.innerHTML = `<div class="empty">Aucune commande pour le moment.</div>`; return; }
+
+  box.innerHTML = data.map(o => {
+    const paye = o.status === 'paye';
+    return `<div class="row">
+      <div class="main">
+        <div class="t">${escHtml(o.produit || 'Produit')}</div>
+        <div class="m">${escHtml(o.user_name || 'Client')} · ${escHtml(o.telephone || '')}
+          ${o.paiement ? '· ' + escHtml(o.paiement) : ''}</div>
+      </div>
+      <div class="price">${fmt(o.prix)} F</div>
+      <span class="pill ${paye?'paye':'attente'}">${paye?'Payé':'En attente'}</span>
+      ${paye ? '' : `<button class="act" onclick="confirmer(${o.id}, this)">Confirmer payé</button>`}
+    </div>`;
+  }).join('');
+}
+
+// Le partenaire confirme qu'une commande est payée (verification)
+async function confirmer(id, btn){
+  btn.disabled = true; btn.textContent = '…';
+  const { error } = await sb.rpc('rpc_confirmer_paiement', { p_order_id: id });
+  if(error){ btn.disabled = false; btn.textContent = 'Confirmer payé'; alert('Erreur : ' + error.message); return; }
+  await chargerResume();
+  await chargerCommandes();
+}
+
+// ── Produits de la boutique ──
+async function chargerProduits(){
+  const box = document.getElementById('listeProd');
+  const { data, error } = await sb.from('products')
+    .select('id,nom,modele,prix,emoji,visible')
+    .eq('boutique_id', MA_BOUTIQUE.id).order('id', { ascending:false });
+  if(error){ box.innerHTML = `<div class="empty">Erreur de chargement.</div>`; return; }
+  if(!data || !data.length){ box.innerHTML = `<div class="empty">Aucun produit. Ajoutez-en un pour commencer.</div>`; return; }
+
+  box.innerHTML = data.map(p => `<div class="row">
+    <div class="logo" style="font-size:22px;">${escHtml(p.emoji || '📱')}</div>
+    <div class="main">
+      <div class="t">${escHtml(p.nom)}</div>
+      <div class="m">${escHtml(p.modele || '')}</div>
+    </div>
+    <div class="price">${fmt(p.prix)} F</div>
+    <div class="prod-actions">
+      <button class="mini" onclick='ouvrirProduit(${JSON.stringify(p)})'>Modifier</button>
+      <button class="mini red" onclick="supprimerProduit(${p.id})">Suppr.</button>
+    </div>
+  </div>`).join('');
+}
+
+// ── Fenêtre produit ──
+function ouvrirProduit(p){
+  document.getElementById('prodErr').textContent = '';
+  document.getElementById('prodModalTitle').textContent = p ? 'Modifier le produit' : 'Nouveau produit';
+  document.getElementById('pId').value     = p ? p.id : '';
+  document.getElementById('pNom').value    = p ? (p.nom||'') : '';
+  document.getElementById('pModele').value = p ? (p.modele||'') : '';
+  document.getElementById('pPrix').value   = p ? (p.prix||'') : '';
+  document.getElementById('pEmoji').value  = p ? (p.emoji||'📱') : '📱';
+  document.getElementById('pMarque').value = p ? (p.marque||'') : '';
+  document.getElementById('pSpecs').value  = p ? (Array.isArray(p.specs)?p.specs.join(', '):(p.specs||'')) : '';
+  document.getElementById('pImages').value = '';
+  document.getElementById('prodModal').classList.add('on');
+}
+function fermerProduit(){ document.getElementById('prodModal').classList.remove('on'); }
+
+async function sauverProduit(){
+  const err = document.getElementById('prodErr');
+  const btn = document.getElementById('prodSaveBtn');
+  const id  = document.getElementById('pId').value;
+  const nom = document.getElementById('pNom').value.trim();
+  const prix = parseInt(document.getElementById('pPrix').value, 10);
+  err.textContent = '';
+  if(!nom){ err.textContent = 'Le nom est requis.'; return; }
+  if(!prix || isNaN(prix) || prix <= 0){ err.textContent = 'Prix invalide.'; return; }
+
+  const imgs = document.getElementById('pImages').value.trim();
+  const payload = {
+    nom,
+    modele:   document.getElementById('pModele').value.trim() || null,
+    prix,
+    emoji:    document.getElementById('pEmoji').value.trim() || '📱',
+    marque:   document.getElementById('pMarque').value.trim() || null,
+    specs:    document.getElementById('pSpecs').value.trim() || null,
+    images:   imgs ? imgs.split('\n').map(s=>s.trim()).filter(Boolean) : [],
+    visible:  true,
+    boutique_id: MA_BOUTIQUE.id,   // ← toujours SA boutique (la RLS le vérifie aussi)
+  };
+
+  btn.disabled = true; btn.textContent = 'Enregistrement…';
+  let res;
+  if(id){
+    res = await sb.from('products').update(payload).eq('id', id);
+  } else {
+    res = await sb.from('products').insert(payload);
+  }
+  btn.disabled = false; btn.textContent = 'Enregistrer';
+  if(res.error){ err.textContent = 'Erreur : ' + res.error.message; return; }
+  fermerProduit();
+  await chargerProduits();
+}
+
+async function supprimerProduit(id){
+  if(!confirm('Supprimer ce produit ?')) return;
+  const { error } = await sb.from('products').delete().eq('id', id);
+  if(error){ alert('Erreur : ' + error.message); return; }
+  await chargerProduits();
+}
+
+// ── Onglets ──
+function montrer(quoi){
+  const cmd = quoi === 'cmd';
+  document.getElementById('viewCmd').style.display  = cmd ? 'block' : 'none';
+  document.getElementById('viewProd').style.display = cmd ? 'none' : 'block';
+  document.getElementById('tabCmd').classList.toggle('on', cmd);
+  document.getElementById('tabProd').classList.toggle('on', !cmd);
+  if(!cmd) chargerProduits();
+}
+
+// ── Utilitaires ──
+function fmt(n){ return Number(n||0).toLocaleString('fr-FR'); }
+function escHtml(t){ return String(t==null?'':t).replace(/[&<>"']/g,c=>(
+  {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function escAttr(t){ return escHtml(t).replace(/`/g,'&#96;'); }
+
+// ── Reprise de session si déjà connecté ──
+(async () => {
+  const { data } = await sb.auth.getSession();
+  if(data && data.session){ await demarrer(); }
+})();
+</script>
+</body>
+</html>

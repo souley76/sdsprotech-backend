@@ -3432,7 +3432,48 @@ async function chargerBoutique(slug){
   } catch(e){ console.warn('Boutique introuvable:', slug, e); return null; }
 }
 
+function appliquerUnivers(b){
+  // ★ Univers de boutique : couleur d'accent globale + logo/nom du revendeur
+  //   remplacent ceux de SDS PRO dans la barre de navigation.
+  if(!b){
+    document.documentElement.style.removeProperty('--cyan');
+    document.documentElement.style.removeProperty('--glow');
+    return;
+  }
+  const couleur = b.couleur || '#00c8ff';
+  // Redefinit les variables d'accent du site -> boutons, titres, liens suivent
+  document.documentElement.style.setProperty('--cyan', couleur);
+  document.documentElement.style.setProperty('--glow', couleur);
+
+  // Logo + nom dans la nav (desktop et mobile)
+  const nom = b.nom || 'Boutique';
+  const logoImg = b.logo_url ? escAttrB(b.logo_url) : '';
+
+  // Desktop
+  const dsk = document.getElementById('navLogoDesktop');
+  if(dsk){
+    dsk.innerHTML = (logoImg
+      ? `<img src="${logoImg}" height="28" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">`
+      : '') +
+      `<span style="display:${logoImg?'none':'flex'};font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700;letter-spacing:1px;align-items:center;color:#fff;">${escHtmlB(nom)}</span>`;
+  }
+  // Mobile
+  const mImg = document.getElementById('navLogoImg');
+  const mTxt = document.getElementById('navLogoText');
+  if(mImg && mTxt){
+    if(logoImg){
+      mImg.src = logoImg; mImg.style.display='';
+      mTxt.style.display='none';
+    } else {
+      mImg.style.display='none';
+      mTxt.innerHTML = `<span style="color:${couleur};">${escHtmlB(nom)}</span>`;
+      mTxt.style.display='flex';
+    }
+  }
+}
+
 function afficherBanniere(b){
+  appliquerUnivers(b); // ★ couleur + logo de la boutique
   const banner = document.getElementById('shopBanner');
   if(!banner) return;
   if(!b){ banner.classList.remove('on'); banner.style.display='none'; return; }

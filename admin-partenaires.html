@@ -71,6 +71,30 @@ h2{font-family:'Rajdhani',sans-serif;font-size:18px;letter-spacing:1px;margin-bo
 .pill.paye{background:rgba(0,200,100,.15);color:var(--green);}
 .pill.attente{background:rgba(255,176,32,.15);color:var(--amber);}
 .empty{text-align:center;color:var(--grey);padding:30px;font-size:13px;}
+
+.tabs{display:flex;gap:8px;margin-bottom:18px;}
+.tab{background:transparent;border:1px solid var(--border);color:var(--grey);border-radius:10px;
+  padding:10px 18px;font-size:13px;font-weight:600;cursor:pointer;font-family:'Outfit';}
+.tab.on{background:var(--cyan);color:#001018;border-color:var(--cyan);}
+.form-card{background:linear-gradient(160deg,var(--mid),var(--dark));border:1px solid var(--border);
+  border-radius:18px;padding:24px;}
+.form-card h3{font-family:'Rajdhani',sans-serif;font-size:19px;margin-bottom:18px;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;}
+@media(max-width:600px){.grid2{grid-template-columns:1fr;}}
+.fld label{display:block;font-size:11px;color:var(--grey);letter-spacing:.5px;margin-bottom:5px;text-transform:uppercase;}
+.fld input{width:100%;background:rgba(0,20,40,.6);border:1.5px solid var(--border);border-radius:10px;
+  padding:11px 12px;color:#fff;font-size:14px;font-family:'Outfit';}
+.fld input:focus{outline:none;border-color:var(--cyan);}
+.fld{margin-bottom:12px;}
+.chk{display:flex;align-items:center;gap:8px;color:var(--light);font-size:13px;margin:6px 0 16px;cursor:pointer;}
+.chk input{width:16px;height:16px;}
+.ok-box{background:rgba(0,200,100,.08);border:1px solid rgba(0,200,100,.3);border-radius:14px;padding:18px;margin-top:16px;}
+.ok-title{color:var(--green);font-weight:700;font-size:16px;margin-bottom:12px;}
+.ok-line{color:var(--light);font-size:13px;line-height:1.7;}
+.ok-line #okLien{color:var(--cyan);font-family:'DM Mono',monospace;font-size:12px;word-break:break-all;}
+.rattach{display:flex;gap:8px;margin-top:14px;}
+.rattach input{flex:1;background:rgba(0,20,40,.6);border:1.5px solid var(--border);border-radius:10px;padding:10px 12px;color:#fff;font-size:14px;}
+.mini{background:var(--cyan);border:none;color:#001018;border-radius:10px;padding:10px 16px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;}
 </style>
 </head>
 <body>
@@ -101,8 +125,59 @@ h2{font-family:'Rajdhani',sans-serif;font-size:18px;letter-spacing:1px;margin-bo
     <div class="tot cyan"><div class="v" id="tBout">—</div><div class="l">Boutiques actives</div></div>
   </div>
 
-  <h2>Boutiques partenaires</h2>
-  <div id="liste"><div class="empty">Chargement…</div></div>
+  <div class="tabs">
+    <button class="tab on" id="tabSuivi" onclick="ongletAdmin('suivi')">Suivi</button>
+    <button class="tab" id="tabDemandes" onclick="ongletAdmin('demandes')">Demandes <span id="badgeDemandes" style="display:none;background:var(--amber);color:#1a1200;border-radius:100px;padding:1px 7px;font-size:11px;margin-left:4px;"></span></button>
+    <button class="tab" id="tabNouvelle" onclick="ongletAdmin('nouvelle')">+ Nouvelle boutique</button>
+  </div>
+
+  <!-- Suivi -->
+  <div id="vueSuivi">
+    <div id="liste"><div class="empty">Chargement…</div></div>
+  </div>
+
+  <!-- Demandes de partenariat -->
+  <div id="vueDemandes" style="display:none;">
+    <div id="listeDemandes"><div class="empty">Chargement…</div></div>
+  </div>
+
+  <!-- Création de boutique -->
+  <div id="vueNouvelle" style="display:none;">
+    <div class="form-card">
+      <h3>Enregistrer une boutique partenaire</h3>
+      <div class="grid2">
+        <div class="fld"><label>Nom de la boutique *</label><input id="bNom" placeholder="Mbao Électronics"></div>
+        <div class="fld"><label>Identifiant URL (slug)</label><input id="bSlug" placeholder="mbao-electronics (auto si vide)"></div>
+        <div class="fld"><label>Propriétaire</label><input id="bProp" placeholder="Modou Fall"></div>
+        <div class="fld"><label>Téléphone</label><input id="bTel" placeholder="77 123 45 67"></div>
+        <div class="fld"><label>Ville</label><input id="bVille" placeholder="Dakar"></div>
+        <div class="fld"><label>Quartier</label><input id="bQuartier" placeholder="Petit Mbao"></div>
+        <div class="fld"><label>Code partenaire</label><input id="bCode" placeholder="auto si vide"></div>
+        <div class="fld"><label>Couleur d'accent</label><input id="bCouleur" type="text" value="#00c8ff"></div>
+      </div>
+      <div class="fld"><label>Description</label><input id="bDesc" placeholder="Vente de smartphones, paiement échelonné…"></div>
+      <label class="chk"><input type="checkbox" id="bVerif"> Partenaire vérifié</label>
+      <div class="err" id="bErr"></div>
+      <button class="btn" id="bSaveBtn" onclick="creerBoutique()">Créer la boutique</button>
+
+      <div id="bResult" style="display:none;">
+        <div class="ok-box">
+          <div class="ok-title">✔ Boutique créée</div>
+          <div class="ok-line">Lien à donner aux clients : <span id="okLien"></span></div>
+          <div class="ok-line" style="margin-top:14px;">
+            <b>Pour donner l'accès au partenaire :</b><br>
+            1. Crée son compte dans Supabase → Authentication → Add user (email + mot de passe)<br>
+            2. Reviens ici, saisis son email ci-dessous pour le rattacher.
+          </div>
+          <div class="rattach">
+            <input id="okEmail" placeholder="email du partenaire">
+            <button class="mini" onclick="rattacherMembre()">Rattacher</button>
+          </div>
+          <div class="err" id="okErr"></div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -135,6 +210,7 @@ async function demarrer(){
   document.getElementById('login').style.display = 'none';
   document.getElementById('app').style.display = 'block';
   await charger();
+  chargerDemandes(); // alimente la pastille de demandes en attente
 }
 
 async function charger(){
@@ -205,6 +281,117 @@ async function toggleDetail(boutiqueId, head){
 function fmt(n){ return Number(n||0).toLocaleString('fr-FR'); }
 function escHtml(t){ return String(t==null?'':t).replace(/[&<>"']/g,c=>(
   {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+// ── Onglets admin ──
+function ongletAdmin(quoi){
+  document.getElementById('vueSuivi').style.display    = quoi==='suivi'    ? 'block' : 'none';
+  document.getElementById('vueDemandes').style.display = quoi==='demandes' ? 'block' : 'none';
+  document.getElementById('vueNouvelle').style.display = quoi==='nouvelle' ? 'block' : 'none';
+  document.getElementById('tabSuivi').classList.toggle('on', quoi==='suivi');
+  document.getElementById('tabDemandes').classList.toggle('on', quoi==='demandes');
+  document.getElementById('tabNouvelle').classList.toggle('on', quoi==='nouvelle');
+  if(quoi==='demandes') chargerDemandes();
+}
+
+async function chargerDemandes(){
+  const box=document.getElementById('listeDemandes');
+  const { data, error } = await sb.rpc('rpc_demandes_partenaires');
+  if(error){ box.innerHTML=`<div class="empty">Erreur : ${error.message}</div>`; return; }
+  if(!data || !data.length){ box.innerHTML=`<div class="empty">Aucune demande.</div>`; return; }
+
+  const enAttente = data.filter(d=>d.statut==='en_attente');
+  const badge=document.getElementById('badgeDemandes');
+  if(enAttente.length){ badge.textContent=enAttente.length; badge.style.display='inline-block'; }
+  else { badge.style.display='none'; }
+
+  box.innerHTML = data.map(d => {
+    const pill = d.statut==='validee' ? '<span class="pill paye">Validée</span>'
+               : d.statut==='refusee' ? '<span class="pill" style="background:rgba(255,90,110,.15);color:var(--red);">Refusée</span>'
+               : '<span class="pill attente">En attente</span>';
+    const actions = d.statut==='en_attente'
+      ? `<button class="act" onclick="validerBoutique('${d.id}',this)">Valider</button>
+         <button class="mini red" onclick="refuserBoutique('${d.id}',this)">Refuser</button>`
+      : (d.statut==='refusee'
+          ? `<button class="mini" onclick="validerBoutique('${d.id}',this)">Réactiver</button>` : '');
+    return `<div class="shop">
+      <div class="shop-head" style="cursor:default;">
+        <div class="shop-logo">🏪</div>
+        <div class="shop-info">
+          <div class="shop-name">${escHtml(d.nom)} ${pill}</div>
+          <div class="shop-meta">${escHtml([d.proprietaire,d.telephone,d.ville].filter(Boolean).join(' · '))}</div>
+          <div class="shop-meta" style="margin-top:2px;">${escHtml(d.email||'')}</div>
+          ${d.description?`<div class="shop-meta" style="margin-top:4px;color:var(--light);">${escHtml(d.description)}</div>`:''}
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;">${actions}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function validerBoutique(id, btn){
+  btn.disabled=true; btn.textContent='…';
+  const { error } = await sb.rpc('rpc_valider_boutique', { p_boutique_id:id, p_verifiee:true });
+  if(error){ btn.disabled=false; btn.textContent='Valider'; alert('Erreur : '+error.message); return; }
+  await chargerDemandes();
+  if(typeof charger==='function') charger(); // rafraîchit le suivi
+}
+
+async function refuserBoutique(id, btn){
+  if(!confirm('Refuser cette boutique ? Elle restera invisible.')) return;
+  btn.disabled=true; btn.textContent='…';
+  const { error } = await sb.rpc('rpc_refuser_boutique', { p_boutique_id:id });
+  if(error){ btn.disabled=false; btn.textContent='Refuser'; alert('Erreur : '+error.message); return; }
+  await chargerDemandes();
+}
+
+let _derniereBoutiqueId = null;
+
+async function creerBoutique(){
+  const err = document.getElementById('bErr');
+  const btn = document.getElementById('bSaveBtn');
+  err.textContent = '';
+  const nom = document.getElementById('bNom').value.trim();
+  if(!nom){ err.textContent = 'Le nom est requis.'; return; }
+
+  btn.disabled = true; btn.textContent = 'Création…';
+  const { data, error } = await sb.rpc('rpc_creer_boutique', {
+    p_nom: nom,
+    p_slug: document.getElementById('bSlug').value.trim(),
+    p_proprietaire: document.getElementById('bProp').value.trim(),
+    p_telephone: document.getElementById('bTel').value.trim(),
+    p_ville: document.getElementById('bVille').value.trim(),
+    p_quartier: document.getElementById('bQuartier').value.trim(),
+    p_code: document.getElementById('bCode').value.trim(),
+    p_description: document.getElementById('bDesc').value.trim(),
+    p_couleur: document.getElementById('bCouleur').value.trim() || '#00c8ff',
+    p_verifiee: document.getElementById('bVerif').checked,
+  });
+  btn.disabled = false; btn.textContent = 'Créer la boutique';
+
+  if(error){ err.textContent = 'Erreur : ' + error.message; return; }
+  const b = Array.isArray(data) ? data[0] : data;
+  _derniereBoutiqueId = b.id;
+
+  const lien = location.origin + '/?boutique=' + b.slug;
+  document.getElementById('okLien').textContent = lien;
+  document.getElementById('bResult').style.display = 'block';
+  document.getElementById('bResult').scrollIntoView({ behavior:'smooth' });
+}
+
+async function rattacherMembre(){
+  const err = document.getElementById('okErr');
+  err.textContent = '';
+  const email = document.getElementById('okEmail').value.trim();
+  if(!email){ err.textContent = 'Email requis.'; return; }
+  if(!_derniereBoutiqueId){ err.textContent = 'Créez d\'abord la boutique.'; return; }
+
+  const { error } = await sb.rpc('rpc_rattacher_membre', {
+    p_email: email, p_boutique_id: _derniereBoutiqueId,
+  });
+  if(error){ err.textContent = 'Erreur : ' + error.message; return; }
+  err.style.color = 'var(--green)';
+  err.textContent = '✔ Compte rattaché. Le partenaire peut se connecter à son espace.';
+}
 
 (async () => {
   const { data } = await sb.auth.getSession();

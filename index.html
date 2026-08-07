@@ -718,6 +718,20 @@ input, textarea {
 .pt-spin{display:inline-block;width:15px;height:15px;border:2px solid rgba(255,255,255,.3);
   border-top-color:#fff;border-radius:50%;animation:ptsp .7s linear infinite;vertical-align:-3px;margin-right:7px;}
 @keyframes ptsp{to{transform:rotate(360deg);}}
+
+/* ★ INSCRIPTION PARTENAIRE */
+#inscription{position:fixed;inset:0;z-index:901;background:var(--deep,#020912);
+  display:none;flex-direction:column;align-items:center;justify-content:flex-start;
+  padding:40px 20px;overflow-y:auto;}
+#inscription.on{display:flex;}
+.ins-fld{margin-bottom:12px;}
+.ins-fld label{display:block;font-size:11px;color:var(--grey,#7a9abb);letter-spacing:.5px;
+  margin-bottom:5px;text-transform:uppercase;}
+.ins-fld input{width:100%;background:rgba(0,20,40,0.6);border:1.5px solid var(--border,rgba(0,180,255,.22));
+  border-radius:12px;padding:13px 14px;color:#fff;font-size:15px;font-family:'Outfit',sans-serif;}
+.ins-fld input:focus{outline:none;border-color:var(--cyan,#00c8ff);}
+.ins-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+@media(max-width:560px){.ins-grid{grid-template-columns:1fr;}}
 </style>
 </head>
 <body>
@@ -772,6 +786,60 @@ input, textarea {
     </div>
     <div class="pt-foot">
       <a href="#" onclick="ptEntrerSdsPro();return false;">Continuer sans revendeur (catalogue SDS PRO)</a>
+      <div style="margin-top:16px;">
+        <a href="#" onclick="ouvrirInscription();return false;"
+           style="color:var(--cyan);border-bottom-color:var(--cyan);">Vous êtes une boutique ? Devenir partenaire SDS PRO</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ★ INSCRIPTION PARTENAIRE -->
+<div id="inscription">
+  <div class="pt-inner">
+    <div class="pt-brand" style="margin-top:10px;">Devenir <span class="c">partenaire</span></div>
+    <div class="pt-tag">Rejoignez le réseau SDS PRO</div>
+
+    <div id="inscEtape1" class="pt-card" style="margin-top:26px;">
+      <div class="pt-card-title">1. Créez votre compte</div>
+      <div class="pt-card-sub">Il vous servira à gérer votre boutique et vos commandes.</div>
+      <div class="ins-fld"><label>Email professionnel</label>
+        <input id="insEmail" type="email" placeholder="vous@exemple.com" autocomplete="email"></div>
+      <div class="ins-fld"><label>Mot de passe</label>
+        <input id="insPass" type="password" placeholder="8 caractères minimum" autocomplete="new-password"></div>
+      <div class="pt-hint" id="insErr1" style="color:var(--red,#ff5a6e);min-height:16px;"></div>
+      <button class="pt-btn" id="insBtn1" onclick="creerCompte()">Continuer</button>
+    </div>
+
+    <div id="inscEtape2" class="pt-card" style="margin-top:26px;display:none;">
+      <div class="pt-card-title">2. Votre boutique</div>
+      <div class="pt-card-sub">Ces informations permettront à vos clients de vous trouver.</div>
+      <div class="ins-grid">
+        <div class="ins-fld"><label>Nom de la boutique *</label><input id="insNom" placeholder="Mbao Électronics"></div>
+        <div class="ins-fld"><label>Votre nom (gérant) *</label><input id="insProp" placeholder="Modou Fall"></div>
+        <div class="ins-fld"><label>Téléphone *</label><input id="insTel" placeholder="77 123 45 67"></div>
+        <div class="ins-fld"><label>Ville</label><input id="insVille" placeholder="Dakar"></div>
+        <div class="ins-fld"><label>Quartier</label><input id="insQuartier" placeholder="Petit Mbao"></div>
+        <div class="ins-fld"><label>Numéro pour vos versements</label><input id="insPayout" placeholder="Orange Money / Wave"></div>
+      </div>
+      <div class="ins-fld"><label>Décrivez votre boutique</label>
+        <input id="insDesc" placeholder="Vente de smartphones, paiement échelonné…"></div>
+      <div class="pt-hint" id="insErr2" style="color:var(--red,#ff5a6e);min-height:16px;"></div>
+      <button class="pt-btn" id="insBtn2" onclick="creerBoutiquePartenaire()">Envoyer ma demande</button>
+    </div>
+
+    <div id="inscMerci" class="pt-card" style="margin-top:26px;display:none;text-align:center;">
+      <div style="font-size:38px;margin-bottom:12px;">✓</div>
+      <div class="pt-card-title" style="color:var(--cyan);">Demande envoyée</div>
+      <div class="pt-card-sub" style="margin-top:10px;line-height:1.7;">
+        Votre boutique est en cours de validation par SDS PRO. Dès qu'elle est
+        approuvée, elle apparaîtra dans le réseau et vous pourrez gérer vos
+        produits depuis votre espace partenaire.
+      </div>
+    </div>
+
+    <div class="pt-foot">
+      <a href="#" onclick="fermerInscription();return false;">← Retour</a>
     </div>
   </div>
 </div>
@@ -3592,6 +3660,71 @@ function deciderPortail(){
     demarrerCatalogue('sds-pro');
   }
 }
+// ★ INSCRIPTION PARTENAIRE
+function ouvrirInscription(){
+  document.getElementById('portail').classList.remove('on');
+  document.getElementById('inscription').classList.add('on');
+}
+function fermerInscription(){
+  document.getElementById('inscription').classList.remove('on');
+  document.getElementById('portail').classList.add('on');
+}
+
+async function creerCompte(){
+  const err=document.getElementById('insErr1');
+  const btn=document.getElementById('insBtn1');
+  err.textContent='';
+  const email=document.getElementById('insEmail').value.trim();
+  const pass=document.getElementById('insPass').value;
+  if(!email){ err.textContent='Email requis.'; return; }
+  if(!pass || pass.length<8){ err.textContent='Mot de passe : 8 caract\u00e8res minimum.'; return; }
+
+  btn.disabled=true; btn.textContent='Cr\u00e9ation\u2026';
+  // Client Supabase (le SDK est charge plus bas dans la page ; sinon on cree ici)
+  if(!window._sbAuth){
+    window._sbAuth = window.supabase
+      ? window.supabase.createClient(SUPA_URL, SUPA_KEY)
+      : null;
+  }
+  if(!window._sbAuth){ err.textContent='Service indisponible, r\u00e9essayez.'; btn.disabled=false; btn.textContent='Continuer'; return; }
+
+  const { error } = await window._sbAuth.auth.signUp({ email, password: pass });
+  btn.disabled=false; btn.textContent='Continuer';
+  if(error){
+    err.textContent = /registered|exist/i.test(error.message)
+      ? 'Un compte existe deja avec cet email. Connectez-vous a votre espace partenaire.'
+      : 'Erreur : ' + error.message;
+    return;
+  }
+  // Passe a l'etape 2
+  document.getElementById('inscEtape1').style.display='none';
+  document.getElementById('inscEtape2').style.display='block';
+}
+
+async function creerBoutiquePartenaire(){
+  const err=document.getElementById('insErr2');
+  const btn=document.getElementById('insBtn2');
+  err.textContent='';
+  const nom=document.getElementById('insNom').value.trim();
+  const prop=document.getElementById('insProp').value.trim();
+  const tel=document.getElementById('insTel').value.trim();
+  if(!nom || !prop || !tel){ err.textContent='Nom, g\u00e9rant et t\u00e9l\u00e9phone sont requis.'; return; }
+
+  btn.disabled=true; btn.textContent='Envoi\u2026';
+  const { error } = await window._sbAuth.rpc('rpc_inscription_partenaire', {
+    p_nom: nom, p_proprietaire: prop, p_telephone: tel,
+    p_ville: document.getElementById('insVille').value.trim(),
+    p_quartier: document.getElementById('insQuartier').value.trim(),
+    p_description: document.getElementById('insDesc').value.trim(),
+    p_payout_numero: document.getElementById('insPayout').value.trim(),
+  });
+  btn.disabled=false; btn.textContent='Envoyer ma demande';
+  if(error){ err.textContent='Erreur : ' + error.message; return; }
+
+  document.getElementById('inscEtape2').style.display='none';
+  document.getElementById('inscMerci').style.display='block';
+}
+
 deciderPortail();
 
 // Countdown supprimé — boutique officielle ouverte

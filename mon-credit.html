@@ -298,20 +298,12 @@ function renderVersements(){
 
   const today = new Date(); today.setHours(0,0,0,0);
 
-  // 4 versements : acompte + 3 mensualités (les anciens dossiers à 3 versements restent compatibles)
-  const versements = [];
-  for (let i = 1; i <= 4; i++) {
-    const m = _dossier['montant_' + i];
-    if (i > 1 && (m === null || m === undefined)) continue;
-    versements.push({
-      n: i,
-      montant: i === 1 ? (m || 0) + FRAIS_MDM : (m || 0),
-      paye: _dossier['paye_' + i],
-      date: _dossier['echeance_' + i],
-      label: i === 1 ? 'Acompte' : 'Versement ' + i,
-      sub: i === 1 ? '50% + frais MDM' : 'mensualité'
-    });
-  }
+  const versements = [
+    { n:1, montant:(_dossier.montant_1||0)+FRAIS_MDM, paye:_dossier.paye_1, date:_dossier.echeance_1, label:'Acompte', sub:'50% + frais MDM' },
+    { n:2, montant:_dossier.montant_2||0, paye:_dossier.paye_2, date:_dossier.echeance_2, label:'Tranche 1/3', sub:'mensuelle' },
+    { n:3, montant:_dossier.montant_3||0, paye:_dossier.paye_3, date:_dossier.echeance_3, label:'Tranche 2/3', sub:'mensuelle' },
+    { n:4, montant:_dossier.montant_4||0, paye:_dossier.paye_4, date:_dossier.echeance_4, label:'Tranche 3/3', sub:'mensuelle' }
+  ];
 
   const totalDu = versements.reduce((s,v)=>s+v.montant,0);
   const totalPaye = versements.filter(v=>v.paye).reduce((s,v)=>s+v.montant,0);

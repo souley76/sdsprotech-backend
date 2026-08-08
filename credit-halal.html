@@ -130,83 +130,7 @@ input, textarea {
 </style>
 </head>
 <body>
-<div id="comingSoonOverlay" style="
-  position:fixed;inset:0;z-index:9999;
-  background:linear-gradient(135deg,#0a0f1e 0%,#0d1b2e 50%,#0a0f1e 100%);
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  padding:2rem;text-align:center;font-family:'Outfit',sans-serif;
-">
-  <!-- Logo/Icon -->
-  <div style="font-size:4rem;margin-bottom:1.5rem;animation:pulse 2s ease infinite;">🤝</div>
-  
-  <!-- Badge -->
-  <div style="
-    background:rgba(0,200,100,0.12);border:1px solid rgba(0,200,100,0.3);
-    color:#00c864;padding:6px 18px;border-radius:50px;font-size:12px;
-    font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-bottom:1.5rem;
-  ">À VENIR</div>
-
-  <!-- Title -->
-  <h1 style="color:#fff;font-size:clamp(1.6rem,6vw,2.4rem);font-weight:800;margin-bottom:1rem;line-height:1.2;">
-    Achat Échelonné <span style="color:#00c8ff;">Halal</span>
-  </h1>
-
-  <!-- Description -->
-  <p style="color:rgba(255,255,255,0.65);font-size:0.95rem;line-height:1.7;max-width:480px;margin-bottom:2rem;">
-    Notre programme vous permet d'acquérir votre smartphone avec un <strong style="color:#fff;">acompte 50% + 3 mensualités</strong>, au prix exact du téléphone. Frais MDM de 10 000 FCFA pour la gestion et protection de l'appareil.
-  </p>
-
-  <!-- Why coming soon -->
-  <div style="
-    background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);
-    border-radius:16px;padding:1.5rem;max-width:480px;width:100%;margin-bottom:2rem;text-align:left;
-  ">
-    <div style="color:rgba(255,255,255,0.5);font-size:11px;text-transform:uppercase;letter-spacing:2px;margin-bottom:1rem;">
-      ⚖️ Pourquoi À Venir ?
-    </div>
-    <div style="display:flex;gap:12px;margin-bottom:12px;">
-      <span style="font-size:1.2rem;flex-shrink:0;">🏛️</span>
-      <p style="color:rgba(255,255,255,0.7);font-size:0.88rem;line-height:1.6;margin:0;">
-        Nous sommes en cours de démarches auprès des <strong style="color:#fff;">autorités compétentes</strong> 
-        pour obtenir les autorisations nécessaires à la collecte et au traitement de données personnelles.
-      </p>
-    </div>
-    <div style="display:flex;gap:12px;margin-bottom:12px;">
-      <span style="font-size:1.2rem;flex-shrink:0;">🔒</span>
-      <p style="color:rgba(255,255,255,0.7);font-size:0.88rem;line-height:1.6;margin:0;">
-        La collecte de vos documents (CNI, justificatif de domicile) requiert un <strong style="color:#fff;">consentement explicite</strong> 
-        et une conformité à la loi sénégalaise n°2008-12 sur la protection des données personnelles (CDP).
-      </p>
-    </div>
-    <div style="display:flex;gap:12px;">
-      <span style="font-size:1.2rem;flex-shrink:0;">✅</span>
-      <p style="color:rgba(255,255,255,0.7);font-size:0.88rem;line-height:1.6;margin:0;">
-        Dès validation, le service sera disponible avec toutes les garanties légales pour <strong style="color:#fff;">protéger vos données</strong>.
-      </p>
-    </div>
-  </div>
-
-  <!-- Notify button -->
-  <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;">
-    <a href="https://wa.me/221770699739?text=Je veux être notifié du lancement du programme Achat Échelonné" 
-       target="_blank"
-       style="
-         background:linear-gradient(135deg,#25d366,#128c7e);
-         color:white;padding:12px 24px;border-radius:50px;
-         font-weight:700;font-size:0.9rem;text-decoration:none;
-         display:flex;align-items:center;gap:8px;
-       ">💬 M'avertir au lancement</a>
-    <a href="/" style="
-      background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);
-      color:rgba(255,255,255,0.7);padding:12px 24px;border-radius:50px;
-      font-size:0.9rem;text-decoration:none;
-    ">← Retour</a>
-  </div>
-
-  <p style="color:rgba(255,255,255,0.25);font-size:0.75rem;margin-top:2rem;">
-    © 2026 SECK DIGITAL SERVICES PRO — Dakar, Sénégal
-  </p>
-</div>
+<!-- overlay « À venir » retiré : le crédit halal est public -->
 
 <style>
 @keyframes pulse {
@@ -236,7 +160,7 @@ input, textarea {
 <div class="hero">
   <div class="hero-badge">🌙 VENTE MOURABAHA · SANS INTÉRÊT · PAIEMENT ÉCHELONNÉ</div>
   <h1 class="hero-title">Achat <span class="g">Échelonné</span> <span class="c">Halal</span></h1>
-  <p class="hero-desc">Obtenez votre smartphone avec un acompte 50% + 3 mensualités. Payez le prix exact du téléphone, sans frais cachés.</p>
+  <p class="hero-desc">Obtenez votre smartphone avec un acompte 50% + 2 versements. Payez le prix exact du téléphone, sans frais cachés.</p>
 
   <div class="principles">
     <div class="principle-card">
@@ -297,7 +221,7 @@ input, textarea {
       <span class="calc-value green" id="calcAujourdhui">—</span>
     </div>
     <div class="calc-note" id="calcNote" style="display:none;">
-      📌 <strong>Exemple :</strong> Vous payez <span id="calcNoteAcompte">—</span> aujourd'hui + les frais MDM de 10 000 FCFA, puis <span id="calcNoteMens">—</span> × 3 mensualités (une par mois pendant 3 mois). <strong>Aucun intérêt.</strong>
+      📌 <strong>Exemple :</strong> Vous payez <span id="calcNoteAcompte">—</span> aujourd'hui + les frais MDM de 10 000 FCFA, puis <span id="calcNoteMens">—</span> × 2 versements. <strong>Aucun intérêt.</strong>
     </div>
   </div>
 </div>
@@ -562,7 +486,7 @@ function updateNav(){
 }
 
 async function loadProducts(){
-  const res = await fetch(SUPA_URL + '/rest/v1/products?visible=eq.true&select=id,nom,prix,emoji,modele', {
+  const res = await fetch(SUPA_URL + '/rest/v1/products?visible=eq.true&select=id,nom,prix,emoji,modele,boutique_id', {
     headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY }
   });
   _products = await res.json() || [];
@@ -589,7 +513,7 @@ function updateCalc(){
   const prix      = prod.prix;
   const acompte   = Math.ceil(prix * 0.5);
   const reste     = prix - acompte;
-  const versement = Math.ceil(reste / 3);
+  const versement = Math.ceil(reste / 2);
   const aujdhui   = acompte + FRAIS_MDM;
   infoEl.style.display = 'flex';
   document.getElementById('calcEmoji').textContent = prod.emoji || '📱';
@@ -597,7 +521,7 @@ function updateCalc(){
   document.getElementById('calcPrixTotal').textContent = formatPrice(prix) + ' FCFA';
   document.getElementById('calcPrix').textContent = formatPrice(prix) + ' FCFA';
   document.getElementById('calcAcompte').textContent = formatPrice(acompte) + ' FCFA';
-  document.getElementById('calcMensualite').textContent = formatPrice(versement) + ' FCFA × 3';
+  document.getElementById('calcMensualite').textContent = formatPrice(versement) + ' FCFA × 2';
   document.getElementById('calcMDM').textContent = formatPrice(FRAIS_MDM) + ' FCFA';
   document.getElementById('calcAujourdhui').textContent = formatPrice(aujdhui) + ' FCFA';
   document.getElementById('calcNoteAcompte').textContent = formatPrice(acompte) + ' FCFA';
@@ -814,6 +738,7 @@ async function submitDossier(){
         appareil:       prod.nom + (prod.modele ? ' ' + prod.modele : ''),
         produit_id:     prodId,
         prix_total:     prod.prix,
+        boutique_id:    prod.boutique_id || (sessionStorage.getItem('sds_boutique') || null),
         doc_cni_recto:     d1,
         doc_cni_verso:     d2,
         doc_selfie:        d3,
@@ -845,22 +770,7 @@ function showToast(msg){
 document.addEventListener('contextmenu', e => e.preventDefault());
 document.addEventListener('copy', e => e.preventDefault());
 document.addEventListener('cut', e => e.preventDefault());
-// ── PORTE SECRÈTE : accès test admin (cache l'overlay « À venir ») ──
-// Usage : ouvrir credit-halal.html?dev=SDSPRO7613
-// Le code est mémorisé pour la session (pas besoin de le retaper).
-(function(){
-  const DEV_CODE = 'SDSPRO7613';
-  try {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('dev') === DEV_CODE) {
-      sessionStorage.setItem('sds_dev_access', '1');
-    }
-    if (sessionStorage.getItem('sds_dev_access') === '1') {
-      const ov = document.getElementById('comingSoonOverlay');
-      if (ov) ov.style.display = 'none';
-    }
-  } catch(e) {}
-})();
+// (accès direct : le crédit est public)
 </script>
 </body>
 </html>

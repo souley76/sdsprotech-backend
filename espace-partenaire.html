@@ -119,6 +119,31 @@ a{color:inherit;}
     </div>
     <button class="btn" id="loginBtn" onclick="connexion()">Se connecter</button>
     <div class="err" id="loginErr"></div>
+    <div style="display:flex;justify-content:space-between;margin-top:16px;font-size:13px;">
+      <a href="#" onclick="basculerInscription();return false;" style="color:var(--cyan);text-decoration:none;">Créer un compte</a>
+      <a href="#" onclick="motDePasseOublie();return false;" style="color:var(--grey);text-decoration:none;">Mot de passe oublié ?</a>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ CRÉER UN COMPTE (email + mot de passe) ═══════════ -->
+<div id="inscriptionCompte" style="display:none;">
+  <div class="card">
+    <div class="brand">SECK <span class="c">DIGITAL</span> SERVICES PRO</div>
+    <div class="sub">Créer votre compte partenaire</div>
+    <div class="field">
+      <label>Email</label>
+      <input type="email" id="icEmail" autocomplete="email" placeholder="vous@exemple.com">
+    </div>
+    <div class="field">
+      <label>Mot de passe</label>
+      <input type="password" id="icPass" autocomplete="new-password" placeholder="8 caractères minimum">
+    </div>
+    <button class="btn" id="icBtn" onclick="creerCompte()">Créer mon compte</button>
+    <div class="err" id="icErr"></div>
+    <div style="margin-top:16px;font-size:13px;text-align:center;">
+      <a href="#" onclick="basculerConnexion();return false;" style="color:var(--cyan);text-decoration:none;">← J'ai déjà un compte</a>
+    </div>
   </div>
 </div>
 
@@ -181,6 +206,7 @@ a{color:inherit;}
     <button class="tab on" id="tabCmd" onclick="montrer('cmd')">Commandes</button>
     <button class="tab" id="tabProd" onclick="montrer('prod')">Mes produits</button>
     <button class="tab" id="tabVers" onclick="montrer('vers')">Versements</button>
+    <button class="tab" id="tabMsg" onclick="montrer('msg')">Messages <span id="msgBadge" style="display:none;background:#ff9100;color:#1a1200;border-radius:100px;padding:1px 7px;font-size:11px;"></span></button>
   </div>
 
   <!-- Commandes -->
@@ -191,6 +217,17 @@ a{color:inherit;}
   <!-- Versements (lecture seule) -->
   <div id="viewVers" style="display:none;">
     <div id="listeVers"><div class="empty">Chargement…</div></div>
+  </div>
+
+  <!-- Messages -->
+  <div id="viewMsg" style="display:none;">
+    <div id="filMessages" style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px;max-height:420px;overflow-y:auto;padding:4px;">
+      <div class="empty">Chargement…</div>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <input type="text" id="msgInput" placeholder="Votre message…" style="flex:1;" onkeydown="if(event.key==='Enter')envoyerMessage()">
+      <button class="btn" style="width:auto;padding:0 20px;" onclick="envoyerMessage()">Envoyer</button>
+    </div>
   </div>
 
   <!-- Produits -->
@@ -259,6 +296,56 @@ async function connexion(){
 async function deconnexion(){
   await sb.auth.signOut();
   location.reload();
+}
+
+// Bascule entre écran de connexion et écran de création de compte
+function basculerInscription(){
+  document.getElementById('login').style.display = 'none';
+  document.getElementById('inscriptionCompte').style.display = 'flex';
+}
+function basculerConnexion(){
+  document.getElementById('inscriptionCompte').style.display = 'none';
+  document.getElementById('login').style.display = 'flex';
+}
+
+// Créer un compte (email + mot de passe) puis enchaîner sur la création de boutique
+async function creerCompte(){
+  const err = document.getElementById('icErr');
+  const btn = document.getElementById('icBtn');
+  err.textContent = '';
+  const email = document.getElementById('icEmail').value.trim();
+  const pass  = document.getElementById('icPass').value;
+  if(!email){ err.textContent = 'Email requis.'; return; }
+  if(!pass || pass.length < 8){ err.textContent = 'Mot de passe : 8 caractères minimum.'; return; }
+
+  btn.disabled = true; btn.textContent = 'Création…';
+  const { error } = await sb.auth.signUp({ email, password: pass });
+  btn.disabled = false; btn.textContent = 'Créer mon compte';
+  if(error){
+    err.textContent = /registered|exist/i.test(error.message)
+      ? 'Un compte existe déjà avec cet email. Connectez-vous.'
+      : 'Erreur : ' + error.message;
+    return;
+  }
+  // Compte créé et connecté → on lance le flux normal (qui mènera à la
+  // création de boutique puisqu'il n'en a pas encore).
+  document.getElementById('inscriptionCompte').style.display = 'none';
+  await demarrer();
+}
+
+// Mot de passe oublié
+async function motDePasseOublie(){
+  const email = document.getElementById('email').value.trim();
+  if(!email){
+    document.getElementById('loginErr').textContent = 'Entrez votre email ci-dessus, puis cliquez sur « Mot de passe oublié ».';
+    return;
+  }
+  const { error } = await sb.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.origin + '/espace-partenaire.html',
+  });
+  document.getElementById('loginErr').textContent = error
+    ? 'Erreur : ' + error.message
+    : 'Email de réinitialisation envoyé. Consultez votre boîte mail.';
 }
 
 // Créer sa boutique quand le compte n'en a pas encore (rattachement automatique)
@@ -331,6 +418,7 @@ async function demarrer(){
 
   await chargerResume();
   await chargerCommandes();
+  majBadgeMessages(); // pastille de messages non lus
 }
 
 // ── Résumé (chiffre d'affaires) ──
@@ -551,11 +639,55 @@ function montrer(quoi){
   document.getElementById('viewCmd').style.display  = quoi==='cmd'  ? 'block' : 'none';
   document.getElementById('viewProd').style.display = quoi==='prod' ? 'block' : 'none';
   document.getElementById('viewVers').style.display = quoi==='vers' ? 'block' : 'none';
+  document.getElementById('viewMsg').style.display  = quoi==='msg'  ? 'block' : 'none';
   document.getElementById('tabCmd').classList.toggle('on', quoi==='cmd');
   document.getElementById('tabProd').classList.toggle('on', quoi==='prod');
   document.getElementById('tabVers').classList.toggle('on', quoi==='vers');
+  document.getElementById('tabMsg').classList.toggle('on', quoi==='msg');
   if(quoi==='prod') chargerProduits();
   if(quoi==='vers') chargerVersements();
+  if(quoi==='msg') chargerMessages();
+}
+
+// ── Messagerie côté partenaire ──
+async function chargerMessages(){
+  const box=document.getElementById('filMessages');
+  const { data, error } = await sb.rpc('rpc_mes_messages');
+  if(error){ box.innerHTML=`<div class="empty">Erreur de chargement.</div>`; return; }
+  if(!data || !data.length){ box.innerHTML=`<div class="empty">Aucun message pour le moment.</div>`; return; }
+
+  box.innerHTML = data.map(m=>{
+    const moi = m.expediteur==='partenaire';
+    const bulle = moi
+      ? 'align-self:flex-end;background:linear-gradient(135deg,var(--blue),var(--cyan));color:#fff;'
+      : 'align-self:flex-start;background:rgba(0,100,255,0.1);color:var(--light);border:1px solid var(--border);';
+    const ann = m.annonce ? '<div style="font-size:10px;opacity:.7;margin-bottom:2px;">📢 Annonce SDS PRO</div>' : '';
+    return `<div style="max-width:78%;padding:9px 13px;border-radius:14px;${bulle}">
+      ${ann}<div style="font-size:14px;line-height:1.4;">${escHtml(m.contenu)}</div>
+      <div style="font-size:10px;opacity:.6;margin-top:3px;">${new Date(m.cree_le).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</div>
+    </div>`;
+  }).join('');
+  box.scrollTop = box.scrollHeight;
+  // Marquer lus + effacer la pastille
+  await sb.rpc('rpc_partenaire_marquer_lu');
+  majBadgeMessages();
+}
+
+async function envoyerMessage(){
+  const input=document.getElementById('msgInput');
+  const txt=input.value.trim();
+  if(!txt) return;
+  input.value='';
+  const { error } = await sb.rpc('rpc_partenaire_envoyer', { p_contenu: txt });
+  if(error){ alert('Erreur : '+error.message); input.value=txt; return; }
+  await chargerMessages();
+}
+
+async function majBadgeMessages(){
+  const { data } = await sb.rpc('rpc_mes_non_lus');
+  const badge=document.getElementById('msgBadge');
+  if(data && data>0){ badge.textContent=data; badge.style.display='inline-block'; }
+  else badge.style.display='none';
 }
 
 // Versements et remboursements : le partenaire VOIT, sans agir

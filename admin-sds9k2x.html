@@ -391,6 +391,7 @@ body{background:var(--dark);color:var(--white);font-family:'Outfit',sans-serif;m
         <button id="pnTabSuivi" onclick="pnSousOnglet('suivi')" class="pn-subtab on">Suivi & Trésorerie</button>
         <button id="pnTabDemandes" onclick="pnSousOnglet('demandes')" class="pn-subtab">Demandes <span id="pnBadge" style="display:none;background:#ff9100;color:#1a1200;border-radius:100px;padding:1px 7px;font-size:11px;"></span></button>
         <button id="pnTabProduits" onclick="pnSousOnglet('produits')" class="pn-subtab">Produits <span id="pnBadgeProd" style="display:none;background:#ff9100;color:#1a1200;border-radius:100px;padding:1px 7px;font-size:11px;"></span></button>
+        <button id="pnTabMsg" onclick="pnSousOnglet('messages')" class="pn-subtab">Messages <span id="pnBadgeMsg" style="display:none;background:#ff9100;color:#1a1200;border-radius:100px;padding:1px 7px;font-size:11px;"></span></button>
         <button id="pnTabNouvelle" onclick="pnSousOnglet('nouvelle')" class="pn-subtab">+ Nouvelle boutique</button>
       </div>
 
@@ -413,6 +414,26 @@ body{background:var(--dark);color:var(--white);font-family:'Outfit',sans-serif;m
       <!-- Produits partenaire a valider -->
       <div id="pnVueProduits" style="display:none;">
         <div id="pnListeProduits"><div style="color:var(--grey);text-align:center;padding:30px;">Chargement…</div></div>
+      </div>
+
+      <!-- Messagerie -->
+      <div id="pnVueMessages" style="display:none;">
+        <!-- Zone d'envoi -->
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:16px;">
+          <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
+            <select id="pnMsgCible" style="flex:1;min-width:180px;background:rgba(0,20,40,0.6);border:1px solid var(--border);border-radius:8px;color:#fff;padding:9px;">
+              <option value="">📢 Toutes les boutiques (annonce)</option>
+            </select>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <input type="text" id="pnMsgTexte" placeholder="Votre message…" style="flex:1;background:rgba(0,20,40,0.6);border:1px solid var(--border);border-radius:8px;color:#fff;padding:10px;" onkeydown="if(event.key==='Enter')pnEnvoyerMessage()">
+            <button class="pn-b verser" onclick="pnEnvoyerMessage()" style="padding:0 18px;">Envoyer</button>
+          </div>
+        </div>
+        <!-- Conversations -->
+        <div id="pnConversations"><div style="color:var(--grey);text-align:center;padding:20px;">Chargement…</div></div>
+        <!-- Fil ouvert -->
+        <div id="pnFil" style="display:none;margin-top:16px;"></div>
       </div>
 
       <div id="pnVueNouvelle" style="display:none;">
@@ -1980,13 +2001,101 @@ function pnSousOnglet(q){
   document.getElementById('pnVueSuivi').style.display    = q==='suivi'    ? 'block':'none';
   document.getElementById('pnVueDemandes').style.display = q==='demandes' ? 'block':'none';
   document.getElementById('pnVueProduits').style.display = q==='produits' ? 'block':'none';
+  document.getElementById('pnVueMessages').style.display = q==='messages' ? 'block':'none';
   document.getElementById('pnVueNouvelle').style.display = q==='nouvelle' ? 'block':'none';
   document.getElementById('pnTabSuivi').classList.toggle('on', q==='suivi');
   document.getElementById('pnTabDemandes').classList.toggle('on', q==='demandes');
   document.getElementById('pnTabProduits').classList.toggle('on', q==='produits');
+  document.getElementById('pnTabMsg').classList.toggle('on', q==='messages');
   document.getElementById('pnTabNouvelle').classList.toggle('on', q==='nouvelle');
   if(q==='demandes') pnChargerDemandes();
   if(q==='produits') pnChargerProduits();
+  if(q==='messages') pnChargerMessagerie();
+}
+
+// ── Messagerie côté admin ──
+let _pnFilBoutique = null;
+async function pnChargerMessagerie(){
+  // Remplir le sélecteur de boutiques
+  const { data:bts } = await _supa.rpc('rpc_lister_boutiques');
+  const sel=document.getElementById('pnMsgCible');
+  if(bts){
+    sel.innerHTML = '<option value="">📢 Toutes les boutiques (annonce)</option>' +
+      bts.map(b=>`<option value="${b.id}">${pnEsc(b.nom)}</option>`).join('');
+  }
+  // Liste des conversations
+  const box=document.getElementById('pnConversations');
+  const { data, error } = await _supa.rpc('rpc_conversations');
+  if(error){ box.innerHTML=`<div style="color:var(--grey);padding:20px;">Erreur : ${pnEsc(error.message)}</div>`; return; }
+  if(!data || !data.length){ box.innerHTML=`<div style="color:var(--grey);text-align:center;padding:20px;">Aucune conversation. Envoyez le premier message ci-dessus.</div>`; return; }
+
+  box.innerHTML = '<div style="color:var(--grey);font-size:12px;margin-bottom:8px;">CONVERSATIONS</div>' +
+    data.map(c=>`
+    <div class="pn-shop" style="cursor:pointer;" onclick="pnOuvrirFil('${c.boutique_id}','${pnEsc(c.boutique_nom)}')">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="font-size:20px;">💬</div>
+        <div style="flex:1;min-width:0;">
+          <div class="pn-shop-name">${pnEsc(c.boutique_nom)} ${c.non_lus>0?`<span class="pn-pill att">${c.non_lus} nouveau(x)</span>`:''}</div>
+          <div class="pn-shop-meta" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${pnEsc(c.dernier_message||'')}</div>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+async function pnOuvrirFil(bid, nom){
+  _pnFilBoutique = bid;
+  const fil=document.getElementById('pnFil');
+  fil.style.display='block';
+  const { data } = await _supa.rpc('rpc_fil_boutique', { p_boutique_id: bid });
+  fil.innerHTML = `
+    <div style="color:var(--cyan);font-weight:700;margin-bottom:10px;">Conversation avec ${pnEsc(nom)}</div>
+    <div style="display:flex;flex-direction:column;gap:8px;max-height:340px;overflow-y:auto;margin-bottom:10px;">
+      ${(data||[]).map(m=>{
+        const adm=m.expediteur==='admin';
+        const st=adm?'align-self:flex-end;background:linear-gradient(135deg,var(--blue),var(--cyan));color:#fff;'
+                   :'align-self:flex-start;background:rgba(0,100,255,0.1);color:var(--light);border:1px solid var(--border);';
+        return `<div style="max-width:78%;padding:8px 12px;border-radius:14px;${st}">
+          <div style="font-size:14px;">${pnEsc(m.contenu)}</div>
+          <div style="font-size:10px;opacity:.6;margin-top:2px;">${new Date(m.cree_le).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div style="display:flex;gap:8px;">
+      <input type="text" id="pnFilInput" placeholder="Répondre à ${pnEsc(nom)}…" style="flex:1;background:rgba(0,20,40,0.6);border:1px solid var(--border);border-radius:8px;color:#fff;padding:10px;" onkeydown="if(event.key==='Enter')pnRepondreFil('${bid}')">
+      <button class="pn-b verser" onclick="pnRepondreFil('${bid}')" style="padding:0 16px;">Envoyer</button>
+    </div>`;
+  // Marquer comme lues les réponses du partenaire
+  await _supa.rpc('rpc_admin_marquer_lu', { p_boutique_id: bid });
+  pnMajBadgeMsg();
+}
+
+async function pnRepondreFil(bid){
+  const input=document.getElementById('pnFilInput');
+  const txt=input.value.trim(); if(!txt) return;
+  input.value='';
+  const { error } = await _supa.rpc('rpc_admin_envoyer', { p_boutique_id: bid, p_contenu: txt });
+  if(error){ showToast('Erreur : '+error.message); input.value=txt; return; }
+  const nom = document.querySelector('#pnFil .pn-shop-name, #pnFil div');
+  await pnOuvrirFil(bid, ''); // recharge le fil
+  pnChargerMessagerie();
+}
+
+async function pnEnvoyerMessage(){
+  const cible=document.getElementById('pnMsgCible').value || null;
+  const input=document.getElementById('pnMsgTexte');
+  const txt=input.value.trim(); if(!txt) return;
+  input.value='';
+  const { error } = await _supa.rpc('rpc_admin_envoyer', { p_boutique_id: cible, p_contenu: txt });
+  if(error){ showToast('Erreur : '+error.message); input.value=txt; return; }
+  showToast(cible ? 'Message envoyé ✅' : 'Annonce envoyée à toutes les boutiques ✅');
+  pnChargerMessagerie();
+}
+
+async function pnMajBadgeMsg(){
+  const { data } = await _supa.rpc('rpc_admin_total_non_lus');
+  const badge=document.getElementById('pnBadgeMsg');
+  if(data && data>0){ badge.textContent=data; badge.style.display='inline-block'; }
+  else badge.style.display='none';
 }
 
 // ── Produits partenaire à valider ──
@@ -2039,6 +2148,7 @@ async function loadPartenaires(){
   pnChargerSuivi();
   pnChargerDemandes(); // alimente le badge demandes
   pnChargerProduits(); // alimente le badge produits
+  pnMajBadgeMsg();     // alimente le badge messages
 }
 
 function pnFmt(n){ return Number(n||0).toLocaleString('fr-FR'); }

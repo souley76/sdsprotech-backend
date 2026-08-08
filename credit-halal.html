@@ -545,7 +545,7 @@ async function checkDossier(){
   // Lire le dossier le plus récent dans credit_phones (via client authentifié)
   const { data: dossiers } = await _supa
     .from('credit_phones')
-    .select('dossier_id,appareil,statut_compte,motif_refus,montant_1,montant_2,montant_3,prix_total,created_at')
+    .select('dossier_id,appareil,statut_compte,motif_refus,montant_1,montant_2,montant_3,prix_total,created_at,paye_1')
     .eq('user_id', _user.id)
     .order('created_at', { ascending: false })
     .limit(1);
@@ -607,7 +607,18 @@ async function checkDossier(){
     } else {
       badge.className = 'status-badge pending';
       badge.textContent = '⏳ En cours de vérification';
-      details.innerHTML = 'Votre compte est en cours de vérification.<br>Produit demandé : <strong>' + (dossier.appareil||'—') + '</strong><br>Soumis le : <strong>' + new Date(dossier.created_at).toLocaleDateString('fr-FR') + '</strong><br><br>Vous ne pouvez rien faire d\'autre tant que votre compte est en vérification.';
+      if(!dossier.paye_1){
+        // Acompte PAS encore payé → on invite le client à le régler maintenant.
+        details.innerHTML = 'Vos documents ont bien été reçus pour <strong>' + (dossier.appareil||'—') + '</strong>.<br><br>' +
+          'Pour lancer l\'étude de votre dossier, réglez votre acompte :<br>' +
+          '<strong style="color:var(--gold);font-size:18px;">' + formatPrice((dossier.montant_1||0) + FRAIS_MDM) + ' FCFA</strong> ' +
+          '<span style="color:rgba(255,255,255,0.6);font-size:13px;">(acompte 50% + frais MDM)</span>' +
+          '<br><br><button onclick="payerAcompte()" id="btnAcompte" style="background:linear-gradient(135deg,#0055ff,#00c8ff);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:12px;border:none;cursor:pointer;font-family:Outfit,sans-serif;">💳 Payer mon acompte →</button>' +
+          '<br><br><span style="color:rgba(255,255,255,0.5);font-size:12px;">Après paiement, notre équipe vérifie vos documents et prépare votre téléphone.</span>';
+      } else {
+        // Acompte payé → en attente de la validation par l'admin.
+        details.innerHTML = 'Acompte reçu ✅<br><br>Votre dossier pour <strong>' + (dossier.appareil||'—') + '</strong> est en cours de vérification par notre équipe.<br>Soumis le : <strong>' + new Date(dossier.created_at).toLocaleDateString('fr-FR') + '</strong><br><br>Vous serez notifié dès que votre compte sera validé et votre téléphone prêt.';
+      }
     }
   } else {
     statusPanel.style.display = 'none';
@@ -616,6 +627,28 @@ async function checkDossier(){
     document.getElementById('formNom').value   = meta.full_name || meta.name || '';
     document.getElementById('formTel').value   = meta.phone || '';
     document.getElementById('formEmail').value = _user.email || '';
+  }
+}
+
+// Payer l'acompte (versement 1) juste après l'envoi des documents,
+// AVANT la validation. Le serveur autorise le num 1 en_verification.
+async function payerAcompte(){
+  const btn = document.getElementById('btnAcompte');
+  if(!_currentDossierId){ showToast('❌ Dossier introuvable'); return; }
+  if(btn){ btn.disabled = true; btn.textContent = '⏳ Redirection vers le paiement...'; }
+  try {
+    const res = await fetch(BACKEND + '/credit-checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dossier_id: _currentDossierId, numero_versement: 1 })
+    });
+    const data = await res.json();
+    if(!res.ok || !data.success || !data.payment_url)
+      throw new Error((data.error||'Erreur') + (data.details ? ' — ' + data.details : ''));
+    window.location.href = data.payment_url; // redirection PayDunya
+  } catch(e){
+    showToast('❌ ' + e.message);
+    if(btn){ btn.disabled = false; btn.textContent = '💳 Payer mon acompte →'; }
   }
 }
 

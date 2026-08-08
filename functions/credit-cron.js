@@ -1,15 +1,5 @@
 import { CORS_HEADERS, handleOptions } from "../_helpers";
 
-// ╔══════════════════════════════════════════════════════════════════╗
-// ║ CREDIT-CRON — VERSION CORRIGÉE (4 versements)                    ║
-// ║ ✅ Verrouillage auto : contrôle les échéances 1 à 4              ║
-// ║ ✅ Rappels J-7 / J-2 : sur les 4 échéances                       ║
-// ║ ✅ Clé interne (X-Internal-Key) sur les appels credit-notify     ║
-// ║ Les anciens dossiers à 3 versements restent compatibles          ║
-// ║ (echeance_4 vide → simplement ignorée).                          ║
-// ║ Suppression RGPD : inchangée.                                    ║
-// ╚══════════════════════════════════════════════════════════════════╝
-
 export async function onRequestOptions(context) {
   return handleOptions(context.env);
 }
@@ -37,9 +27,6 @@ async function runCron(context) {
   if (!SUPA_URL || !SUPA_KEY || !MDM_KEY)
     return new Response(JSON.stringify({ error: "Config manquante" }), { status: 500, headers: CORS });
 
-  // ✅ Clé interne pour credit-notify (anti-spam email)
-  const H_NOTIFY = { "Content-Type": "application/json", "X-Internal-Key": (env.INTERNAL_KEY || "").trim() };
-
   // Date du jour (on verrouille si échéance < aujourd'hui, soit grâce d'1 jour)
   const today = new Date().toISOString().slice(0, 10);
 
@@ -64,14 +51,12 @@ async function runCron(context) {
   const verrouilles = [];
 
   for (const d of (Array.isArray(dossiers) ? dossiers : [])) {
-    // ✅ Une échéance (1 à 4) est-elle dépassée ET impayée ?
-    let enRetard = false;
-    for (let i = 1; i <= 4; i++) {
-      if (!d[`paye_${i}`] && d[`echeance_${i}`] && d[`echeance_${i}`] < today) {
-        enRetard = true;
-        break;
-      }
-    }
+    // Une échéance est-elle dépassée ET impayée ?
+    const enRetard =
+      (!d.paye_1 && d.echeance_1 && d.echeance_1 < today) ||
+      (!d.paye_2 && d.echeance_2 && d.echeance_2 < today) ||
+      (!d.paye_3 && d.echeance_3 && d.echeance_3 < today) ||
+      (!d.paye_4 && d.echeance_4 && d.echeance_4 < today);
 
     if (!enRetard) continue;
 
@@ -122,7 +107,7 @@ async function runCron(context) {
         // Email au client : téléphone verrouillé
         await fetch("https://sdsprotech-backend.pages.dev/credit-notify", {
           method: "POST",
-          headers: H_NOTIFY,
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ dossier_id: d.dossier_id, evenement: "verrouille" })
         }).catch(()=>{});
       } else {
@@ -228,26 +213,29 @@ async function runCron(context) {
   try {
     const res = await fetch(
       `${SUPA_URL}/rest/v1/credit_phones?statut_compte=eq.valide` +
-      `&select=dossier_id,paye_1,paye_2,paye_3,paye_4,echeance_1,echeance_2,echeance_3,echeance_4`,
+      `&select=dossier_id,paye_1,paye_2,paye_3,echeance_1,echeance_2,echeance_3`,
       { headers: { "apikey": SUPA_KEY, "Authorization": "Bearer " + SUPA_KEY } }
     );
     dossiersActifs = await res.json();
   } catch (e) { dossiersActifs = []; }
 
   for (const d of (Array.isArray(dossiersActifs) ? dossiersActifs : [])) {
-    // ✅ Pour chaque versement impayé (1 à 4), l'échéance tombe-t-elle à J-7 ou J-2 ?
+    // Pour chaque versement impayé, vérifier si l'échéance tombe à J-7 ou J-2
+    const versements = [
+      { paye: d.paye_1, ech: d.echeance_1 },
+      { paye: d.paye_2, ech: d.echeance_2 },
+      { paye: d.paye_3, ech: d.echeance_3 }
+    ];
     let evt = null;
-    for (let i = 1; i <= 4; i++) {
-      if (d[`paye_${i}`]) continue;
-      const ech = d[`echeance_${i}`];
-      if (!ech) continue; // ancien dossier à 3 versements : echeance_4 vide
-      if (ech === jour7) { evt = "rappel_7j"; break; }
-      if (ech === jour2) { evt = "rappel_2j"; break; }
+    for (const v of versements) {
+      if (v.paye) continue;
+      if (v.ech === jour7) { evt = "rappel_7j"; break; }
+      if (v.ech === jour2) { evt = "rappel_2j"; break; }
     }
     if (evt) {
       await fetch("https://sdsprotech-backend.pages.dev/credit-notify", {
         method: "POST",
-        headers: H_NOTIFY,
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ dossier_id: d.dossier_id, evenement: evt })
       }).catch(()=>{});
       rappels.push({ dossier: d.dossier_id, type: evt });

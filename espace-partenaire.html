@@ -174,10 +174,19 @@ a{color:inherit;}
     <div class="field"><label>Marque</label><input type="text" id="pMarque" placeholder="Apple"></div>
     <div class="field"><label>Caractéristiques (séparées par des virgules)</label>
       <textarea id="pSpecs" placeholder="128GB, 5G, Face ID"></textarea></div>
-    <div class="field"><label>Images (une URL par ligne)</label>
-      <textarea id="pImages" placeholder="https://…"></textarea></div>
-    <div class="field"><label>Vidéo de présentation (URL)</label>
-      <input type="text" id="pVideo" placeholder="https://… (YouTube, mp4, etc.)"></div>
+    <div class="field">
+      <label>Photos du produit (2 minimum)</label>
+      <input type="file" id="pPhotos" accept="image/*" multiple
+             onchange="apercuPhotos()" style="color:var(--light);font-size:13px;">
+      <div id="apercuPhotos" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;"></div>
+    </div>
+    <div class="field">
+      <label>Vidéo de présentation (1 requise)</label>
+      <input type="file" id="pVideoFile" accept="video/*"
+             onchange="apercuVideo()" style="color:var(--light);font-size:13px;">
+      <div id="apercuVideo" style="color:var(--grey);font-size:12px;margin-top:6px;"></div>
+    </div>
+    <div id="uploadProgress" style="display:none;color:var(--cyan);font-size:12px;margin-bottom:8px;"></div>
     <div class="err" id="prodErr"></div>
     <div class="modal-actions">
       <button class="btn cancel" onclick="fermerProduit()">Annuler</button>
@@ -329,15 +338,47 @@ function ouvrirProduit(p){
   document.getElementById('pEmoji').value  = p ? (p.emoji||'📱') : '📱';
   document.getElementById('pMarque').value = p ? (p.marque||'') : '';
   document.getElementById('pSpecs').value  = p ? (Array.isArray(p.specs)?p.specs.join(', '):(p.specs||'')) : '';
-  document.getElementById('pImages').value = '';
-  document.getElementById('pVideo').value  = p ? (p.video_url||'') : '';
+  // Champs fichiers : on repart à vide (l'upload se refait si on veut changer les médias)
+  const pf=document.getElementById('pPhotos'); if(pf) pf.value='';
+  const vf=document.getElementById('pVideoFile'); if(vf) vf.value='';
+  document.getElementById('apercuPhotos').innerHTML = '';
+  document.getElementById('apercuVideo').textContent = p && p.video_url ? 'Vidéo actuelle conservée si vous n\'en choisissez pas une nouvelle.' : '';
   document.getElementById('prodModal').classList.add('on');
 }
 function fermerProduit(){ document.getElementById('prodModal').classList.remove('on'); }
 
+// Aperçus
+function apercuPhotos(){
+  const files = document.getElementById('pPhotos').files;
+  const box = document.getElementById('apercuPhotos');
+  box.innerHTML = '';
+  Array.from(files).slice(0,3).forEach(f=>{
+    const url = URL.createObjectURL(f);
+    box.innerHTML += `<img src="${url}" style="width:56px;height:56px;object-fit:cover;border-radius:8px;border:1px solid var(--border);">`;
+  });
+  if(files.length>3){ box.innerHTML += `<span style="color:var(--grey);font-size:11px;align-self:center;">Seules les 3 premières seront envoyées</span>`; }
+}
+function apercuVideo(){
+  const f = document.getElementById('pVideoFile').files[0];
+  document.getElementById('apercuVideo').textContent = f ? `Vidéo : ${f.name} (${(f.size/1048576).toFixed(1)} Mo)` : '';
+}
+
+// Upload d'un fichier vers un bucket public, renvoie l'URL publique
+async function uploaderFichier(bucket, file){
+  const ext = (file.name.split('.').pop() || 'bin').toLowerCase();
+  const chemin = `${MA_BOUTIQUE.id}/${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
+  const { error } = await sb.storage.from(bucket).upload(chemin, file, {
+    cacheControl: '3600', upsert: false,
+  });
+  if(error) throw error;
+  const { data } = sb.storage.from(bucket).getPublicUrl(chemin);
+  return data.publicUrl;
+}
+
 async function sauverProduit(){
   const err = document.getElementById('prodErr');
   const btn = document.getElementById('prodSaveBtn');
+  const prog = document.getElementById('uploadProgress');
   const id  = document.getElementById('pId').value;
   const nom = document.getElementById('pNom').value.trim();
   const prix = parseInt(document.getElementById('pPrix').value, 10);
@@ -345,43 +386,76 @@ async function sauverProduit(){
   if(!nom){ err.textContent = 'Le nom est requis.'; return; }
   if(!prix || isNaN(prix) || prix <= 0){ err.textContent = 'Prix invalide.'; return; }
 
-  const imgs = document.getElementById('pImages').value.trim();
-  const premiereImage = imgs ? imgs.split('\n').map(s=>s.trim()).filter(Boolean)[0] : null;
+  const photos = Array.from(document.getElementById('pPhotos').files).slice(0,3);
+  const videoFile = document.getElementById('pVideoFile').files[0];
 
-  btn.disabled = true; btn.textContent = 'Enregistrement…';
-  let res;
-  if(id){
-    // Modification d'un produit existant : reste tel quel (ne repasse pas en attente
-    // si déjà validé ; le partenaire peut corriger nom/prix/image de SON produit)
-    res = await sb.from('products').update({
-      nom,
-      modele: document.getElementById('pModele').value.trim() || null,
-      prix,
-      emoji:  document.getElementById('pEmoji').value.trim() || '📱',
-      marque: document.getElementById('pMarque').value.trim() || null,
-      specs:  document.getElementById('pSpecs').value.trim() || null,
-      image_url: premiereImage,
-      video_url: document.getElementById('pVideo').value.trim() || null,
-    }).eq('id', id);
-  } else {
-    // ★ Nouvelle soumission : passe par la RPC → produit INVISIBLE, en attente
-    //   de validation par SDS PRO. Ne devient visible qu'après ton feu vert.
-    res = await sb.rpc('rpc_soumettre_produit', {
-      p_nom: nom, p_prix: prix,
-      p_modele: document.getElementById('pModele').value.trim(),
-      p_description: document.getElementById('pSpecs').value.trim(),
-      p_categorie: null,
-      p_image_url: premiereImage,
-      p_video_url: document.getElementById('pVideo').value.trim(),
-      p_emoji: document.getElementById('pEmoji').value.trim() || '📱',
-      p_marque: document.getElementById('pMarque').value.trim(),
-    });
+  // Règles : à la CRÉATION, au moins 2 photos + 1 vidéo. À la MODIFICATION,
+  // on n'exige de nouveaux fichiers que si le partenaire en fournit.
+  if(!id){
+    if(photos.length < 2){ err.textContent = 'Ajoutez au moins 2 photos.'; return; }
+    if(!videoFile){ err.textContent = 'Ajoutez une vidéo de présentation.'; return; }
   }
-  btn.disabled = false; btn.textContent = 'Enregistrer';
-  if(res.error){ err.textContent = 'Erreur : ' + res.error.message; return; }
-  fermerProduit();
-  if(!id) alert('Produit soumis ✅\nIl sera visible sur votre boutique après validation par SDS PRO.');
-  await chargerProduits();
+  // Vérif taille (50 Mo max par fichier)
+  const trop = [...photos, videoFile].filter(Boolean).find(f => f.size > 50*1048576);
+  if(trop){ err.textContent = `Fichier trop lourd : ${trop.name} (max 50 Mo).`; return; }
+
+  btn.disabled = true; btn.textContent = 'Envoi…';
+  prog.style.display = 'block';
+
+  try {
+    // Upload des photos vers le bucket "products"
+    let urlsPhotos = [];
+    for(let i=0;i<photos.length;i++){
+      prog.textContent = `Envoi photo ${i+1}/${photos.length}…`;
+      urlsPhotos.push(await uploaderFichier('products', photos[i]));
+    }
+    // Upload de la vidéo vers "product-videos"
+    let urlVideo = null;
+    if(videoFile){
+      prog.textContent = 'Envoi de la vidéo…';
+      urlVideo = await uploaderFichier('product-videos', videoFile);
+    }
+    prog.textContent = 'Enregistrement…';
+
+    let res;
+    if(id){
+      // Modification : on ne remplace les médias que si de nouveaux ont été fournis
+      const maj = {
+        nom,
+        modele: document.getElementById('pModele').value.trim() || null,
+        prix,
+        emoji:  document.getElementById('pEmoji').value.trim() || '📱',
+        marque: document.getElementById('pMarque').value.trim() || null,
+        specs:  document.getElementById('pSpecs').value.trim() || null,
+      };
+      if(urlsPhotos.length) maj.images = urlsPhotos;
+      if(urlVideo) maj.video_url = urlVideo;
+      res = await sb.from('products').update(maj).eq('id', id);
+    } else {
+      // Nouvelle soumission → produit invisible, en attente de validation
+      res = await sb.rpc('rpc_soumettre_produit', {
+        p_nom: nom, p_prix: prix,
+        p_modele: document.getElementById('pModele').value.trim(),
+        p_description: document.getElementById('pSpecs').value.trim(),
+        p_categorie: null,
+        p_images: urlsPhotos,
+        p_video_url: urlVideo,
+        p_emoji: document.getElementById('pEmoji').value.trim() || '📱',
+        p_marque: document.getElementById('pMarque').value.trim(),
+      });
+    }
+    if(res.error) throw res.error;
+
+    prog.style.display = 'none';
+    btn.disabled = false; btn.textContent = 'Enregistrer';
+    fermerProduit();
+    if(!id) alert('Produit soumis ✅\nIl sera visible sur votre boutique après validation par SDS PRO.');
+    await chargerProduits();
+  } catch(e){
+    prog.style.display = 'none';
+    btn.disabled = false; btn.textContent = 'Enregistrer';
+    err.textContent = 'Erreur : ' + (e.message || e);
+  }
 }
 
 async function supprimerProduit(id){

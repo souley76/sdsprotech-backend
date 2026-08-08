@@ -224,10 +224,17 @@ a{color:inherit;}
     <div id="filMessages" style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px;max-height:420px;overflow-y:auto;padding:4px;">
       <div class="empty">Chargement…</div>
     </div>
-    <div style="display:flex;gap:8px;">
+    <div style="display:flex;gap:6px;align-items:center;">
+      <button id="btnMediaP" onclick="document.getElementById('fileMediaP').click()" title="Joindre un fichier"
+              style="background:rgba(0,100,255,0.15);border:1px solid var(--border);border-radius:10px;color:var(--cyan);width:42px;height:42px;font-size:18px;cursor:pointer;flex-shrink:0;">📎</button>
+      <button id="btnMicP" onmousedown="demarrerVocal('P')" onmouseup="arreterVocal('P')"
+              ontouchstart="demarrerVocal('P');return false;" ontouchend="arreterVocal('P');return false;" title="Maintenir pour enregistrer"
+              style="background:rgba(0,100,255,0.15);border:1px solid var(--border);border-radius:10px;color:var(--cyan);width:42px;height:42px;font-size:18px;cursor:pointer;flex-shrink:0;">🎤</button>
       <input type="text" id="msgInput" placeholder="Votre message…" style="flex:1;" onkeydown="if(event.key==='Enter')envoyerMessage()">
       <button class="btn" style="width:auto;padding:0 20px;" onclick="envoyerMessage()">Envoyer</button>
+      <input type="file" id="fileMediaP" accept="image/*,video/*,audio/*,.pdf,.doc,.docx" style="display:none" onchange="envoyerMediaP(this.files[0])">
     </div>
+    <div id="vocalHintP" style="display:none;color:#ff9100;font-size:12px;margin-top:6px;">🔴 Enregistrement… relâchez pour envoyer</div>
   </div>
 
   <!-- Produits -->
@@ -692,8 +699,10 @@ async function chargerMessages(){
       ? 'align-self:flex-end;background:linear-gradient(135deg,var(--blue),var(--cyan));color:#fff;'
       : 'align-self:flex-start;background:rgba(0,100,255,0.1);color:var(--light);border:1px solid var(--border);';
     const ann = m.annonce ? '<div style="font-size:10px;opacity:.7;margin-bottom:2px;">📢 Annonce SDS PRO</div>' : '';
+    const media = rendreMedia(m);
+    const texte = m.contenu ? `<div style="font-size:14px;line-height:1.4;">${escHtml(m.contenu)}</div>` : '';
     return `<div style="max-width:78%;padding:9px 13px;border-radius:14px;${bulle}">
-      ${ann}<div style="font-size:14px;line-height:1.4;">${escHtml(m.contenu)}</div>
+      ${ann}${media}${texte}
       <div style="font-size:10px;opacity:.6;margin-top:3px;">${new Date(m.cree_le).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</div>
     </div>`;
   }).join('');
@@ -711,6 +720,83 @@ async function envoyerMessage(){
   const { error } = await sb.rpc('rpc_partenaire_envoyer', { p_contenu: txt });
   if(error){ alert('Erreur : '+error.message); input.value=txt; return; }
   await chargerMessages();
+}
+
+// ── Rendu d'un média dans une bulle ──
+function rendreMedia(m){
+  if(!m.media_url) return '';
+  const u = m.media_url;
+  if(m.media_type==='image')
+    return `<img src="${u}" onclick="window.open('${u}','_blank')" style="max-width:200px;border-radius:10px;margin-bottom:5px;cursor:pointer;display:block;">`;
+  if(m.media_type==='video')
+    return `<video src="${u}" controls style="max-width:220px;border-radius:10px;margin-bottom:5px;display:block;"></video>`;
+  if(m.media_type==='audio')
+    return `<audio src="${u}" controls style="max-width:220px;margin-bottom:5px;display:block;"></audio>`;
+  // fichier générique
+  return `<a href="${u}" target="_blank" style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.1);padding:8px 12px;border-radius:10px;margin-bottom:5px;text-decoration:none;color:inherit;">📄 ${escHtml(m.media_nom||'Fichier')}</a>`;
+}
+
+// ── Upload d'un média du chat vers le bucket chat-media ──
+async function uploaderMediaChat(file){
+  const ext = (file.name.split('.').pop() || 'bin').toLowerCase();
+  const chemin = `${MA_BOUTIQUE.id}/${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
+  const { error } = await sb.storage.from('chat-media').upload(chemin, file, { cacheControl:'3600', upsert:false });
+  if(error) throw error;
+  const { data } = sb.storage.from('chat-media').getPublicUrl(chemin);
+  return data.publicUrl;
+}
+
+function typeMedia(file){
+  const t = file.type || '';
+  if(t.startsWith('image/')) return 'image';
+  if(t.startsWith('video/')) return 'video';
+  if(t.startsWith('audio/')) return 'audio';
+  return 'file';
+}
+
+// ── Envoyer un fichier joint (partenaire) ──
+async function envoyerMediaP(file){
+  if(!file) return;
+  if(file.size > 50*1048576){ alert('Fichier trop lourd (max 50 Mo).'); return; }
+  try {
+    const url = await uploaderMediaChat(file);
+    const { error } = await sb.rpc('rpc_partenaire_envoyer', {
+      p_contenu: null, p_media_type: typeMedia(file), p_media_url: url, p_media_nom: file.name
+    });
+    if(error) throw error;
+    document.getElementById('fileMediaP').value='';
+    await chargerMessages();
+  } catch(e){ alert('Erreur : '+(e.message||e)); }
+}
+
+// ── Enregistrement vocal (maintenir le micro) ──
+let _mediaRec = null, _chunks = [], _recSide = null;
+async function demarrerVocal(side){
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio:true });
+    _mediaRec = new MediaRecorder(stream);
+    _chunks = []; _recSide = side;
+    _mediaRec.ondataavailable = e => { if(e.data.size>0) _chunks.push(e.data); };
+    _mediaRec.onstop = async () => {
+      stream.getTracks().forEach(t=>t.stop());
+      const blob = new Blob(_chunks, { type:'audio/webm' });
+      if(blob.size < 500) return; // trop court, ignore
+      const file = new File([blob], 'vocal-'+Date.now()+'.webm', { type:'audio/webm' });
+      try {
+        const url = await uploaderMediaChat(file);
+        const rpc = side==='P' ? 'rpc_partenaire_envoyer' : 'rpc_partenaire_envoyer';
+        const { error } = await sb.rpc(rpc, { p_contenu:null, p_media_type:'audio', p_media_url:url, p_media_nom:'Message vocal' });
+        if(error) throw error;
+        await chargerMessages();
+      } catch(e){ alert('Erreur envoi vocal : '+(e.message||e)); }
+    };
+    _mediaRec.start();
+    const hint = document.getElementById('vocalHint'+side); if(hint) hint.style.display='block';
+  } catch(e){ alert('Micro non disponible : '+(e.message||e)); }
+}
+function arreterVocal(side){
+  const hint = document.getElementById('vocalHint'+side); if(hint) hint.style.display='none';
+  if(_mediaRec && _mediaRec.state !== 'inactive') _mediaRec.stop();
 }
 
 async function majBadgeMessages(){

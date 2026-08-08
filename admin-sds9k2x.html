@@ -2058,16 +2058,22 @@ async function pnOuvrirFil(bid, nom){
         const adm=m.expediteur==='admin';
         const st=adm?'align-self:flex-end;background:linear-gradient(135deg,var(--blue),var(--cyan));color:#fff;'
                    :'align-self:flex-start;background:rgba(0,100,255,0.1);color:var(--light);border:1px solid var(--border);';
+        const media=pnRendreMedia(m);
+        const texte=m.contenu?`<div style="font-size:14px;">${pnEsc(m.contenu)}</div>`:'';
         return `<div style="max-width:78%;padding:8px 12px;border-radius:14px;${st}">
-          <div style="font-size:14px;">${pnEsc(m.contenu)}</div>
+          ${media}${texte}
           <div style="font-size:10px;opacity:.6;margin-top:2px;">${new Date(m.cree_le).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</div>
         </div>`;
       }).join('')}
     </div>
-    <div style="display:flex;gap:8px;">
+    <div style="display:flex;gap:6px;align-items:center;">
+      <button onclick="document.getElementById('pnFilFile').click()" title="Joindre un fichier" style="background:rgba(0,100,255,0.15);border:1px solid var(--border);border-radius:8px;color:var(--cyan);width:40px;height:40px;font-size:17px;cursor:pointer;flex-shrink:0;">📎</button>
+      <button onmousedown="pnDemarrerVocal('${bid}')" onmouseup="pnArreterVocal()" ontouchstart="pnDemarrerVocal('${bid}');return false;" ontouchend="pnArreterVocal();return false;" title="Maintenir pour enregistrer" style="background:rgba(0,100,255,0.15);border:1px solid var(--border);border-radius:8px;color:var(--cyan);width:40px;height:40px;font-size:17px;cursor:pointer;flex-shrink:0;">🎤</button>
       <input type="text" id="pnFilInput" placeholder="Répondre à ${pnEsc(nom)}…" style="flex:1;background:rgba(0,20,40,0.6);border:1px solid var(--border);border-radius:8px;color:#fff;padding:10px;" onkeydown="if(event.key==='Enter')pnRepondreFil('${bid}')">
       <button class="pn-b verser" onclick="pnRepondreFil('${bid}')" style="padding:0 16px;">Envoyer</button>
-    </div>`;
+      <input type="file" id="pnFilFile" accept="image/*,video/*,audio/*,.pdf,.doc,.docx" style="display:none" onchange="pnEnvoyerMedia('${bid}', this.files[0])">
+    </div>
+    <div id="pnVocalHint" style="display:none;color:#ff9100;font-size:12px;margin-top:6px;">🔴 Enregistrement… relâchez pour envoyer</div>`;
   // Marquer comme lues les réponses du partenaire
   await _supa.rpc('rpc_admin_marquer_lu', { p_boutique_id: bid });
   pnMajBadgeMsg();
@@ -2079,9 +2085,69 @@ async function pnRepondreFil(bid){
   input.value='';
   const { error } = await _supa.rpc('rpc_admin_envoyer', { p_boutique_id: bid, p_contenu: txt });
   if(error){ showToast('Erreur : '+error.message); input.value=txt; return; }
-  const nom = document.querySelector('#pnFil .pn-shop-name, #pnFil div');
   await pnOuvrirFil(bid, ''); // recharge le fil
   pnChargerMessagerie();
+}
+
+// ── Médias dans le chat admin ──
+function pnRendreMedia(m){
+  if(!m.media_url) return '';
+  const u=m.media_url;
+  if(m.media_type==='image') return `<img src="${u}" onclick="window.open('${u}','_blank')" style="max-width:200px;border-radius:10px;margin-bottom:5px;cursor:pointer;display:block;">`;
+  if(m.media_type==='video') return `<video src="${u}" controls style="max-width:220px;border-radius:10px;margin-bottom:5px;display:block;"></video>`;
+  if(m.media_type==='audio') return `<audio src="${u}" controls style="max-width:220px;margin-bottom:5px;display:block;"></audio>`;
+  return `<a href="${u}" target="_blank" style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.12);padding:8px 12px;border-radius:10px;margin-bottom:5px;text-decoration:none;color:inherit;">📄 ${pnEsc(m.media_nom||'Fichier')}</a>`;
+}
+async function pnUploaderMedia(file){
+  const ext=(file.name.split('.').pop()||'bin').toLowerCase();
+  const chemin=`admin/${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
+  const { error }=await _supa.storage.from('chat-media').upload(chemin,file,{cacheControl:'3600',upsert:false});
+  if(error) throw error;
+  const { data }=_supa.storage.from('chat-media').getPublicUrl(chemin);
+  return data.publicUrl;
+}
+function pnTypeMedia(file){
+  const t=file.type||'';
+  if(t.startsWith('image/')) return 'image';
+  if(t.startsWith('video/')) return 'video';
+  if(t.startsWith('audio/')) return 'audio';
+  return 'file';
+}
+async function pnEnvoyerMedia(bid, file){
+  if(!file) return;
+  if(file.size>50*1048576){ showToast('Fichier trop lourd (max 50 Mo)'); return; }
+  try {
+    const url=await pnUploaderMedia(file);
+    const { error }=await _supa.rpc('rpc_admin_envoyer',{ p_boutique_id:bid, p_contenu:null, p_media_type:pnTypeMedia(file), p_media_url:url, p_media_nom:file.name });
+    if(error) throw error;
+    await pnOuvrirFil(bid, '');
+  } catch(e){ showToast('Erreur : '+(e.message||e)); }
+}
+let _pnRec=null, _pnChunks=[];
+async function pnDemarrerVocal(bid){
+  try {
+    const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+    _pnRec=new MediaRecorder(stream); _pnChunks=[];
+    _pnRec.ondataavailable=e=>{ if(e.data.size>0) _pnChunks.push(e.data); };
+    _pnRec.onstop=async()=>{
+      stream.getTracks().forEach(t=>t.stop());
+      const blob=new Blob(_pnChunks,{type:'audio/webm'});
+      if(blob.size<500) return;
+      const file=new File([blob],'vocal-'+Date.now()+'.webm',{type:'audio/webm'});
+      try {
+        const url=await pnUploaderMedia(file);
+        const { error }=await _supa.rpc('rpc_admin_envoyer',{ p_boutique_id:bid, p_contenu:null, p_media_type:'audio', p_media_url:url, p_media_nom:'Message vocal' });
+        if(error) throw error;
+        await pnOuvrirFil(bid, '');
+      } catch(e){ showToast('Erreur vocal : '+(e.message||e)); }
+    };
+    _pnRec.start();
+    const h=document.getElementById('pnVocalHint'); if(h) h.style.display='block';
+  } catch(e){ showToast('Micro non disponible'); }
+}
+function pnArreterVocal(){
+  const h=document.getElementById('pnVocalHint'); if(h) h.style.display='none';
+  if(_pnRec && _pnRec.state!=='inactive') _pnRec.stop();
 }
 
 async function pnEnvoyerMessage(){

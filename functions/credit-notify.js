@@ -83,8 +83,9 @@ export async function onRequestPost(context) {
 
   const versements = [
     { n:1, label:"Acompte (50% + frais MDM)", montant:(d.montant_1||0)+FRAIS_MDM, paye:d.paye_1, ech:d.echeance_1 },
-    { n:2, label:"Versement 2 (25%)",         montant:d.montant_2||0,             paye:d.paye_2, ech:d.echeance_2 },
-    { n:3, label:"Versement 3 (25%)",         montant:d.montant_3||0,             paye:d.paye_3, ech:d.echeance_3 }
+    { n:2, label:"Tranche 1/3 (mensuelle)",    montant:d.montant_2||0,             paye:d.paye_2, ech:d.echeance_2 },
+    { n:3, label:"Tranche 2/3 (mensuelle)",    montant:d.montant_3||0,             paye:d.paye_3, ech:d.echeance_3 },
+    { n:4, label:"Tranche 3/3 (mensuelle)",    montant:d.montant_4||0,             paye:d.paye_4, ech:d.echeance_4 }
   ];
 
   const totalDu   = versements.reduce((s,v)=>s+v.montant,0);
@@ -127,11 +128,17 @@ export async function onRequestPost(context) {
   const sectionTitle = "padding:12px 20px;border-bottom:1px solid #e2e8f0;font-size:11px;font-weight:700;color:#0066cc;letter-spacing:2px;background:#f1f6fc;";
   const boxStyle     = "background:#ffffff;border:1px solid #dbe4ee;border-radius:12px;overflow:hidden;";
 
+  // Le dossier n'est "payable" qu'une fois VALIDE par l'admin.
+  // Avant validation (en_verification), aucun bouton de paiement ne s'affiche.
+  const dossierPayable = d.statut_compte === "valide" || d.statut_compte === "solde";
+
   const lignesVers = versements.map(v => {
     const statut = v.paye
       ? `<span style="color:#15803d;font-weight:700;">✅ Payé</span>`
-      : `<span style="color:#0066cc;font-weight:700;">À régler · ${dateFr(v.ech)}</span>`;
-    const bouton = v.paye
+      : (dossierPayable
+          ? `<span style="color:#0066cc;font-weight:700;">À régler · ${dateFr(v.ech)}</span>`
+          : `<span style="color:#94a3b8;font-weight:600;">En attente de validation</span>`);
+    const bouton = (v.paye || !dossierPayable)
       ? ""
       : `<a href="${LIEN_ESPACE}" style="display:inline-block;margin-top:8px;background:#0066cc;color:#ffffff;font-size:12px;font-weight:700;padding:9px 18px;border-radius:8px;text-decoration:none;">💳 Régler ce versement</a>`;
     return `

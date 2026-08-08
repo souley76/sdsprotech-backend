@@ -246,7 +246,25 @@ a{color:inherit;}
     <div class="field"><label>Modèle / variante</label><input type="text" id="pModele" placeholder="128 GB · Noir"></div>
     <div class="field"><label>Prix (FCFA) *</label><input type="number" id="pPrix" placeholder="220000"></div>
     <div class="field"><label>Emoji</label><input type="text" id="pEmoji" placeholder="📱" maxlength="4"></div>
-    <div class="field"><label>Marque</label><input type="text" id="pMarque" placeholder="Apple"></div>
+    <div class="field"><label>Marque *</label>
+      <select id="pMarque" style="width:100%;background:rgba(0,20,40,0.6);border:1px solid var(--border);border-radius:10px;color:#fff;padding:12px;font-size:14px;">
+        <option value="">— Choisir la marque —</option>
+        <option value="Apple">Apple / iPhone</option>
+        <option value="Samsung">Samsung</option>
+        <option value="Infinix">Infinix</option>
+        <option value="Tecno">Tecno</option>
+        <option value="Huawei">Huawei</option>
+        <option value="Xiaomi">Xiaomi</option>
+        <option value="Autre">Autre</option>
+      </select>
+    </div>
+    <div class="field"><label>État *</label>
+      <select id="pCategorie" style="width:100%;background:rgba(0,20,40,0.6);border:1px solid var(--border);border-radius:10px;color:#fff;padding:12px;font-size:14px;">
+        <option value="">— Choisir l'état —</option>
+        <option value="neuf">Neuf</option>
+        <option value="reconditionne">Reconditionné</option>
+      </select>
+    </div>
     <div class="field"><label>Caractéristiques (séparées par des virgules)</label>
       <textarea id="pSpecs" placeholder="128GB, 5G, Face ID"></textarea></div>
     <div class="field">
@@ -506,6 +524,9 @@ function ouvrirProduit(p){
   document.getElementById('pPrix').value   = p ? (p.prix||'') : '';
   document.getElementById('pEmoji').value  = p ? (p.emoji||'📱') : '📱';
   document.getElementById('pMarque').value = p ? (p.marque||'') : '';
+  document.getElementById('pCategorie').value = p && p.categorie
+    ? (p.categorie.includes('recond') ? 'reconditionne' : (p.categorie.includes('neuf') ? 'neuf' : ''))
+    : '';
   document.getElementById('pSpecs').value  = p ? (Array.isArray(p.specs)?p.specs.join(', '):(p.specs||'')) : '';
   // Champs fichiers : on repart à vide (l'upload se refait si on veut changer les médias)
   const pf=document.getElementById('pPhotos'); if(pf) pf.value='';
@@ -554,6 +575,14 @@ async function sauverProduit(){
   err.textContent = '';
   if(!nom){ err.textContent = 'Le nom est requis.'; return; }
   if(!prix || isNaN(prix) || prix <= 0){ err.textContent = 'Prix invalide.'; return; }
+  const marqueVal = document.getElementById('pMarque').value.trim();
+  const etatVal   = document.getElementById('pCategorie').value.trim();
+  if(!marqueVal){ err.textContent = 'Choisissez la marque.'; return; }
+  if(!etatVal){ err.textContent = 'Choisissez l\'état (neuf ou reconditionné).'; return; }
+  // Catégorie combinée : filtre marque (pour le regroupement sur le site) + état.
+  // Ex. Apple → "iphone neuf" ; Samsung → "samsung reconditionne".
+  const FILTRE_MARQUE = { Apple:'iphone', Samsung:'samsung', Infinix:'infinix', Tecno:'tecno', Huawei:'huawei', Xiaomi:'xiaomi', Autre:'autre' };
+  const categorieCombinee = (FILTRE_MARQUE[marqueVal] || marqueVal.toLowerCase()) + ' ' + etatVal;
 
   const photos = Array.from(document.getElementById('pPhotos').files).slice(0,3);
   const videoFile = document.getElementById('pVideoFile').files[0];
@@ -594,7 +623,8 @@ async function sauverProduit(){
         modele: document.getElementById('pModele').value.trim() || null,
         prix,
         emoji:  document.getElementById('pEmoji').value.trim() || '📱',
-        marque: document.getElementById('pMarque').value.trim() || null,
+        marque: marqueVal || null,
+        categorie: categorieCombinee,
         specs:  document.getElementById('pSpecs').value.trim() || null,
       };
       if(urlsPhotos.length) maj.images = urlsPhotos;
@@ -606,11 +636,11 @@ async function sauverProduit(){
         p_nom: nom, p_prix: prix,
         p_modele: document.getElementById('pModele').value.trim(),
         p_description: document.getElementById('pSpecs').value.trim(),
-        p_categorie: null,
+        p_categorie: categorieCombinee,
         p_images: urlsPhotos,
         p_video_url: urlVideo,
         p_emoji: document.getElementById('pEmoji').value.trim() || '📱',
-        p_marque: document.getElementById('pMarque').value.trim(),
+        p_marque: marqueVal,
       });
     }
     if(res.error) throw res.error;

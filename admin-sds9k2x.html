@@ -2003,14 +2003,14 @@ async function pnChargerProduits(){
     <div class="pn-shop">
       <div style="display:flex;gap:12px;align-items:flex-start;">
         <div style="width:64px;height:64px;border-radius:10px;background:rgba(0,100,255,0.08);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;">
-          ${p.image_url?`<img src="${pnEsc(p.image_url)}" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentNode.textContent='📱'">`:'📱'}
+          ${(p.images&&p.images[0])?`<img src="${pnEsc(p.images[0])}" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentNode.textContent='📱'">`:'📱'}
         </div>
         <div style="flex:1;min-width:0;">
           <div class="pn-shop-name">${pnEsc(p.nom)} ${p.modele?'<span style="color:var(--grey);font-weight:400;">· '+pnEsc(p.modele)+'</span>':''}</div>
           <div class="pn-shop-meta">${pnFmt(p.prix)} F · Boutique : ${pnEsc(p.boutique_nom||'—')}${p.marque?' · '+pnEsc(p.marque):''}</div>
           ${p.description?`<div class="pn-shop-meta" style="color:var(--light);margin-top:4px;">${pnEsc(p.description)}</div>`:''}
           <div style="display:flex;gap:10px;margin-top:8px;flex-wrap:wrap;">
-            ${p.image_url?`<a href="${pnEsc(p.image_url)}" target="_blank" style="color:var(--cyan);font-size:12px;text-decoration:none;">🖼 Voir la photo</a>`:'<span style="color:var(--grey);font-size:12px;">Pas de photo</span>'}
+            ${(p.images&&p.images[0])?`<a href="${pnEsc(p.images[0])}" target="_blank" style="color:var(--cyan);font-size:12px;text-decoration:none;">🖼 Voir la photo</a>`:'<span style="color:var(--grey);font-size:12px;">Pas de photo</span>'}
             ${p.video_url?`<a href="${pnEsc(p.video_url)}" target="_blank" style="color:var(--cyan);font-size:12px;text-decoration:none;">🎬 Voir la vidéo</a>`:'<span style="color:var(--grey);font-size:12px;">Pas de vidéo</span>'}
           </div>
           <div style="display:flex;gap:6px;margin-top:10px;">
@@ -2144,8 +2144,39 @@ async function pnVerser(id,bid){
     });
     const r=await res.json();
     if(!res.ok||r.error){ showToast('Échec : '+(r.error||res.status)); return; }
-    showToast('✅ Versé : '+pnFmt(r.net)+' F'); pnRafraichir(bid);
+    showToast('✅ Versé : '+pnFmt(r.net)+' F');
+    // Proposer le bordereau de versement (PDF avec cachet)
+    if(confirm('Versement effectué. Télécharger le bordereau de versement ?')){
+      await telechargerBordereau(id, bid, r.net);
+    }
+    pnRafraichir(bid);
   }catch(e){ showToast('Erreur réseau : '+e.message); }
+}
+
+// Génère le bordereau de versement PDF pour une commande versée
+async function telechargerBordereau(orderId, boutiqueId, net){
+  if(typeof genererBordereauVersement !== 'function'){ showToast('Module bordereau indisponible'); return; }
+  // Récupérer commande + boutique
+  const { data:oRows } = await _supa.from('orders')
+    .select('commande_id,produit,amount,prix,boutique_id').eq('id',orderId).limit(1);
+  const o = oRows && oRows[0]; if(!o) return;
+  const { data:bRows } = await _supa.from('boutiques')
+    .select('nom,proprietaire,telephone,ville,payout_numero,payout_operateur,commission_pct').eq('id',boutiqueId).limit(1);
+  const b = bRows && bRows[0] || {};
+  const vente = Number(o.amount||o.prix||0);
+  const pct = Number(b.commission_pct||10);
+  const commission = Math.round(vente*pct/100);
+  const netCalc = net!=null ? Number(net) : (vente - commission);
+  await genererBordereauVersement({
+    boutique: b,
+    versement: {
+      ref: 'VERS-'+Date.now().toString().slice(-8),
+      date: new Date().toLocaleDateString('fr-FR'),
+      produit: o.produit, commande: o.commande_id,
+      montant_vente: vente, commission_pct: pct, commission,
+      frais_service: 0, livraison: 0, net: netCalc,
+    },
+  });
 }
 
 async function pnRembourser(id,bid){
@@ -2336,5 +2367,7 @@ async function pnRattacher(){
   </div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="/facture-partenaire.js"></script>
 </body>
 </html>

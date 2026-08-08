@@ -176,6 +176,8 @@ a{color:inherit;}
       <textarea id="pSpecs" placeholder="128GB, 5G, Face ID"></textarea></div>
     <div class="field"><label>Images (une URL par ligne)</label>
       <textarea id="pImages" placeholder="https://…"></textarea></div>
+    <div class="field"><label>Vidéo de présentation (URL)</label>
+      <input type="text" id="pVideo" placeholder="https://… (YouTube, mp4, etc.)"></div>
     <div class="err" id="prodErr"></div>
     <div class="modal-actions">
       <button class="btn cancel" onclick="fermerProduit()">Annuler</button>
@@ -287,24 +289,33 @@ async function confirmer(id, btn){
 // ── Produits de la boutique ──
 async function chargerProduits(){
   const box = document.getElementById('listeProd');
-  const { data, error } = await sb.from('products')
-    .select('id,nom,modele,prix,emoji,visible')
-    .eq('boutique_id', MA_BOUTIQUE.id).order('id', { ascending:false });
+  const { data, error } = await sb.rpc('rpc_mes_produits');
   if(error){ box.innerHTML = `<div class="empty">Erreur de chargement.</div>`; return; }
   if(!data || !data.length){ box.innerHTML = `<div class="empty">Aucun produit. Ajoutez-en un pour commencer.</div>`; return; }
 
-  box.innerHTML = data.map(p => `<div class="row">
-    <div class="logo" style="font-size:22px;">${escHtml(p.emoji || '📱')}</div>
-    <div class="main">
-      <div class="t">${escHtml(p.nom)}</div>
-      <div class="m">${escHtml(p.modele || '')}</div>
-    </div>
-    <div class="price">${fmt(p.prix)} F</div>
-    <div class="prod-actions">
-      <button class="mini" onclick='ouvrirProduit(${JSON.stringify(p)})'>Modifier</button>
-      <button class="mini red" onclick="supprimerProduit(${p.id})">Suppr.</button>
-    </div>
-  </div>`).join('');
+  box.innerHTML = data.map(p => {
+    const st = p.statut_validation;
+    const badge = st==='valide'
+      ? '<span class="pill paye">En ligne</span>'
+      : st==='refuse'
+        ? '<span class="pill" style="background:rgba(255,90,110,.15);color:var(--red);">Refusé</span>'
+        : '<span class="pill attente">En attente</span>';
+    const motif = (st==='refuse' && p.motif_refus)
+      ? `<div class="m" style="color:var(--red);margin-top:4px;">Motif : ${escHtml(p.motif_refus)}</div>` : '';
+    return `<div class="row">
+      <div class="logo" style="font-size:22px;">${escHtml(p.emoji || '📱')}</div>
+      <div class="main">
+        <div class="t">${escHtml(p.nom)} ${badge}</div>
+        <div class="m">${escHtml(p.modele || '')}</div>
+        ${motif}
+      </div>
+      <div class="price">${fmt(p.prix)} F</div>
+      <div class="prod-actions">
+        <button class="mini" onclick='ouvrirProduit(${JSON.stringify(p)})'>Modifier</button>
+        <button class="mini red" onclick="supprimerProduit(${p.id})">Suppr.</button>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 // ── Fenêtre produit ──
@@ -319,6 +330,7 @@ function ouvrirProduit(p){
   document.getElementById('pMarque').value = p ? (p.marque||'') : '';
   document.getElementById('pSpecs').value  = p ? (Array.isArray(p.specs)?p.specs.join(', '):(p.specs||'')) : '';
   document.getElementById('pImages').value = '';
+  document.getElementById('pVideo').value  = p ? (p.video_url||'') : '';
   document.getElementById('prodModal').classList.add('on');
 }
 function fermerProduit(){ document.getElementById('prodModal').classList.remove('on'); }
@@ -334,28 +346,41 @@ async function sauverProduit(){
   if(!prix || isNaN(prix) || prix <= 0){ err.textContent = 'Prix invalide.'; return; }
 
   const imgs = document.getElementById('pImages').value.trim();
-  const payload = {
-    nom,
-    modele:   document.getElementById('pModele').value.trim() || null,
-    prix,
-    emoji:    document.getElementById('pEmoji').value.trim() || '📱',
-    marque:   document.getElementById('pMarque').value.trim() || null,
-    specs:    document.getElementById('pSpecs').value.trim() || null,
-    images:   imgs ? imgs.split('\n').map(s=>s.trim()).filter(Boolean) : [],
-    visible:  true,
-    boutique_id: MA_BOUTIQUE.id,   // ← toujours SA boutique (la RLS le vérifie aussi)
-  };
+  const premiereImage = imgs ? imgs.split('\n').map(s=>s.trim()).filter(Boolean)[0] : null;
 
   btn.disabled = true; btn.textContent = 'Enregistrement…';
   let res;
   if(id){
-    res = await sb.from('products').update(payload).eq('id', id);
+    // Modification d'un produit existant : reste tel quel (ne repasse pas en attente
+    // si déjà validé ; le partenaire peut corriger nom/prix/image de SON produit)
+    res = await sb.from('products').update({
+      nom,
+      modele: document.getElementById('pModele').value.trim() || null,
+      prix,
+      emoji:  document.getElementById('pEmoji').value.trim() || '📱',
+      marque: document.getElementById('pMarque').value.trim() || null,
+      specs:  document.getElementById('pSpecs').value.trim() || null,
+      image_url: premiereImage,
+      video_url: document.getElementById('pVideo').value.trim() || null,
+    }).eq('id', id);
   } else {
-    res = await sb.from('products').insert(payload);
+    // ★ Nouvelle soumission : passe par la RPC → produit INVISIBLE, en attente
+    //   de validation par SDS PRO. Ne devient visible qu'après ton feu vert.
+    res = await sb.rpc('rpc_soumettre_produit', {
+      p_nom: nom, p_prix: prix,
+      p_modele: document.getElementById('pModele').value.trim(),
+      p_description: document.getElementById('pSpecs').value.trim(),
+      p_categorie: null,
+      p_image_url: premiereImage,
+      p_video_url: document.getElementById('pVideo').value.trim(),
+      p_emoji: document.getElementById('pEmoji').value.trim() || '📱',
+      p_marque: document.getElementById('pMarque').value.trim(),
+    });
   }
   btn.disabled = false; btn.textContent = 'Enregistrer';
   if(res.error){ err.textContent = 'Erreur : ' + res.error.message; return; }
   fermerProduit();
+  if(!id) alert('Produit soumis ✅\nIl sera visible sur votre boutique après validation par SDS PRO.');
   await chargerProduits();
 }
 

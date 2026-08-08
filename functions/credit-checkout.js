@@ -52,8 +52,16 @@ export async function onRequestPost(context) {
     return new Response(JSON.stringify({ error: "Dossier introuvable" }), { status: 404, headers: CORS });
 
   // ── 2. Vérifications métier ─────────────────────────────────
-  if (dossier.statut_compte !== "valide")
-    return new Response(JSON.stringify({ error: "Dossier non validé" }), { status: 403, headers: CORS });
+  // L'ACOMPTE (num 1) est payable dès que le dossier existe (en_verification) :
+  // le client paie juste après avoir envoyé ses documents, AVANT la validation.
+  // Les TRANCHES (2, 3, 4) ne sont payables qu'une fois le dossier VALIDE.
+  if (num === 1) {
+    if (!["en_verification", "valide"].includes(dossier.statut_compte))
+      return new Response(JSON.stringify({ error: "Dossier non payable dans cet état" }), { status: 403, headers: CORS });
+  } else {
+    if (dossier.statut_compte !== "valide")
+      return new Response(JSON.stringify({ error: "Dossier non validé — payez d'abord l'acompte et attendez la validation" }), { status: 403, headers: CORS });
+  }
 
   if (dossier[`paye_${num}`] === true)
     return new Response(JSON.stringify({ error: "Versement déjà payé" }), { status: 409, headers: CORS });

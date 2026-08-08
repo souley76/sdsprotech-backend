@@ -1744,6 +1744,21 @@ input, textarea {
         </div>
       </div>
       <p id="succMsg">Nous vous contactons sous 2h.<br><br>77 069 97 39</p>
+
+      <!-- ★ Boutique responsable (si commande via une boutique) -->
+      <div id="succBoutique" style="display:none;margin-top:16px;padding:14px;background:rgba(0,200,255,0.08);border:1px solid rgba(0,200,255,0.25);border-radius:12px;text-align:left;">
+        <div style="font-size:12px;color:var(--cyan);font-weight:700;margin-bottom:4px;">VOTRE BOUTIQUE</div>
+        <div id="succBoutiqueNom" style="font-size:15px;color:#fff;font-weight:600;"></div>
+        <div id="succBoutiqueTel" style="font-size:13px;color:rgba(255,255,255,0.65);margin-top:2px;"></div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:8px;line-height:1.5;">
+          C'est votre boutique qui gère et garantit ce produit. Pour toute question ou problème, contactez-la directement.
+        </div>
+      </div>
+
+      <!-- ★ Télécharger la facture -->
+      <button id="btnFacture" onclick="telechargerFacture()" style="display:none;width:100%;margin-top:14px;padding:13px;background:linear-gradient(135deg,var(--blue),var(--cyan));border:none;border-radius:12px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:'Outfit',sans-serif;">
+        📄 Télécharger ma facture
+      </button>
       <div id="whatsappFallback" style="margin-top:16px;padding:12px;background:rgba(37,211,102,0.1);border:1px solid rgba(37,211,102,0.3);border-radius:10px;font-size:12px;color:rgba(255,255,255,0.65);line-height:1.6;">
         Vous ne recevez pas la demande de paiement ? Nous pouvons finaliser votre commande rapidement via WhatsApp 👇
         <br><br>
@@ -2490,6 +2505,18 @@ async function sub(){
   // Correspondant PawaPay selon opérateur choisi
   const correspondent = selP === 'free' ? 'FREE_MONEY_SN' : 'ORANGE_MONEY_SN';
 
+  // ★ Mémoriser les infos pour la facture téléchargeable
+  window._derniereCommande = {
+    produit: selProd.n,
+    montant: selProd.prix_raw,
+    frais_paydunya: 5000 + (extras.charge ? 3000 : 0),
+    client: n,
+    tel: phone,
+    operateur: selP === 'free' ? 'Free Money' : 'Orange Money',
+    ref: 'CMD-' + Date.now().toString().slice(-8),
+    date: new Date().toLocaleDateString('fr-FR'),
+  };
+
   // Afficher bouton en chargement
   const btn = document.querySelector('.bsub');
   btn.disabled = true;
@@ -2542,6 +2569,18 @@ async function sub(){
         ? '✅ Votre paiement a été confirmé.<br><br>Votre commande est en préparation.<br><br>Pour toute question : <strong>77 069 97 39</strong>'
         : 'Une demande de paiement <strong>'+(selP==='free'?'Free Money':'Orange Money')+'</strong> a été envoyée sur le <strong>'+maskPhone(phone)+'</strong>.<br><br>Confirmez le paiement sur votre téléphone.<br><br>Pour toute question : <strong>77 069 97 39</strong>';
       document.getElementById('succMsg').innerHTML = sousMsg;
+
+      // ★ Facture + boutique responsable
+      if(window._derniereCommande){
+        window._derniereCommande.ref = window._derniereCommande.ref;
+        document.getElementById('btnFacture').style.display = 'block';
+        if(window.BOUTIQUE && window.BOUTIQUE.nom){
+          document.getElementById('succBoutique').style.display = 'block';
+          document.getElementById('succBoutiqueNom').textContent = window.BOUTIQUE.nom;
+          document.getElementById('succBoutiqueTel').textContent =
+            window.BOUTIQUE.telephone ? ('Tel : ' + window.BOUTIQUE.telephone) : '';
+        }
+      }
       // Lien WhatsApp avec infos commande
       const waMsg = encodeURIComponent(`Bonjour SDS PRO 👋\nJe souhaite finaliser ma commande :\n• Produit : ${selProd?.n||'Produit'}\n• Montant : ${selProd?.p||''} FCFA\n• Téléphone : ${phone}\n• Opérateur : ${selP==='free'?'Free Money':'Orange Money'}\nMerci !`);
       const waBtn = document.getElementById('whatsappBtn');
@@ -4570,5 +4609,22 @@ document.addEventListener('dragstart', e => {
     <button class="themed-alert-btn" onclick="closeThemedAlert()">Fermer</button>
   </div>
 </div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="/facture-client.js"></script>
+<script>
+function telechargerFacture(){
+  const c = window._derniereCommande;
+  if(!c){ alert('Facture indisponible.'); return; }
+  const b = window.BOUTIQUE || { nom:'SECK DIGITAL SERVICES PRO', telephone:'77 069 97 39', ville:'Dakar' };
+  if(typeof genererFactureClient !== 'function'){ alert('Génération indisponible, réessayez.'); return; }
+  genererFactureClient({
+    boutique: {
+      nom: b.nom, proprietaire: b.proprietaire, telephone: b.telephone,
+      ville: b.ville, quartier: b.quartier, logo_url: b.logo_url, couleur: b.couleur,
+    },
+    commande: c,
+  });
+}
+</script>
 </body>
 </html>

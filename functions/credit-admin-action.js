@@ -26,8 +26,6 @@ export async function onRequestPost(context) {
 
   const H_READ  = { "apikey": SUPA_KEY, "Authorization": "Bearer " + SUPA_KEY };
   const H_WRITE = { ...H_READ, "Content-Type": "application/json", "Prefer": "return=minimal" };
-  // ✅ CORRECTIF sécurité : clé interne pour les appels à credit-notify (anti-spam email)
-  const H_NOTIFY = { "Content-Type": "application/json", "X-Internal-Key": (env.INTERNAL_KEY || "").trim() };
 
   // ── SÉCURITÉ : vérifier le token de session de l'admin ──────
   // 1) Le token doit être un token de session Supabase valide
@@ -96,7 +94,7 @@ export async function onRequestPost(context) {
   let dossier = null;
   try {
     const res = await fetch(
-      `${dossierUrl}&select=dossier_id,user_id,client_nom,statut_compte,device_id`,
+      `${dossierUrl}&select=dossier_id,user_id,client_nom,statut_compte,device_id,paye_1`,
       { headers: H_READ }
     );
     const rows = await res.json();
@@ -114,8 +112,12 @@ export async function onRequestPost(context) {
     const device_id = (body.device_id || "").trim();
     if (!device_id)
       return new Response(JSON.stringify({ error: "device_id requis" }), { status: 400, headers: CORS });
+    // L'acompte (1ere tranche) doit etre paye AVANT de valider : on ne prepare
+    // jamais un telephone (enrolement + 3$) pour un client qui n'a pas paye.
+    if (!dossier.paye_1)
+      return new Response(JSON.stringify({ error: "Acompte non paye. Le client doit regler sa 1ere tranche avant validation." }), { status: 400, headers: CORS });
 
-    // ✅ NOUVEAU PLAN : acompte aujourd'hui (J) + 3 mensualités (J+30, J+60, J+90)
+    // Calcul des échéances : acompte aujourd'hui (J), versement 2 à J+30, versement 3 à J+60
     const d = (days) => {
       const dt = new Date();
       dt.setDate(dt.getDate() + days);
@@ -128,8 +130,7 @@ export async function onRequestPost(context) {
       valide_at:  new Date().toISOString(),
       echeance_1: d(0),
       echeance_2: d(30),
-      echeance_3: d(60),
-      echeance_4: d(90)
+      echeance_3: d(60)
     };
 
     const upd = await patchDossier(patch);
@@ -141,7 +142,7 @@ export async function onRequestPost(context) {
     await insertNotif({
       dossier_id, user_id: dossier.user_id || null, pour_admin: false,
       titre: "Compte validé ✅",
-      message: "Votre dossier de crédit a été validé. Vous pouvez procéder au paiement de l'acompte.",
+      message: "Votre compte est validé et votre téléphone est prêt. Merci pour votre confiance.",
       type: "succes"
     });
 
@@ -149,14 +150,14 @@ export async function onRequestPost(context) {
     try {
       await fetch("https://sdsprotech-backend.pages.dev/credit-notify", {
         method: "POST",
-        headers: H_NOTIFY,
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ dossier_id, evenement: "validation" })
       });
     } catch (e) {}
 
     return new Response(JSON.stringify({
       success: true, action: "valider",
-      echeances: { echeance_1: patch.echeance_1, echeance_2: patch.echeance_2, echeance_3: patch.echeance_3, echeance_4: patch.echeance_4 }
+      echeances: { echeance_1: patch.echeance_1, echeance_2: patch.echeance_2, echeance_3: patch.echeance_3 }
     }), { status: 200, headers: CORS });
   }
 
@@ -183,12 +184,6 @@ export async function onRequestPost(context) {
       type: "refus"
     });
 
-    // Email au client : dossier refusé (le motif est déjà en base, credit-notify le relira)
-    await fetch("https://sdsprotech-backend.pages.dev/credit-notify", {
-      method: "POST", headers: H_NOTIFY,
-      body: JSON.stringify({ dossier_id, evenement: "refuse" })
-    }).catch(()=>{});
-
     return new Response(JSON.stringify({ success: true, action: "refuser" }), { status: 200, headers: CORS });
   }
 
@@ -197,7 +192,7 @@ export async function onRequestPost(context) {
   // ════════════════════════════════════════════════════════════
   if (action === "marquer_paye") {
     const num = parseInt(body.numero_versement, 10);
-    if (![1, 2, 3, 4].includes(num))  // ✅ 4 versements
+    if (![1, 2, 3].includes(num))
       return new Response(JSON.stringify({ error: "numero_versement invalide" }), { status: 400, headers: CORS });
 
     const patch = {};
@@ -229,29 +224,18 @@ export async function onRequestPost(context) {
             });
             if (mdmRes.ok || mdmRes.status === 202) {
               await patchDossier({ lost_mode_actif: false, unlock_at: new Date().toISOString() });
-              await fetch("https://sdsprotech-backend.pages.dev/credit-notify", {
-                method: "POST", headers: H_NOTIFY,
-                body: JSON.stringify({ dossier_id, evenement: "deverrouille" })
-              }).catch(()=>{});
             }
           } catch(e) {}
         }
       }
     }
 
-    // Email au client : versement reçu
-    await fetch("https://sdsprotech-backend.pages.dev/credit-notify", {
-      method: "POST", headers: H_NOTIFY,
-      body: JSON.stringify({ dossier_id, evenement: "versement" })
-    }).catch(()=>{});
-
-    // ✅ Vérifier si les 4 versements sont désormais payés → passer en "solde"
+    // Vérifier si les 3 versements sont désormais payés → passer en "solde"
     try {
-      const r = await fetch(`${dossierUrl}&select=paye_1,paye_2,paye_3,paye_4,montant_4,statut_compte`, { headers: H_READ });
+      const r = await fetch(`${dossierUrl}&select=paye_1,paye_2,paye_3,statut_compte`, { headers: H_READ });
       const rows = await r.json();
       const d = rows && rows[0];
-      const v4ok = (d && (d.montant_4 === null || d.montant_4 === undefined)) ? true : (d && d.paye_4); // anciens dossiers à 3 versements
-      if (d && d.paye_1 && d.paye_2 && d.paye_3 && v4ok && d.statut_compte === "valide") {
+      if (d && d.paye_1 && d.paye_2 && d.paye_3 && d.statut_compte === "valide") {
         await patchDossier({ statut_compte: "solde", solde_at: new Date().toISOString() });
         await insertNotif({
           dossier_id, user_id: dossier.user_id || null, pour_admin: false,
@@ -274,10 +258,6 @@ export async function onRequestPost(context) {
       const t = await upd.text();
       return new Response(JSON.stringify({ error: "Échec mise à jour", details: t }), { status: 500, headers: CORS });
     }
-    await fetch("https://sdsprotech-backend.pages.dev/credit-notify", {
-      method: "POST", headers: H_NOTIFY,
-      body: JSON.stringify({ dossier_id, evenement: "litige" })
-    }).catch(()=>{});
     return new Response(JSON.stringify({ success: true, action: "marquer_litige" }), { status: 200, headers: CORS });
   }
 
@@ -287,10 +267,6 @@ export async function onRequestPost(context) {
       const t = await upd.text();
       return new Response(JSON.stringify({ error: "Échec mise à jour", details: t }), { status: 500, headers: CORS });
     }
-    await fetch("https://sdsprotech-backend.pages.dev/credit-notify", {
-      method: "POST", headers: H_NOTIFY,
-      body: JSON.stringify({ dossier_id, evenement: "litige_retire" })
-    }).catch(()=>{});
     return new Response(JSON.stringify({ success: true, action: "retirer_litige" }), { status: 200, headers: CORS });
   }
   // ════════════════════════════════════════════════════════════
@@ -325,7 +301,7 @@ export async function onRequestPost(context) {
           type: "alerte"
         });
         await fetch("https://sdsprotech-backend.pages.dev/credit-notify", {
-          method: "POST", headers: H_NOTIFY,
+          method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ dossier_id, evenement: "verrouille" })
         }).catch(()=>{});
         return new Response(JSON.stringify({ success: true, action: "verrouiller" }), { status: 200, headers: CORS });
@@ -356,7 +332,7 @@ export async function onRequestPost(context) {
       if (mdmRes.ok || mdmRes.status === 202) {
         await patchDossier({ lost_mode_actif: false, unlock_at: new Date().toISOString() });
         await fetch("https://sdsprotech-backend.pages.dev/credit-notify", {
-          method: "POST", headers: H_NOTIFY,
+          method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ dossier_id, evenement: "deverrouille" })
         }).catch(()=>{});
         return new Response(JSON.stringify({ success: true, action: "deverrouiller" }), { status: 200, headers: CORS });

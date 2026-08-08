@@ -118,9 +118,9 @@ export async function onRequestPost(context) {
       return new Response(JSON.stringify({ error: "Acompte non paye. Le client doit regler sa 1ere tranche avant validation." }), { status: 400, headers: CORS });
 
     // Calcul des échéances : acompte aujourd'hui (J), versement 2 à J+30, versement 3 à J+60
-    const d = (days) => {
+    const d = (mois) => {
       const dt = new Date();
-      dt.setDate(dt.getDate() + days);
+      dt.setMonth(dt.getMonth() + mois);
       return dt.toISOString().slice(0, 10); // YYYY-MM-DD
     };
 
@@ -129,8 +129,9 @@ export async function onRequestPost(context) {
       device_id,
       valide_at:  new Date().toISOString(),
       echeance_1: d(0),
-      echeance_2: d(30),
-      echeance_3: d(60)
+      echeance_2: d(1),
+      echeance_3: d(2),
+      echeance_4: d(3)
     };
 
     const upd = await patchDossier(patch);
@@ -157,7 +158,7 @@ export async function onRequestPost(context) {
 
     return new Response(JSON.stringify({
       success: true, action: "valider",
-      echeances: { echeance_1: patch.echeance_1, echeance_2: patch.echeance_2, echeance_3: patch.echeance_3 }
+      echeances: { echeance_1: patch.echeance_1, echeance_2: patch.echeance_2, echeance_3: patch.echeance_3, echeance_4: patch.echeance_4 }
     }), { status: 200, headers: CORS });
   }
 

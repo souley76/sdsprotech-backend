@@ -131,6 +131,10 @@ a{color:inherit;}
       Votre compte n'a pas encore de boutique. Renseignez-la ci-dessous : elle sera
       créée puis validée par SDS PRO avant d'apparaître dans le réseau.
     </p>
+    <div id="cbCompte" style="color:var(--cyan);font-size:12px;margin-bottom:6px;"></div>
+    <div style="margin-bottom:14px;">
+      <a href="#" onclick="deconnexion();return false;" style="color:var(--grey);font-size:12px;text-decoration:underline;">Ce n'est pas vous ? Changer de compte</a>
+    </div>
     <div class="field"><label>Nom de la boutique *</label>
       <input id="cbNom" placeholder="Mbao Électronics"></div>
     <div class="field"><label>Votre nom (gérant) *</label>
@@ -286,14 +290,28 @@ async function creerMaBoutique(){
 
 // ── Démarrage : identifier la boutique du compte ──
 async function demarrer(){
+  // Sécurité : ne rien afficher tant qu'on n'a pas confirmé une session active.
+  const { data: sess } = await sb.auth.getSession();
+  if(!sess || !sess.session){
+    // Pas connecté → on montre le login, jamais l'écran de création.
+    document.getElementById('login').style.display = 'flex';
+    document.getElementById('app').style.display = 'none';
+    document.getElementById('creerBoutiqueEcran').style.display = 'none';
+    return;
+  }
+
   // ma_boutique() renvoie l'id de la boutique rattachée au compte
   const { data: bid, error } = await sb.rpc('ma_boutique');
   if(error || !bid){
-    // Compte connecté mais SANS boutique → on lui propose d'en créer une
-    // (au lieu de le déconnecter). Cas d'une inscription non terminée.
+    // Compte connecté mais SANS boutique → on lui propose d'en créer une.
     document.getElementById('login').style.display = 'none';
     document.getElementById('app').style.display = 'none';
     document.getElementById('creerBoutiqueEcran').style.display = 'block';
+    // Afficher quel compte est connecté + permettre d'en changer
+    const infoEl = document.getElementById('cbCompte');
+    if(infoEl){
+      infoEl.textContent = 'Connecté : ' + (sess.session.user.email || '');
+    }
     return;
   }
   // Charger l'identité de la boutique

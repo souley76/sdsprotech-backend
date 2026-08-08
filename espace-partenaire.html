@@ -122,6 +122,40 @@ a{color:inherit;}
   </div>
 </div>
 
+<!-- ═══════════ CRÉER SA BOUTIQUE (compte sans boutique) ═══════════ -->
+<div id="creerBoutiqueEcran" style="display:none;">
+  <div class="card" style="max-width:440px;">
+    <div class="brand">SECK <span class="c">DIGITAL</span> SERVICES PRO</div>
+    <div class="sub">Créez votre boutique</div>
+    <p style="color:var(--grey);font-size:13px;line-height:1.6;margin:8px 0 16px;">
+      Votre compte n'a pas encore de boutique. Renseignez-la ci-dessous : elle sera
+      créée puis validée par SDS PRO avant d'apparaître dans le réseau.
+    </p>
+    <div class="field"><label>Nom de la boutique *</label>
+      <input id="cbNom" placeholder="Mbao Électronics"></div>
+    <div class="field"><label>Votre nom (gérant) *</label>
+      <input id="cbProp" placeholder="Modou Fall"></div>
+    <div class="field"><label>Téléphone *</label>
+      <input id="cbTel" placeholder="77 123 45 67"></div>
+    <div class="field"><label>Ville</label>
+      <input id="cbVille" placeholder="Dakar"></div>
+    <div class="field"><label>Quartier</label>
+      <input id="cbQuartier" placeholder="Petit Mbao"></div>
+    <div class="field"><label>Numéro pour vos versements (Wave / Orange Money)</label>
+      <input id="cbPayout" placeholder="77 123 45 67"></div>
+    <button class="btn" id="cbBtn" onclick="creerMaBoutique()">Créer ma boutique</button>
+    <div class="err" id="cbErr"></div>
+    <div id="cbMerci" style="display:none;text-align:center;padding:14px;">
+      <div style="font-size:34px;">✓</div>
+      <div style="color:var(--cyan);font-weight:700;margin-top:6px;">Demande envoyée</div>
+      <div style="color:var(--grey);font-size:13px;margin-top:8px;line-height:1.6;">
+        Votre boutique est en cours de validation. Vous pourrez gérer vos produits
+        dès qu'elle est approuvée.
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ═══════════ APPLICATION ═══════════ -->
 <div id="app">
   <div class="topbar">
@@ -223,14 +257,43 @@ async function deconnexion(){
   location.reload();
 }
 
+// Créer sa boutique quand le compte n'en a pas encore (rattachement automatique)
+async function creerMaBoutique(){
+  const err = document.getElementById('cbErr');
+  const btn = document.getElementById('cbBtn');
+  err.textContent = '';
+  const nom  = document.getElementById('cbNom').value.trim();
+  const prop = document.getElementById('cbProp').value.trim();
+  const tel  = document.getElementById('cbTel').value.trim();
+  if(!nom || !prop || !tel){ err.textContent = 'Nom, gérant et téléphone sont requis.'; return; }
+
+  btn.disabled = true; btn.textContent = 'Création…';
+  const { error } = await sb.rpc('rpc_inscription_partenaire', {
+    p_nom: nom, p_proprietaire: prop, p_telephone: tel,
+    p_ville: document.getElementById('cbVille').value.trim(),
+    p_quartier: document.getElementById('cbQuartier').value.trim(),
+    p_description: null,
+    p_payout_numero: document.getElementById('cbPayout').value.trim(),
+  });
+  btn.disabled = false; btn.textContent = 'Créer ma boutique';
+  if(error){ err.textContent = 'Erreur : ' + error.message; return; }
+
+  // Succès : la boutique est créée et le compte y est rattaché.
+  document.getElementById('cbBtn').style.display = 'none';
+  document.querySelectorAll('#creerBoutiqueEcran .field').forEach(f => f.style.display='none');
+  document.getElementById('cbMerci').style.display = 'block';
+}
+
 // ── Démarrage : identifier la boutique du compte ──
 async function demarrer(){
   // ma_boutique() renvoie l'id de la boutique rattachée au compte
   const { data: bid, error } = await sb.rpc('ma_boutique');
   if(error || !bid){
-    document.getElementById('loginErr').textContent =
-      "Ce compte n'est rattaché à aucune boutique. Contactez SDS PRO.";
-    await sb.auth.signOut();
+    // Compte connecté mais SANS boutique → on lui propose d'en créer une
+    // (au lieu de le déconnecter). Cas d'une inscription non terminée.
+    document.getElementById('login').style.display = 'none';
+    document.getElementById('app').style.display = 'none';
+    document.getElementById('creerBoutiqueEcran').style.display = 'block';
     return;
   }
   // Charger l'identité de la boutique

@@ -1774,10 +1774,12 @@ async function openCreditModal(dossierId){
   const paths = docPaths.map(d => c[d.key]).filter(Boolean);
   let signedMap = {};
   try {
+    const { data: { session } } = await _supa.auth.getSession();
+    const token = session?.access_token;
     const res = await fetch(BACKEND_CREDIT + '/credit-doc-url', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ paths })
+      body: JSON.stringify({ paths, access_token: token })
     });
     const data = await res.json();
     if(data.urls) data.urls.forEach(u => { signedMap[u.path] = u.url; });

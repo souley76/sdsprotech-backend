@@ -1,20 +1,5 @@
 import { CORS_HEADERS, handleOptions } from "../_helpers";
 
-// ╔══════════════════════════════════════════════════════════════════╗
-// ║ CREDIT-UPLOAD — VERSION CORRIGÉE                                 ║
-// ║ ✅ FAILLE CORRIGÉE : le prix venait du client (prix_total).      ║
-// ║    Un client pouvait soumettre un iPhone avec un prix manipulé.  ║
-// ║    Désormais le prix ET le nom de l'appareil sont relus depuis   ║
-// ║    la table products via produit_id.                             ║
-// ║ ✅ 4 paiements : acompte 50% + 3 mensualités égales              ║
-// ║    (montant_4 absorbe l'arrondi pour tomber sur le prix exact).  ║
-// ║ ✅ Échéances provisoires réalistes (J, J+30, J+60, J+90) —       ║
-// ║    de toute façon recalculées à la validation admin.             ║
-// ║ ✅ dossier_id moins devinable (suffixe aléatoire).               ║
-// ║ ✅ Taille maximale par document (anti-abus du stockage).         ║
-// ║ ✅ Clé interne sur l'appel credit-notify.                        ║
-// ╚══════════════════════════════════════════════════════════════════╝
-
 export async function onRequestOptions(context) {
   return handleOptions(context.env);
 }
@@ -34,55 +19,24 @@ export async function onRequestPost(context) {
 
   const {
     user_id, client_nom, client_tel, client_email, client_adresse,
-    numero_cni, appareil, produit_id,
+    numero_cni, appareil, produit_id, prix_total, boutique_id,
     doc_cni_recto, doc_cni_verso, doc_selfie, doc_cni_legalisee, doc_residence
     // chaque doc = { data: base64, type: "image/jpeg" }
-    // NB : prix_total envoyé par la page est désormais IGNORÉ (prix relu en base)
   } = body;
 
   // ── Validation des champs obligatoires ──────────────────────
-  if (!user_id || !client_nom || !client_tel)
+  if (!user_id || !client_nom || !client_tel || !appareil)
     return new Response(JSON.stringify({ error: "Champs requis manquants" }), { status: 400, headers: CORS });
 
-  const docs = { doc_cni_recto, doc_cni_verso, doc_selfie, doc_cni_legalisee, doc_residence };
   if (!doc_cni_recto?.data || !doc_cni_verso?.data || !doc_selfie?.data || !doc_cni_legalisee?.data || !doc_residence?.data)
     return new Response(JSON.stringify({ error: "Les 5 documents sont requis" }), { status: 400, headers: CORS });
 
-  // ✅ Taille max ~9 Mo par document (base64 ≈ 12 Mo)
-  const MAX_B64 = 12 * 1024 * 1024;
-  for (const [nom, doc] of Object.entries(docs)) {
-    if (String(doc.data).length > MAX_B64)
-      return new Response(JSON.stringify({ error: `Document trop volumineux (${nom}). Compressez l'image et réessayez.` }), { status: 400, headers: CORS });
-  }
+  const prixTotalNum = parseInt(prix_total, 10);
+  if (!Number.isInteger(prixTotalNum) || prixTotalNum <= 0)
+    return new Response(JSON.stringify({ error: "Prix invalide" }), { status: 400, headers: CORS });
 
-  // ── ✅ SÉCURITÉ : prix et appareil relus depuis la base ──────
-  const prodIdNum = parseInt(produit_id, 10);
-  if (!Number.isInteger(prodIdNum) || prodIdNum <= 0)
-    return new Response(JSON.stringify({ error: "Produit invalide" }), { status: 400, headers: CORS });
-
-  let produit = null;
-  try {
-    const res = await fetch(
-      `${SUPA_URL}/rest/v1/products?id=eq.${prodIdNum}&select=id,nom,modele,prix,visible`,
-      { headers: { "apikey": SUPA_KEY, "Authorization": "Bearer " + SUPA_KEY } }
-    );
-    const rows = await res.json();
-    if (rows && rows[0]) produit = rows[0];
-  } catch (e) {
-    return new Response(JSON.stringify({ error: "Erreur lecture produit", details: e.message }), { status: 500, headers: CORS });
-  }
-  if (!produit || produit.visible === false)
-    return new Response(JSON.stringify({ error: "Produit introuvable ou indisponible" }), { status: 404, headers: CORS });
-
-  const prixTotalNum = Math.round(Number(produit.prix || 0));
-  if (!(prixTotalNum > 0))
-    return new Response(JSON.stringify({ error: "Prix du produit invalide" }), { status: 400, headers: CORS });
-
-  const appareilServeur = (produit.nom || appareil || "Téléphone") + (produit.modele ? " " + produit.modele : "");
-
-  // ── Générer un dossier_id unique (peu devinable) ────────────
-  const suffixe = crypto.randomUUID().replace(/-/g, "").slice(0, 4).toUpperCase();
-  const dossier_id = "CRED-" + Date.now().toString().slice(-8) + "-" + suffixe;
+  // ── Générer un dossier_id unique ────────────────────────────
+  const dossier_id = "CRED-" + Date.now().toString().slice(-8);
 
   // ── Convertir base64 → octets ───────────────────────────────
   const b64ToBytes = (b64) => {
@@ -129,28 +83,31 @@ export async function onRequestPost(context) {
     return new Response(JSON.stringify({ error: "Échec upload documents", details: e.message }), { status: 500, headers: CORS });
   }
 
-  // ── ✅ Calcul : acompte 50% + 3 mensualités (échéances J, +30, +60, +90) ──
+  // ── Répartition : acompte 50% + 3 tranches sur les 50% restants ──
+  // Les 3 tranches se partagent le reste ; la dernière absorbe l'arrondi
+  // pour que la somme fasse exactement le prix total.
   const today = new Date();
-  const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x.toISOString().slice(0, 10); };
+  const addMonths = (d, n) => { const x = new Date(d); x.setMonth(x.getMonth() + n); return x.toISOString().slice(0, 10); };
   const acompte    = Math.ceil(prixTotalNum * 0.5);
-  const reste      = prixTotalNum - acompte;
-  const mensualite = Math.ceil(reste / 3);
-  const versement2 = mensualite;
-  const versement3 = mensualite;
-  const versement4 = reste - 2 * mensualite; // ajustement : total = prix exact
+  const reste      = prixTotalNum - acompte;           // les 50% restants
+  const trancheBase = Math.floor(reste / 3);           // part égale arrondie au franc inférieur
+  const versement2 = trancheBase;
+  const versement3 = trancheBase;
+  const versement4 = reste - versement2 - versement3;  // la dernière absorbe l'arrondi
 
   // ── Insérer le dossier dans credit_phones ───────────────────
   const insertBody = {
     dossier_id, user_id,
+    boutique_id: boutique_id || null,
     client_nom, client_tel, client_email: client_email || null,
-    device_id: "", appareil: appareilServeur,
+    device_id: "", appareil,
     numero_cni: numero_cni || null,
     prix_total: prixTotalNum,
     montant_1: acompte, montant_2: versement2, montant_3: versement3, montant_4: versement4,
-    echeance_1: addDays(today, 0),
-    echeance_2: addDays(today, 30),
-    echeance_3: addDays(today, 60),
-    echeance_4: addDays(today, 90),
+    echeance_1: addMonths(today, 0),
+    echeance_2: addMonths(today, 1),
+    echeance_3: addMonths(today, 2),
+    echeance_4: addMonths(today, 3),
     doc_cni:           chemins.doc_cni,
     doc_cni_verso:     chemins.doc_cni_verso,
     doc_selfie:        chemins.doc_selfie,
@@ -194,7 +151,7 @@ export async function onRequestPost(context) {
       body: JSON.stringify({
         dossier_id, pour_admin: true,
         titre: "Nouvelle demande de crédit",
-        message: `${client_nom} a soumis un dossier pour ${appareilServeur}. À vérifier.`,
+        message: `${client_nom} a soumis un dossier pour ${appareil}. À vérifier.`,
         type: "info"
       })
     });
@@ -204,7 +161,7 @@ export async function onRequestPost(context) {
   try {
     await fetch("https://sdsprotech-backend.pages.dev/credit-notify", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-Internal-Key": (env.INTERNAL_KEY || "").trim() },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ dossier_id, evenement: "docs_recus" })
     });
   } catch (e) {}
@@ -213,6 +170,6 @@ export async function onRequestPost(context) {
     success: true,
     dossier_id,
     statut_compte: "en_verification",
-    montants: { acompte, versement2, versement3, versement4, frais_mdm: 10000 }
+    montants: { acompte, versement2, versement3, frais_mdm: 10000 }
   }), { status: 200, headers: CORS });
 }

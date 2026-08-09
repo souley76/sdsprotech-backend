@@ -299,6 +299,25 @@ a{color:inherit;}
 const SUPA_URL = 'https://fvfkawxwtsziqzibzbxt.supabase.co';
 const SUPA_KEY = 'sb_publishable_BTBvJ0drkx8ZWflBG7IhMA_A_b6h7rI';
 const sb = supabase.createClient(SUPA_URL, SUPA_KEY);
+const BACKEND_CHAT = 'https://sdsprotech-backend.pages.dev';
+
+// Remplace les media_url (privées) par des liens signés temporaires
+async function signerMedias(msgs){
+  const aSigner = msgs.filter(m=>m.media_url).map(m=>m.media_url);
+  if(!aSigner.length) return msgs;
+  try {
+    const { data:{ session } } = await sb.auth.getSession();
+    const res = await fetch(BACKEND_CHAT + '/chat-media-url', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ paths: aSigner, access_token: session?.access_token })
+    });
+    const data = await res.json();
+    const map = {};
+    if(data.urls) data.urls.forEach(u=>{ map[u.path] = u.url; });
+    msgs.forEach(m=>{ if(m.media_url && map[m.media_url]) m.media_url = map[m.media_url]; });
+  } catch(e){}
+  return msgs;
+}
 
 let MA_BOUTIQUE = null; // { id, nom, logo_url... }
 
@@ -692,6 +711,7 @@ async function chargerMessages(){
   const { data, error } = await sb.rpc('rpc_mes_messages');
   if(error){ box.innerHTML=`<div class="empty">Erreur de chargement.</div>`; return; }
   if(!data || !data.length){ box.innerHTML=`<div class="empty">Aucun message pour le moment.</div>`; return; }
+  await signerMedias(data); // remplace les URL privées par des liens signés
 
   box.innerHTML = data.map(m=>{
     const moi = m.expediteur==='partenaire';

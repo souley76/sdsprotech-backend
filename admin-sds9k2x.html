@@ -2051,6 +2051,21 @@ async function pnOuvrirFil(bid, nom){
   const fil=document.getElementById('pnFil');
   fil.style.display='block';
   const { data } = await _supa.rpc('rpc_fil_boutique', { p_boutique_id: bid });
+  // Remplacer les media_url privées par des liens signés temporaires
+  const aSigner = (data||[]).filter(m=>m.media_url).map(m=>m.media_url);
+  if(aSigner.length){
+    try {
+      const { data:{ session } } = await _supa.auth.getSession();
+      const r = await fetch(BACKEND_CREDIT + '/chat-media-url', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ paths: aSigner, access_token: session?.access_token })
+      });
+      const j = await r.json();
+      const map = {};
+      if(j.urls) j.urls.forEach(u=>{ map[u.path] = u.url; });
+      data.forEach(m=>{ if(m.media_url && map[m.media_url]) m.media_url = map[m.media_url]; });
+    } catch(e){}
+  }
   fil.innerHTML = `
     <div style="color:var(--cyan);font-weight:700;margin-bottom:10px;">Conversation avec ${pnEsc(nom)}</div>
     <div style="display:flex;flex-direction:column;gap:8px;max-height:340px;overflow-y:auto;margin-bottom:10px;">

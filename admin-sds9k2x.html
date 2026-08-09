@@ -2110,13 +2110,13 @@ function pnRendreMedia(m){
   const u=m.media_url;
   if(m.media_type==='image') return `<img src="${u}" onclick="window.open('${u}','_blank')" style="max-width:200px;border-radius:10px;margin-bottom:5px;cursor:pointer;display:block;">`;
   if(m.media_type==='video') return `<video src="${u}" controls style="max-width:220px;border-radius:10px;margin-bottom:5px;display:block;"></video>`;
-  if(m.media_type==='audio') return `<audio src="${u}" controls style="max-width:220px;margin-bottom:5px;display:block;"></audio>`;
+  if(m.media_type==='audio') return `<audio src="${u}" controls preload="metadata" style="max-width:220px;margin-bottom:5px;display:block;">Audio illisible.</audio>`;
   return `<a href="${u}" target="_blank" style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.12);padding:8px 12px;border-radius:10px;margin-bottom:5px;text-decoration:none;color:inherit;">📄 ${pnEsc(m.media_nom||'Fichier')}</a>`;
 }
 async function pnUploaderMedia(file){
   const ext=(file.name.split('.').pop()||'bin').toLowerCase();
   const chemin=`admin/${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
-  const { error }=await _supa.storage.from('chat-media').upload(chemin,file,{cacheControl:'3600',upsert:false});
+  const { error }=await _supa.storage.from('chat-media').upload(chemin,file,{cacheControl:'3600',upsert:false,contentType:file.type||undefined});
   if(error) throw error;
   const { data }=_supa.storage.from('chat-media').getPublicUrl(chemin);
   return data.publicUrl;
@@ -2159,12 +2159,12 @@ async function pnDemarrerVocal(bid){
     _pnFmt=_pnMeilleurFormatAudio();
     _pnRec=_pnFmt.mime ? new MediaRecorder(stream,{mimeType:_pnFmt.mime}) : new MediaRecorder(stream);
     _pnChunks=[];
-    _pnRec.ondataavailable=e=>{ if(e.data.size>0) _pnChunks.push(e.data); };
+    _pnRec.ondataavailable=e=>{ if(e.data && e.data.size>0) _pnChunks.push(e.data); };
     _pnRec.onstop=async()=>{
       stream.getTracks().forEach(t=>t.stop());
       const type=_pnFmt.mime ? _pnFmt.mime.split(';')[0] : (_pnRec.mimeType||'audio/webm').split(';')[0];
       const blob=new Blob(_pnChunks,{type});
-      if(blob.size<500) return;
+      if(blob.size<1000){ showToast('Enregistrement trop court'); return; }
       const file=new File([blob],'vocal-'+Date.now()+'.'+_pnFmt.ext,{type});
       try {
         const url=await pnUploaderMedia(file);
@@ -2173,7 +2173,7 @@ async function pnDemarrerVocal(bid){
         await pnOuvrirFil(bid, '');
       } catch(e){ showToast('Erreur vocal : '+(e.message||e)); }
     };
-    _pnRec.start();
+    _pnRec.start(100);
     const h=document.getElementById('pnVocalHint'); if(h) h.style.display='block';
   } catch(e){ showToast('Micro non disponible'); }
 }

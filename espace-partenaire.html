@@ -751,7 +751,7 @@ function rendreMedia(m){
   if(m.media_type==='video')
     return `<video src="${u}" controls style="max-width:220px;border-radius:10px;margin-bottom:5px;display:block;"></video>`;
   if(m.media_type==='audio')
-    return `<audio src="${u}" controls style="max-width:220px;margin-bottom:5px;display:block;"></audio>`;
+    return `<audio src="${u}" controls preload="metadata" style="max-width:220px;margin-bottom:5px;display:block;">Votre navigateur ne peut pas lire cet audio.</audio>`;
   // fichier générique
   return `<a href="${u}" target="_blank" style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.1);padding:8px 12px;border-radius:10px;margin-bottom:5px;text-decoration:none;color:inherit;">📄 ${escHtml(m.media_nom||'Fichier')}</a>`;
 }
@@ -760,7 +760,9 @@ function rendreMedia(m){
 async function uploaderMediaChat(file){
   const ext = (file.name.split('.').pop() || 'bin').toLowerCase();
   const chemin = `${MA_BOUTIQUE.id}/${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
-  const { error } = await sb.storage.from('chat-media').upload(chemin, file, { cacheControl:'3600', upsert:false });
+  const { error } = await sb.storage.from('chat-media').upload(chemin, file, {
+    cacheControl:'3600', upsert:false, contentType: file.type || undefined
+  });
   if(error) throw error;
   const { data } = sb.storage.from('chat-media').getPublicUrl(chemin);
   return data.publicUrl;
@@ -814,12 +816,12 @@ async function demarrerVocal(side){
     _recFmt = _meilleurFormatAudio();
     _mediaRec = _recFmt.mime ? new MediaRecorder(stream, { mimeType:_recFmt.mime }) : new MediaRecorder(stream);
     _chunks = []; _recSide = side;
-    _mediaRec.ondataavailable = e => { if(e.data.size>0) _chunks.push(e.data); };
+    _mediaRec.ondataavailable = e => { if(e.data && e.data.size>0) _chunks.push(e.data); };
     _mediaRec.onstop = async () => {
       stream.getTracks().forEach(t=>t.stop());
       const type = _recFmt.mime ? _recFmt.mime.split(';')[0] : (_mediaRec.mimeType||'audio/webm').split(';')[0];
       const blob = new Blob(_chunks, { type });
-      if(blob.size < 500) return; // trop court, ignore
+      if(blob.size < 1000){ alert('Enregistrement trop court, réessayez en maintenant le micro.'); return; }
       const file = new File([blob], 'vocal-'+Date.now()+'.'+_recFmt.ext, { type });
       try {
         const url = await uploaderMediaChat(file);
@@ -828,7 +830,7 @@ async function demarrerVocal(side){
         await chargerMessages();
       } catch(e){ alert('Erreur envoi vocal : '+(e.message||e)); }
     };
-    _mediaRec.start();
+    _mediaRec.start(100); // collecte les données toutes les 100ms (fichier complet garanti)
     const hint = document.getElementById('vocalHint'+side); if(hint) hint.style.display='block';
   } catch(e){ alert('Micro non disponible : '+(e.message||e)); }
 }

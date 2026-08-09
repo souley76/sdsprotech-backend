@@ -792,37 +792,32 @@ async function envoyerMediaP(file){
 }
 
 // ── Enregistrement vocal (maintenir le micro) ──
-// Choisit un format d'enregistrement lisible partout, y compris iOS/Safari.
-// iOS ne lit PAS le webm → on préfère mp4/aac quand c'est supporté.
-function _meilleurFormatAudio(){
-  const candidats = [
-    { mime:'audio/mp4',                 ext:'m4a' },
-    { mime:'audio/aac',                 ext:'aac' },
-    { mime:'audio/mpeg',                ext:'mp3' },
-    { mime:'audio/webm;codecs=opus',    ext:'webm' },
-    { mime:'audio/webm',                ext:'webm' },
-  ];
-  for(const c of candidats){
-    if(window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(c.mime))
-      return c;
-  }
-  return { mime:'', ext:'webm' }; // laisse le navigateur choisir
+// Enregistrement audio robuste, iOS compris.
+// CLÉ : sur iOS/Safari, forcer un mimeType (même "supporté") produit souvent
+// un fichier VIDE. On laisse donc le navigateur choisir SON format natif, et
+// on déduit l'extension du type réellement produit.
+function _extDepuisType(type){
+  const t=(type||'').toLowerCase();
+  if(t.includes('mp4')||t.includes('m4a')||t.includes('aac')) return 'm4a';
+  if(t.includes('mpeg')||t.includes('mp3')) return 'mp3';
+  if(t.includes('ogg')) return 'ogg';
+  return 'webm';
 }
 
-let _mediaRec = null, _chunks = [], _recSide = null, _recFmt = null;
+let _mediaRec = null, _chunks = [], _recSide = null, _recStream = null;
 async function demarrerVocal(side){
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio:true });
-    _recFmt = _meilleurFormatAudio();
-    _mediaRec = _recFmt.mime ? new MediaRecorder(stream, { mimeType:_recFmt.mime }) : new MediaRecorder(stream);
+    _recStream = await navigator.mediaDevices.getUserMedia({ audio:true });
+    // Ne PAS imposer de mimeType → le navigateur prend son format natif fiable.
+    _mediaRec = new MediaRecorder(_recStream);
     _chunks = []; _recSide = side;
     _mediaRec.ondataavailable = e => { if(e.data && e.data.size>0) _chunks.push(e.data); };
     _mediaRec.onstop = async () => {
-      stream.getTracks().forEach(t=>t.stop());
-      const type = _recFmt.mime ? _recFmt.mime.split(';')[0] : (_mediaRec.mimeType||'audio/webm').split(';')[0];
+      if(_recStream){ _recStream.getTracks().forEach(t=>t.stop()); _recStream=null; }
+      const type = (_mediaRec && _mediaRec.mimeType) ? _mediaRec.mimeType.split(';')[0] : 'audio/webm';
       const blob = new Blob(_chunks, { type });
-      if(blob.size < 1000){ alert('Enregistrement trop court, réessayez en maintenant le micro.'); return; }
-      const file = new File([blob], 'vocal-'+Date.now()+'.'+_recFmt.ext, { type });
+      if(blob.size < 800){ alert('Aucun son capté. Autorisez le micro et réessayez en parlant.'); return; }
+      const file = new File([blob], 'vocal-'+Date.now()+'.'+_extDepuisType(type), { type });
       try {
         const url = await uploaderMediaChat(file);
         const { error } = await sb.rpc('rpc_partenaire_envoyer', { p_contenu:null, p_media_type:'audio', p_media_url:url, p_media_nom:'Message vocal' });
@@ -830,13 +825,17 @@ async function demarrerVocal(side){
         await chargerMessages();
       } catch(e){ alert('Erreur envoi vocal : '+(e.message||e)); }
     };
-    _mediaRec.start(100); // collecte les données toutes les 100ms (fichier complet garanti)
+    // start() SANS intervalle : plus fiable sur iOS. On force la collecte à l'arrêt.
+    _mediaRec.start();
     const hint = document.getElementById('vocalHint'+side); if(hint) hint.style.display='block';
   } catch(e){ alert('Micro non disponible : '+(e.message||e)); }
 }
 function arreterVocal(side){
   const hint = document.getElementById('vocalHint'+side); if(hint) hint.style.display='none';
-  if(_mediaRec && _mediaRec.state !== 'inactive') _mediaRec.stop();
+  if(_mediaRec && _mediaRec.state !== 'inactive'){
+    try { _mediaRec.requestData(); } catch(e){} // force la collecte (iOS)
+    setTimeout(()=>{ try { _mediaRec.stop(); } catch(e){} }, 150);
+  }
 }
 
 async function majBadgeMessages(){

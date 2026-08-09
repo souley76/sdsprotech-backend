@@ -2138,34 +2138,27 @@ async function pnEnvoyerMedia(bid, file){
     await pnOuvrirFil(bid, '');
   } catch(e){ showToast('Erreur : '+(e.message||e)); }
 }
-function _pnMeilleurFormatAudio(){
-  const candidats = [
-    { mime:'audio/mp4',              ext:'m4a' },
-    { mime:'audio/aac',              ext:'aac' },
-    { mime:'audio/mpeg',             ext:'mp3' },
-    { mime:'audio/webm;codecs=opus', ext:'webm' },
-    { mime:'audio/webm',             ext:'webm' },
-  ];
-  for(const c of candidats){
-    if(window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(c.mime))
-      return c;
-  }
-  return { mime:'', ext:'webm' };
+function _pnExtDepuisType(type){
+  const t=(type||'').toLowerCase();
+  if(t.includes('mp4')||t.includes('m4a')||t.includes('aac')) return 'm4a';
+  if(t.includes('mpeg')||t.includes('mp3')) return 'mp3';
+  if(t.includes('ogg')) return 'ogg';
+  return 'webm';
 }
-let _pnRec=null, _pnChunks=[], _pnFmt=null;
+let _pnRec=null, _pnChunks=[], _pnStream=null;
 async function pnDemarrerVocal(bid){
   try {
-    const stream=await navigator.mediaDevices.getUserMedia({audio:true});
-    _pnFmt=_pnMeilleurFormatAudio();
-    _pnRec=_pnFmt.mime ? new MediaRecorder(stream,{mimeType:_pnFmt.mime}) : new MediaRecorder(stream);
+    _pnStream=await navigator.mediaDevices.getUserMedia({audio:true});
+    // Ne PAS imposer de mimeType (iOS produit un fichier vide sinon)
+    _pnRec=new MediaRecorder(_pnStream);
     _pnChunks=[];
     _pnRec.ondataavailable=e=>{ if(e.data && e.data.size>0) _pnChunks.push(e.data); };
     _pnRec.onstop=async()=>{
-      stream.getTracks().forEach(t=>t.stop());
-      const type=_pnFmt.mime ? _pnFmt.mime.split(';')[0] : (_pnRec.mimeType||'audio/webm').split(';')[0];
+      if(_pnStream){ _pnStream.getTracks().forEach(t=>t.stop()); _pnStream=null; }
+      const type=(_pnRec && _pnRec.mimeType) ? _pnRec.mimeType.split(';')[0] : 'audio/webm';
       const blob=new Blob(_pnChunks,{type});
-      if(blob.size<1000){ showToast('Enregistrement trop court'); return; }
-      const file=new File([blob],'vocal-'+Date.now()+'.'+_pnFmt.ext,{type});
+      if(blob.size<800){ showToast('Aucun son capté, réessayez'); return; }
+      const file=new File([blob],'vocal-'+Date.now()+'.'+_pnExtDepuisType(type),{type});
       try {
         const url=await pnUploaderMedia(file);
         const { error }=await _supa.rpc('rpc_admin_envoyer',{ p_boutique_id:bid, p_contenu:null, p_media_type:'audio', p_media_url:url, p_media_nom:'Message vocal' });
@@ -2173,13 +2166,16 @@ async function pnDemarrerVocal(bid){
         await pnOuvrirFil(bid, '');
       } catch(e){ showToast('Erreur vocal : '+(e.message||e)); }
     };
-    _pnRec.start(100);
+    _pnRec.start();
     const h=document.getElementById('pnVocalHint'); if(h) h.style.display='block';
   } catch(e){ showToast('Micro non disponible'); }
 }
 function pnArreterVocal(){
   const h=document.getElementById('pnVocalHint'); if(h) h.style.display='none';
-  if(_pnRec && _pnRec.state!=='inactive') _pnRec.stop();
+  if(_pnRec && _pnRec.state!=='inactive'){
+    try { _pnRec.requestData(); } catch(e){}
+    setTimeout(()=>{ try { _pnRec.stop(); } catch(e){} }, 150);
+  }
 }
 
 async function pnEnvoyerMessage(){

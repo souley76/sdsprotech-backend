@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Outfit:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/recordrtc@5.6.2/RecordRTC.min.js"></script>
 <style>
 :root{--deep:#020912;--dark:#040f1e;--mid:#071828;--blue:#0055ff;--cyan:#00c8ff;
   --white:#fff;--grey:#7a9abb;--light:#bdd4ea;--border:rgba(0,180,255,.22);
@@ -206,7 +207,7 @@ a{color:inherit;}
     <button class="tab on" id="tabCmd" onclick="montrer('cmd')">Commandes</button>
     <button class="tab" id="tabProd" onclick="montrer('prod')">Mes produits</button>
     <button class="tab" id="tabVers" onclick="montrer('vers')">Versements</button>
-    <button class="tab" id="tabMsg" onclick="montrer('msg')">Messages <span id="msgBadge" style="display:none;background:#ff9100;color:#1a1200;border-radius:100px;padding:1px 7px;font-size:11px;"></span></button>
+    <button class="tab" id="tabMsg" onclick="montrer('msg')">💬 Messagerie <span id="msgBadge" style="display:none;background:#ff9100;color:#1a1200;border-radius:100px;padding:1px 7px;font-size:11px;"></span></button>
   </div>
 
   <!-- Commandes -->
@@ -221,6 +222,10 @@ a{color:inherit;}
 
   <!-- Messages -->
   <div id="viewMsg" style="display:none;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+      <div style="font-family:'Rajdhani',sans-serif;font-size:20px;font-weight:700;color:var(--cyan);">💬 Messagerie</div>
+      <div style="color:var(--grey);font-size:13px;">Discutez avec l'équipe SDS PRO</div>
+    </div>
     <div id="filMessages" style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px;max-height:420px;overflow-y:auto;padding:4px;">
       <div class="empty">Chargement…</div>
     </div>
@@ -792,50 +797,50 @@ async function envoyerMediaP(file){
 }
 
 // ── Enregistrement vocal (maintenir le micro) ──
-// Enregistrement audio robuste, iOS compris.
-// CLÉ : sur iOS/Safari, forcer un mimeType (même "supporté") produit souvent
-// un fichier VIDE. On laisse donc le navigateur choisir SON format natif, et
-// on déduit l'extension du type réellement produit.
+// Enregistrement audio via RecordRTC — fiable sur iOS/Safari, là où le
+// MediaRecorder natif produit un fichier vide sur iPhone.
 function _extDepuisType(type){
   const t=(type||'').toLowerCase();
   if(t.includes('mp4')||t.includes('m4a')||t.includes('aac')) return 'm4a';
   if(t.includes('mpeg')||t.includes('mp3')) return 'mp3';
   if(t.includes('ogg')) return 'ogg';
+  if(t.includes('wav')) return 'wav';
   return 'webm';
 }
 
-let _mediaRec = null, _chunks = [], _recSide = null, _recStream = null;
+let _rtcRec = null, _rtcStream = null, _recSide = null;
 async function demarrerVocal(side){
   try {
-    _recStream = await navigator.mediaDevices.getUserMedia({ audio:true });
-    // Ne PAS imposer de mimeType → le navigateur prend son format natif fiable.
-    _mediaRec = new MediaRecorder(_recStream);
-    _chunks = []; _recSide = side;
-    _mediaRec.ondataavailable = e => { if(e.data && e.data.size>0) _chunks.push(e.data); };
-    _mediaRec.onstop = async () => {
-      if(_recStream){ _recStream.getTracks().forEach(t=>t.stop()); _recStream=null; }
-      const type = (_mediaRec && _mediaRec.mimeType) ? _mediaRec.mimeType.split(';')[0] : 'audio/webm';
-      const blob = new Blob(_chunks, { type });
-      if(blob.size < 800){ alert('Aucun son capté. Autorisez le micro et réessayez en parlant.'); return; }
-      const file = new File([blob], 'vocal-'+Date.now()+'.'+_extDepuisType(type), { type });
-      try {
-        const url = await uploaderMediaChat(file);
-        const { error } = await sb.rpc('rpc_partenaire_envoyer', { p_contenu:null, p_media_type:'audio', p_media_url:url, p_media_nom:'Message vocal' });
-        if(error) throw error;
-        await chargerMessages();
-      } catch(e){ alert('Erreur envoi vocal : '+(e.message||e)); }
-    };
-    // start() SANS intervalle : plus fiable sur iOS. On force la collecte à l'arrêt.
-    _mediaRec.start();
+    _rtcStream = await navigator.mediaDevices.getUserMedia({ audio:true });
+    _recSide = side;
+    _rtcRec = new RecordRTC(_rtcStream, {
+      type: 'audio',
+      mimeType: 'audio/wav',          // wav = lisible partout, iOS compris
+      recorderType: RecordRTC.StereoAudioRecorder,
+      numberOfAudioChannels: 1,
+      desiredSampRate: 16000,
+    });
+    _rtcRec.startRecording();
     const hint = document.getElementById('vocalHint'+side); if(hint) hint.style.display='block';
   } catch(e){ alert('Micro non disponible : '+(e.message||e)); }
 }
 function arreterVocal(side){
   const hint = document.getElementById('vocalHint'+side); if(hint) hint.style.display='none';
-  if(_mediaRec && _mediaRec.state !== 'inactive'){
-    try { _mediaRec.requestData(); } catch(e){} // force la collecte (iOS)
-    setTimeout(()=>{ try { _mediaRec.stop(); } catch(e){} }, 150);
-  }
+  if(!_rtcRec) return;
+  _rtcRec.stopRecording(async () => {
+    const blob = _rtcRec.getBlob();
+    if(_rtcStream){ _rtcStream.getTracks().forEach(t=>t.stop()); _rtcStream=null; }
+    _rtcRec = null;
+    if(!blob || blob.size < 800){ alert('Aucun son capté, réessayez en parlant.'); return; }
+    const type = blob.type || 'audio/wav';
+    const file = new File([blob], 'vocal-'+Date.now()+'.'+_extDepuisType(type), { type });
+    try {
+      const url = await uploaderMediaChat(file);
+      const { error } = await sb.rpc('rpc_partenaire_envoyer', { p_contenu:null, p_media_type:'audio', p_media_url:url, p_media_nom:'Message vocal' });
+      if(error) throw error;
+      await chargerMessages();
+    } catch(e){ alert('Erreur envoi vocal : '+(e.message||e)); }
+  });
 }
 
 async function majBadgeMessages(){

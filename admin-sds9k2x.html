@@ -7,6 +7,7 @@
 <meta name="robots" content="noindex,nofollow">
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=DM+Mono:wght@400;500&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/recordrtc@5.6.2/RecordRTC.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
@@ -190,6 +191,7 @@ body{background:var(--dark);color:var(--white);font-family:'Outfit',sans-serif;m
     <div class="tab" data-tab="urgence" onclick="switchTab('urgence',this)">🔴 Urgence</div>
     <div class="tab" data-tab="credit" onclick="switchTab('credit',this)">🤝 Crédit Halal</div>
     <div class="tab" data-tab="partenaires" onclick="switchTab('partenaires',this)">🏪 Partenaires</div>
+    <div class="tab" data-tab="messagerie" onclick="ouvrirMessagerie(this)">💬 Messagerie</div>
   </div>
 
   <div class="admin-content">
@@ -391,7 +393,6 @@ body{background:var(--dark);color:var(--white);font-family:'Outfit',sans-serif;m
         <button id="pnTabSuivi" onclick="pnSousOnglet('suivi')" class="pn-subtab on">Suivi & Trésorerie</button>
         <button id="pnTabDemandes" onclick="pnSousOnglet('demandes')" class="pn-subtab">Demandes <span id="pnBadge" style="display:none;background:#ff9100;color:#1a1200;border-radius:100px;padding:1px 7px;font-size:11px;"></span></button>
         <button id="pnTabProduits" onclick="pnSousOnglet('produits')" class="pn-subtab">Produits <span id="pnBadgeProd" style="display:none;background:#ff9100;color:#1a1200;border-radius:100px;padding:1px 7px;font-size:11px;"></span></button>
-        <button id="pnTabMsg" onclick="pnSousOnglet('messages')" class="pn-subtab">Messages <span id="pnBadgeMsg" style="display:none;background:#ff9100;color:#1a1200;border-radius:100px;padding:1px 7px;font-size:11px;"></span></button>
         <button id="pnTabNouvelle" onclick="pnSousOnglet('nouvelle')" class="pn-subtab">+ Nouvelle boutique</button>
       </div>
 
@@ -414,26 +415,6 @@ body{background:var(--dark);color:var(--white);font-family:'Outfit',sans-serif;m
       <!-- Produits partenaire a valider -->
       <div id="pnVueProduits" style="display:none;">
         <div id="pnListeProduits"><div style="color:var(--grey);text-align:center;padding:30px;">Chargement…</div></div>
-      </div>
-
-      <!-- Messagerie -->
-      <div id="pnVueMessages" style="display:none;">
-        <!-- Zone d'envoi -->
-        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:16px;">
-          <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
-            <select id="pnMsgCible" style="flex:1;min-width:180px;background:rgba(0,20,40,0.6);border:1px solid var(--border);border-radius:8px;color:#fff;padding:9px;">
-              <option value="">📢 Toutes les boutiques (annonce)</option>
-            </select>
-          </div>
-          <div style="display:flex;gap:8px;">
-            <input type="text" id="pnMsgTexte" placeholder="Votre message…" style="flex:1;background:rgba(0,20,40,0.6);border:1px solid var(--border);border-radius:8px;color:#fff;padding:10px;" onkeydown="if(event.key==='Enter')pnEnvoyerMessage()">
-            <button class="pn-b verser" onclick="pnEnvoyerMessage()" style="padding:0 18px;">Envoyer</button>
-          </div>
-        </div>
-        <!-- Conversations -->
-        <div id="pnConversations"><div style="color:var(--grey);text-align:center;padding:20px;">Chargement…</div></div>
-        <!-- Fil ouvert -->
-        <div id="pnFil" style="display:none;margin-top:16px;"></div>
       </div>
 
       <div id="pnVueNouvelle" style="display:none;">
@@ -459,6 +440,30 @@ body{background:var(--dark);color:var(--white);font-family:'Outfit',sans-serif;m
           <div id="pnErrRattach" style="font-size:13px;min-height:16px;margin-top:6px;"></div>
         </div>
       </div>
+    </div>
+
+    <!-- ═══════════ ONGLET MESSAGERIE DÉDIÉ ═══════════ -->
+    <div class="tab-content" id="tab-messagerie">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+        <div style="font-family:'Rajdhani',sans-serif;font-size:22px;font-weight:700;color:var(--cyan);">💬 Messagerie</div>
+        <div style="color:var(--grey);font-size:13px;">Discutez avec vos boutiques partenaires</div>
+      </div>
+      <!-- Zone d'envoi (annonce ou boutique ciblée) -->
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:16px;">
+        <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
+          <select id="pnMsgCible" style="flex:1;min-width:180px;background:rgba(0,20,40,0.6);border:1px solid var(--border);border-radius:8px;color:#fff;padding:9px;">
+            <option value="">📢 Toutes les boutiques (annonce)</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <input type="text" id="pnMsgTexte" placeholder="Votre message…" style="flex:1;background:rgba(0,20,40,0.6);border:1px solid var(--border);border-radius:8px;color:#fff;padding:10px;" onkeydown="if(event.key==='Enter')pnEnvoyerMessage()">
+          <button class="pn-b verser" onclick="pnEnvoyerMessage()" style="padding:0 18px;">Envoyer</button>
+        </div>
+      </div>
+      <!-- Conversations -->
+      <div id="pnConversations"><div style="color:var(--grey);text-align:center;padding:20px;">Chargement…</div></div>
+      <!-- Fil ouvert -->
+      <div id="pnFil" style="display:none;margin-top:16px;"></div>
     </div>
 
 
@@ -645,6 +650,12 @@ function switchTab(name, el){
   if(name==='ordinateurs') loadOrdiOrders();
   if(name==='credit') loadCredit();
   if(name==='partenaires') loadPartenaires();
+  if(name==='messagerie') pnChargerMessagerie();
+}
+
+// Onglet Messagerie dédié (barre du haut)
+function ouvrirMessagerie(el){
+  switchTab('messagerie', el);
 }
 
 // ── ACCESSOIRES ───────────────────────────────────────────────
@@ -2005,16 +2016,13 @@ function pnSousOnglet(q){
   document.getElementById('pnVueSuivi').style.display    = q==='suivi'    ? 'block':'none';
   document.getElementById('pnVueDemandes').style.display = q==='demandes' ? 'block':'none';
   document.getElementById('pnVueProduits').style.display = q==='produits' ? 'block':'none';
-  document.getElementById('pnVueMessages').style.display = q==='messages' ? 'block':'none';
   document.getElementById('pnVueNouvelle').style.display = q==='nouvelle' ? 'block':'none';
   document.getElementById('pnTabSuivi').classList.toggle('on', q==='suivi');
   document.getElementById('pnTabDemandes').classList.toggle('on', q==='demandes');
   document.getElementById('pnTabProduits').classList.toggle('on', q==='produits');
-  document.getElementById('pnTabMsg').classList.toggle('on', q==='messages');
   document.getElementById('pnTabNouvelle').classList.toggle('on', q==='nouvelle');
   if(q==='demandes') pnChargerDemandes();
   if(q==='produits') pnChargerProduits();
-  if(q==='messages') pnChargerMessagerie();
 }
 
 // ── Messagerie côté admin ──
@@ -2143,39 +2151,40 @@ function _pnExtDepuisType(type){
   if(t.includes('mp4')||t.includes('m4a')||t.includes('aac')) return 'm4a';
   if(t.includes('mpeg')||t.includes('mp3')) return 'mp3';
   if(t.includes('ogg')) return 'ogg';
+  if(t.includes('wav')) return 'wav';
   return 'webm';
 }
-let _pnRec=null, _pnChunks=[], _pnStream=null;
+let _pnRtc=null, _pnStream=null;
 async function pnDemarrerVocal(bid){
   try {
     _pnStream=await navigator.mediaDevices.getUserMedia({audio:true});
-    // Ne PAS imposer de mimeType (iOS produit un fichier vide sinon)
-    _pnRec=new MediaRecorder(_pnStream);
-    _pnChunks=[];
-    _pnRec.ondataavailable=e=>{ if(e.data && e.data.size>0) _pnChunks.push(e.data); };
-    _pnRec.onstop=async()=>{
-      if(_pnStream){ _pnStream.getTracks().forEach(t=>t.stop()); _pnStream=null; }
-      const type=(_pnRec && _pnRec.mimeType) ? _pnRec.mimeType.split(';')[0] : 'audio/webm';
-      const blob=new Blob(_pnChunks,{type});
-      if(blob.size<800){ showToast('Aucun son capté, réessayez'); return; }
-      const file=new File([blob],'vocal-'+Date.now()+'.'+_pnExtDepuisType(type),{type});
-      try {
-        const url=await pnUploaderMedia(file);
-        const { error }=await _supa.rpc('rpc_admin_envoyer',{ p_boutique_id:bid, p_contenu:null, p_media_type:'audio', p_media_url:url, p_media_nom:'Message vocal' });
-        if(error) throw error;
-        await pnOuvrirFil(bid, '');
-      } catch(e){ showToast('Erreur vocal : '+(e.message||e)); }
-    };
-    _pnRec.start();
+    _pnRtc=new RecordRTC(_pnStream, {
+      type:'audio', mimeType:'audio/wav',
+      recorderType:RecordRTC.StereoAudioRecorder,
+      numberOfAudioChannels:1, desiredSampRate:16000,
+    });
+    _pnRtc.startRecording();
     const h=document.getElementById('pnVocalHint'); if(h) h.style.display='block';
   } catch(e){ showToast('Micro non disponible'); }
 }
 function pnArreterVocal(){
   const h=document.getElementById('pnVocalHint'); if(h) h.style.display='none';
-  if(_pnRec && _pnRec.state!=='inactive'){
-    try { _pnRec.requestData(); } catch(e){}
-    setTimeout(()=>{ try { _pnRec.stop(); } catch(e){} }, 150);
-  }
+  if(!_pnRtc) return;
+  const bid=_pnFilBoutique;
+  _pnRtc.stopRecording(async()=>{
+    const blob=_pnRtc.getBlob();
+    if(_pnStream){ _pnStream.getTracks().forEach(t=>t.stop()); _pnStream=null; }
+    _pnRtc=null;
+    if(!blob || blob.size<800){ showToast('Aucun son capté, réessayez'); return; }
+    const type=blob.type||'audio/wav';
+    const file=new File([blob],'vocal-'+Date.now()+'.'+_pnExtDepuisType(type),{type});
+    try {
+      const url=await pnUploaderMedia(file);
+      const { error }=await _supa.rpc('rpc_admin_envoyer',{ p_boutique_id:bid, p_contenu:null, p_media_type:'audio', p_media_url:url, p_media_nom:'Message vocal' });
+      if(error) throw error;
+      await pnOuvrirFil(bid, '');
+    } catch(e){ showToast('Erreur vocal : '+(e.message||e)); }
+  });
 }
 
 async function pnEnvoyerMessage(){

@@ -442,28 +442,41 @@ body{background:var(--dark);color:var(--white);font-family:'Outfit',sans-serif;m
       </div>
     </div>
 
-    <!-- ═══════════ ONGLET MESSAGERIE DÉDIÉ ═══════════ -->
+    <!-- ═══════════ ONGLET MESSAGERIE DÉDIÉ (style WhatsApp) ═══════════ -->
     <div class="tab-content" id="tab-messagerie">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
-        <div style="font-family:'Rajdhani',sans-serif;font-size:22px;font-weight:700;color:var(--cyan);">💬 Messagerie</div>
-        <div style="color:var(--grey);font-size:13px;">Discutez avec vos boutiques partenaires</div>
-      </div>
-      <!-- Zone d'envoi (annonce ou boutique ciblée) -->
-      <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:16px;">
-        <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
-          <select id="pnMsgCible" style="flex:1;min-width:180px;background:rgba(0,20,40,0.6);border:1px solid var(--border);border-radius:8px;color:#fff;padding:9px;">
-            <option value="">📢 Toutes les boutiques (annonce)</option>
-          </select>
+
+      <!-- VUE 1 : LISTE DES CONVERSATIONS -->
+      <div id="pnMsgListe">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+          <div style="font-family:'Rajdhani',sans-serif;font-size:22px;font-weight:700;color:var(--cyan);">💬 Messagerie</div>
         </div>
-        <div style="display:flex;gap:8px;">
-          <input type="text" id="pnMsgTexte" placeholder="Votre message…" style="flex:1;background:rgba(0,20,40,0.6);border:1px solid var(--border);border-radius:8px;color:#fff;padding:10px;" onkeydown="if(event.key==='Enter')pnEnvoyerMessage()">
-          <button class="pn-b verser" onclick="pnEnvoyerMessage()" style="padding:0 18px;">Envoyer</button>
-        </div>
+        <!-- Barre de recherche -->
+        <input type="text" id="pnMsgSearch" placeholder="🔍 Rechercher une boutique…" oninput="pnFiltrerConversations(this.value)"
+               style="width:100%;background:rgba(0,20,40,0.6);border:1px solid var(--border);border-radius:12px;color:#fff;padding:12px 14px;font-size:14px;margin-bottom:8px;box-sizing:border-box;">
+        <!-- Bouton nouvelle annonce -->
+        <button onclick="pnNouvelleAnnonce()" style="width:100%;background:rgba(0,100,255,0.1);border:1px solid var(--border);border-radius:12px;color:var(--cyan);padding:11px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:13px;letter-spacing:1px;cursor:pointer;margin-bottom:14px;">📢 ENVOYER UNE ANNONCE À TOUTES LES BOUTIQUES</button>
+        <!-- Liste -->
+        <div id="pnConversations"><div style="color:var(--grey);text-align:center;padding:20px;">Chargement…</div></div>
       </div>
-      <!-- Conversations -->
-      <div id="pnConversations"><div style="color:var(--grey);text-align:center;padding:20px;">Chargement…</div></div>
-      <!-- Fil ouvert -->
-      <div id="pnFil" style="display:none;margin-top:16px;"></div>
+
+      <!-- VUE 2 : CONVERSATION PLEIN ÉCRAN (cachée par défaut) -->
+      <div id="pnMsgConv" style="display:none;">
+        <!-- En-tête avec retour -->
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--border);">
+          <button onclick="pnRetourListe()" style="background:rgba(0,100,255,0.15);border:1px solid var(--border);border-radius:10px;color:var(--cyan);width:42px;height:42px;font-size:20px;cursor:pointer;flex-shrink:0;">←</button>
+          <div style="font-size:24px;">💬</div>
+          <div style="flex:1;min-width:0;">
+            <div id="pnConvNom" style="font-family:'Rajdhani',sans-serif;font-size:18px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">—</div>
+            <div style="color:var(--grey);font-size:12px;">Boutique partenaire</div>
+          </div>
+        </div>
+        <!-- Zone d'envoi masquée : annonce (utilisée uniquement pour l'annonce globale) -->
+        <select id="pnMsgCible" style="display:none;"><option value="">📢 Toutes les boutiques (annonce)</option></select>
+        <input type="text" id="pnMsgTexte" style="display:none;" onkeydown="if(event.key==='Enter')pnEnvoyerMessage()">
+        <!-- Fil de la conversation -->
+        <div id="pnFil"></div>
+      </div>
+
     </div>
 
 
@@ -2027,37 +2040,76 @@ function pnSousOnglet(q){
 
 // ── Messagerie côté admin ──
 let _pnFilBoutique = null;
+let _pnConvs = []; // conversations en mémoire pour la recherche
+
 async function pnChargerMessagerie(){
-  // Remplir le sélecteur de boutiques
+  // Revenir à la vue liste
+  pnRetourListe();
+  // Remplir le sélecteur caché (pour l'annonce globale)
   const { data:bts } = await _supa.rpc('rpc_lister_boutiques');
   const sel=document.getElementById('pnMsgCible');
-  if(bts){
+  if(bts && sel){
     sel.innerHTML = '<option value="">📢 Toutes les boutiques (annonce)</option>' +
       bts.map(b=>`<option value="${b.id}">${pnEsc(b.nom)}</option>`).join('');
   }
   // Liste des conversations
-  const box=document.getElementById('pnConversations');
   const { data, error } = await _supa.rpc('rpc_conversations');
+  const box=document.getElementById('pnConversations');
   if(error){ box.innerHTML=`<div style="color:var(--grey);padding:20px;">Erreur : ${pnEsc(error.message)}</div>`; return; }
-  if(!data || !data.length){ box.innerHTML=`<div style="color:var(--grey);text-align:center;padding:20px;">Aucune conversation. Envoyez le premier message ci-dessus.</div>`; return; }
+  _pnConvs = data || [];
+  pnAfficherConversations(_pnConvs);
+}
 
-  box.innerHTML = '<div style="color:var(--grey);font-size:12px;margin-bottom:8px;">CONVERSATIONS</div>' +
-    data.map(c=>`
-    <div class="pn-shop" style="cursor:pointer;" onclick="pnOuvrirFil('${c.boutique_id}','${pnEsc(c.boutique_nom)}')">
-      <div style="display:flex;align-items:center;gap:10px;">
-        <div style="font-size:20px;">💬</div>
+function pnAfficherConversations(liste){
+  const box=document.getElementById('pnConversations');
+  if(!liste || !liste.length){ box.innerHTML=`<div style="color:var(--grey);text-align:center;padding:30px;">Aucune conversation.</div>`; return; }
+  box.innerHTML = liste.map(c=>`
+    <div class="pn-shop" style="cursor:pointer;margin-bottom:8px;" onclick="pnOuvrirFil('${c.boutique_id}','${pnEsc(c.boutique_nom)}')">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div style="font-size:26px;flex-shrink:0;">💬</div>
         <div style="flex:1;min-width:0;">
           <div class="pn-shop-name">${pnEsc(c.boutique_nom)} ${c.non_lus>0?`<span class="pn-pill att">${c.non_lus} nouveau(x)</span>`:''}</div>
-          <div class="pn-shop-meta" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${pnEsc(c.dernier_message||'')}</div>
+          <div class="pn-shop-meta" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${pnEsc(c.dernier_message||'Aucun message')}</div>
         </div>
       </div>
     </div>`).join('');
 }
 
+function pnFiltrerConversations(q){
+  const t=(q||'').toLowerCase().trim();
+  if(!t){ pnAfficherConversations(_pnConvs); return; }
+  pnAfficherConversations(_pnConvs.filter(c=>(c.boutique_nom||'').toLowerCase().includes(t)));
+}
+
+// Bascule vers la vue conversation plein écran
+function pnRetourListe(){
+  const l=document.getElementById('pnMsgListe'), c=document.getElementById('pnMsgConv');
+  if(l) l.style.display='block';
+  if(c) c.style.display='none';
+  _pnFilBoutique = null;
+}
+
+// Envoyer une annonce à toutes les boutiques (depuis la liste)
+function pnNouvelleAnnonce(){
+  const txt = prompt('Annonce à envoyer à TOUTES les boutiques :');
+  if(txt===null) return;
+  const t=txt.trim(); if(!t) return;
+  _supa.rpc('rpc_admin_envoyer', { p_boutique_id: null, p_contenu: t }).then(({error})=>{
+    if(error){ showToast('Erreur : '+error.message); return; }
+    showToast('📢 Annonce envoyée');
+    pnChargerMessagerie();
+  });
+}
+
 async function pnOuvrirFil(bid, nom){
   _pnFilBoutique = bid;
+  // Basculer vers la vue conversation plein écran
+  document.getElementById('pnMsgListe').style.display='none';
+  document.getElementById('pnMsgConv').style.display='block';
+  const nomEl=document.getElementById('pnConvNom'); if(nomEl) nomEl.textContent=nom;
   const fil=document.getElementById('pnFil');
   fil.style.display='block';
+  fil.innerHTML='<div style="color:var(--grey);text-align:center;padding:20px;">Chargement…</div>';
   const { data } = await _supa.rpc('rpc_fil_boutique', { p_boutique_id: bid });
   // Remplacer les media_url privées par des liens signés temporaires
   const aSigner = (data||[]).filter(m=>m.media_url).map(m=>m.media_url);
@@ -2075,8 +2127,7 @@ async function pnOuvrirFil(bid, nom){
     } catch(e){}
   }
   fil.innerHTML = `
-    <div style="color:var(--cyan);font-weight:700;margin-bottom:10px;">Conversation avec ${pnEsc(nom)}</div>
-    <div style="display:flex;flex-direction:column;gap:8px;max-height:340px;overflow-y:auto;margin-bottom:10px;">
+    <div style="display:flex;flex-direction:column;gap:8px;min-height:50vh;max-height:60vh;overflow-y:auto;margin-bottom:10px;">
       ${(data||[]).map(m=>{
         const adm=m.expediteur==='admin';
         const st=adm?'align-self:flex-end;background:linear-gradient(135deg,var(--blue),var(--cyan));color:#fff;'

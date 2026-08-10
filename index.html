@@ -1,246 +1,56 @@
 <!DOCTYPE html>
-<html lang="fr" class="scroll-smooth">
+<html lang="fr">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SDS PRO - Smartphones Premium à Dakar</title>
-  
+  <title>SDS PRO - Site en Maintenance</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
-  
   <!-- FontAwesome CDN pour les icônes -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-
-  <style>
-    @keyframes marquee {
-      0% { transform: translateX(0%); }
-      100% { transform: translateX(-50%); }
-    }
-    .animate-marquee {
-      display: flex;
-      width: 200%;
-      animation: marquee 25s linear infinite;
-    }
-    .animate-marquee:hover {
-      animation-play-state: paused;
-    }
-  </style>
 </head>
-<body class="bg-[#020912] text-white font-sans antialiased">
+<body class="bg-[#020912] text-white font-sans min-h-screen flex items-center justify-center p-6 relative overflow-hidden">
 
-  <!-- Header / Navigation -->
-  <nav class="sticky top-0 z-30 border-b border-white/10 bg-[#020912]/80 backdrop-blur-xl">
-    <div class="mx-auto flex max-w-[1400px] items-center justify-between px-6 py-4 lg:px-12">
-      <div class="flex items-center gap-3">
-        <img src="/logo-sds.svg" alt="SDS PRO" class="h-10 w-auto" onerror="this.src='https://via.placeholder.com/40x40?text=SDS'" />
-        <span class="hidden text-sm font-bold tracking-[0.3em] text-white sm:inline-flex">SDS PRO</span>
-      </div>
-      <div class="hidden items-center gap-6 text-sm text-slate-300 lg:flex">
-        <a href="#cat" class="transition hover:text-cyan-300">Catalogue</a>
-        <a href="#cat" class="transition hover:text-cyan-300">iPhone</a>
-        <a href="#cat" class="transition hover:text-cyan-300">Samsung</a>
-        <a href="#cat" class="transition hover:text-cyan-300">Infinix</a>
-        <a href="#cat" class="transition hover:text-cyan-300">Tecno</a>
-        <a href="#credit" class="transition hover:text-cyan-300">Paiement</a>
-        <a href="/accessoires.html" class="transition hover:text-cyan-300">🎧 Accessoires</a>
-        <a href="/ordinateurs.html" class="transition hover:text-cyan-300">💻 Ordinateurs</a>
-      </div>
-      <button class="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white transition hover:bg-white/10 flex items-center gap-2">
-        <i class="fa-regular fa-user"></i> Connexion
-      </button>
+  <!-- Arrière-plan lumineux -->
+  <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,_rgba(0,229,255,0.15),_transparent_60%)] pointer-events-none"></div>
+
+  <!-- Carte principale -->
+  <div class="relative z-10 max-w-lg w-full text-center space-y-8 rounded-[32px] border border-white/10 bg-white/5 p-8 sm:p-12 backdrop-blur-xl shadow-[0_40px_120px_rgba(0,0,0,0.6)]">
+    
+    <!-- Logo / Icône -->
+    <div class="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl border border-cyan-500/30 bg-cyan-500/10 text-cyan-400 text-3xl shadow-[0_0_30px_rgba(0,229,255,0.2)]">
+      <i class="fa-solid fa-gears animate-spin" style="animation-duration: 8s;"></i>
     </div>
-  </nav>
 
-  <!-- Hero Section -->
-  <section class="relative min-h-screen overflow-hidden bg-black">
-    <div class="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(0,229,255,0.15),_transparent_50%)] opacity-60"></div>
-    <div class="relative z-10 mx-auto flex min-h-screen max-w-[1400px] flex-col justify-center px-6 py-16 lg:px-12">
-      <div class="mx-auto flex w-full max-w-6xl flex-col gap-12">
-        
-        <!-- Main Banner Card -->
-        <div class="rounded-[32px] border border-white/10 bg-white/5 p-6 shadow-[0_40px_120px_rgba(0,0,0,0.4)] backdrop-blur-xl md:p-10">
-          <div class="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-            <div class="space-y-3 text-center lg:text-left">
-              <div class="text-sm uppercase tracking-[0.3em] text-cyan-300/80">Catalogue 2025-2026</div>
-              <h1 class="text-4xl font-black tracking-tight text-white sm:text-5xl lg:text-6xl">
-                Les Meilleurs <span class="block">Smartphones</span>
-                <span class="block text-cyan-400">Premium</span>
-              </h1>
-              <p class="max-w-2xl text-sm leading-7 text-slate-300 sm:text-base">
-                iPhones · Infinix · Tecno de dernière génération. Livrés chez vous à Dakar.
-                Paiement 100% mobile via Orange Money et Free Money.
-              </p>
-            </div>
-            <div class="grid gap-4 grid-cols-2 lg:grid-cols-4">
-              <div class="rounded-3xl border border-white/10 bg-white/5 p-5 text-center">
-                <div class="text-3xl font-black text-white">47+</div>
-                <div class="mt-2 text-xs uppercase tracking-[0.2em] text-slate-400">Modèles</div>
-              </div>
-              <div class="rounded-3xl border border-white/10 bg-white/5 p-5 text-center">
-                <div class="text-3xl font-black text-white">5</div>
-                <div class="mt-2 text-xs uppercase tracking-[0.2em] text-slate-400">Marques</div>
-              </div>
-              <div class="rounded-3xl border border-white/10 bg-white/5 p-5 text-center">
-                <div class="text-3xl font-black text-white">24H</div>
-                <div class="mt-2 text-xs uppercase tracking-[0.2em] text-slate-400">Livraison</div>
-              </div>
-              <div class="rounded-3xl border border-white/10 bg-white/5 p-5 text-center">
-                <div class="text-3xl font-black text-white">100%</div>
-                <div class="mt-2 text-xs uppercase tracking-[0.2em] text-slate-400">Certifié</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Grid Sections -->
-        <div class="grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
-          
-          <!-- Boutique Partner Search -->
-          <div class="rounded-[32px] border border-white/10 bg-slate-950/70 p-8 shadow-[0_30px_80px_rgba(0,0,0,0.45)]">
-            <div class="space-y-6">
-              <div class="space-y-3">
-                <div class="text-sm uppercase tracking-[0.3em] text-cyan-300/80">Réseau de boutiques partenaires</div>
-                <h2 class="text-3xl font-bold text-white sm:text-4xl">
-                  Sécurisez vos ventes de téléphones avec <span class="text-cyan-400">SDS PRO</span>
-                </h2>
-                <p class="text-sm leading-7 text-slate-300">
-                  Nous fournissons aux boutiques partenaires la technologie qui protège chaque téléphone vendu à crédit.
-                </p>
-              </div>
-              <div class="space-y-4 rounded-3xl border border-cyan-500/20 bg-[#03101d] p-6">
-                <div class="text-sm uppercase tracking-[0.3em] text-cyan-300/80">Trouver ma boutique</div>
-                <p class="text-sm text-slate-300">Saisissez l'identifiant que votre revendeur vous a communiqué.</p>
-                <div class="space-y-3">
-                  <div class="relative">
-                    <input class="w-full rounded-2xl border border-white/10 bg-slate-900/80 p-4 pr-12 text-sm text-white outline-none focus:border-cyan-400" type="text" placeholder="Numéro, nom du gérant ou nom de la boutique…" />
-                    <span class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400"><i class="fa-solid fa-magnifying-glass"></i></span>
-                  </div>
-                  <button class="w-full rounded-2xl bg-cyan-500 px-5 py-3 text-sm font-semibold text-black transition hover:bg-cyan-400">
-                    Accéder à ma boutique
-                  </button>
-                  <p class="text-xs text-slate-400">
-                    Recherche par : <span class="text-white">numéro de téléphone</span>, <span class="text-white">nom du propriétaire</span>, <span class="text-white">nom de la boutique</span> ou <span class="text-white">code partenaire</span>.
-                  </p>
-                </div>
-                <div class="flex flex-col gap-3 text-sm">
-                  <a href="#cat" class="text-cyan-400 underline">Continuer sans revendeur (catalogue SDS PRO)</a>
-                  <a href="/espace-partenaire.html" class="text-cyan-400 underline">Vous êtes une boutique ? Devenir partenaire SDS PRO</a>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Partner Sign Up -->
-          <div class="rounded-[32px] border border-white/10 bg-slate-950/70 p-8 shadow-[0_30px_80px_rgba(0,0,0,0.45)]">
-            <div class="space-y-6">
-              <div class="text-sm uppercase tracking-[0.3em] text-cyan-300/80">Devenir partenaire</div>
-              <div class="space-y-4 rounded-3xl border border-white/10 bg-slate-900/80 p-6">
-                <div class="text-xl font-semibold text-white">1. Créez votre compte</div>
-                <p class="text-sm text-slate-300">Il vous servira à gérer votre boutique et vos commandes.</p>
-                <div class="space-y-4">
-                  <label class="block text-xs uppercase tracking-[0.2em] text-slate-400">Email professionnel</label>
-                  <input class="w-full rounded-2xl border border-white/10 bg-black/30 p-4 text-sm text-white outline-none focus:border-cyan-400" type="email" placeholder="vous@exemple.com" />
-                  <label class="block text-xs uppercase tracking-[0.2em] text-slate-400">Mot de passe</label>
-                  <input class="w-full rounded-2xl border border-white/10 bg-black/30 p-4 text-sm text-white outline-none focus:border-cyan-400" type="password" placeholder="8 caractères minimum" />
-                </div>
-                <button class="w-full rounded-2xl bg-cyan-500 px-5 py-3 text-sm font-semibold text-black transition hover:bg-cyan-400">
-                  Continuer
-                </button>
-              </div>
-            </div>
-          </div>
-
-        </div>
-      </div>
+    <!-- Titres & Description -->
+    <div class="space-y-3">
+      <div class="text-xs uppercase tracking-[0.3em] text-cyan-300 font-semibold">Mise à jour en cours</div>
+      <h1 class="text-3xl font-black tracking-tight text-white sm:text-4xl">
+        Site en <span class="text-cyan-400">Maintenance</span>
+      </h1>
+      <p class="text-sm leading-relaxed text-slate-300">
+        Nous effectuons actuellement des améliorations techniques sur le catalogue <strong class="text-white">SDS PRO</strong>. Le site sera de nouveau accessible très rapidement.
+      </p>
     </div>
-  </section>
 
-  <!-- Marquee / Ticker -->
-  <div class="relative overflow-hidden border-y border-white/10 py-6 bg-[#020912]">
-    <div class="animate-marquee space-x-8 text-sm uppercase tracking-[0.35em] text-cyan-300 opacity-80 whitespace-nowrap">
-      <span>Apple iPhone</span> <span>·</span> <span>Infinix</span> <span>·</span> <span>Tecno</span> <span>·</span> <span>Samsung</span> <span>·</span> <span>Huawei</span> <span>·</span> <span>iPhone 16 Pro</span> <span>·</span> <span>Galaxy S25 Ultra</span> <span>·</span>
-      <span>Apple iPhone</span> <span>·</span> <span>Infinix</span> <span>·</span> <span>Tecno</span> <span>·</span> <span>Samsung</span> <span>·</span> <span>Huawei</span> <span>·</span> <span>iPhone 16 Pro</span> <span>·</span> <span>Galaxy S25 Ultra</span>
-    </div>
-  </div>
-
-  <!-- Credit Halal Section -->
-  <section id="credit" class="bg-gradient-to-b from-black to-[#04101d] px-6 py-24 lg:px-12">
-    <div class="mx-auto max-w-[1400px] space-y-10 text-center">
-      <div class="space-y-3">
-        <div class="text-sm uppercase tracking-[0.3em] text-emerald-400/90">Achat Échelonné Halal</div>
-        <h2 class="text-4xl font-black text-white sm:text-5xl">
-          PAYEZ EN <span class="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">3 FOIS</span>, SANS INTÉRÊT
-        </h2>
-        <p class="mx-auto max-w-2xl text-base leading-8 text-slate-300">
-          Votre smartphone aujourd'hui, payé en 3 versements. Aucun intérêt, aucun frais caché : vous réglez le prix exact du téléphone.
-        </p>
-      </div>
-
-      <div class="grid gap-6 md:grid-cols-3 text-left">
-        <div class="rounded-[28px] border border-emerald-500/30 bg-emerald-500/10 p-8">
-          <div class="text-xs uppercase tracking-[0.3em] text-slate-400">VERSEMENT 1</div>
-          <div class="mt-4 text-4xl font-black text-emerald-400">50%</div>
-          <div class="mt-3 text-sm text-slate-400">À la commande</div>
-        </div>
-        <div class="rounded-[28px] border border-white/10 bg-slate-950/70 p-8">
-          <div class="text-xs uppercase tracking-[0.3em] text-slate-400">VERSEMENT 2</div>
-          <div class="mt-4 text-4xl font-black text-white">25%</div>
-          <div class="mt-3 text-sm text-slate-400">30 jours après</div>
-        </div>
-        <div class="rounded-[28px] border border-white/10 bg-slate-950/70 p-8">
-          <div class="text-xs uppercase tracking-[0.3em] text-slate-400">VERSEMENT 3</div>
-          <div class="mt-4 text-4xl font-black text-white">25%</div>
-          <div class="mt-3 text-sm text-slate-400">60 jours après</div>
-        </div>
-      </div>
-
-      <div class="flex flex-wrap justify-center gap-4">
-        <span class="rounded-full border border-cyan-500/20 bg-cyan-500/10 px-4 py-3 text-sm text-slate-100">✅ 0% d'intérêt</span>
-        <span class="rounded-full border border-cyan-500/20 bg-cyan-500/10 px-4 py-3 text-sm text-slate-100">📱 iPhone, Samsung, Infinix…</span>
-        <span class="rounded-full border border-cyan-500/20 bg-cyan-500/10 px-4 py-3 text-sm text-slate-100">🔒 100% sécurisé</span>
-        <span class="rounded-full border border-cyan-500/20 bg-cyan-500/10 px-4 py-3 text-sm text-slate-100">🚚 Livré à Dakar</span>
-      </div>
-
-      <div>
-        <a href="/crédit-halal.html" class="inline-flex rounded-3xl bg-gradient-to-r from-emerald-500 to-cyan-400 px-8 py-4 text-sm font-semibold text-black shadow-[0_20px_60px_rgba(0,229,255,0.25)] transition hover:opacity-95">
-          🤝 Demander mon crédit échelonné →
+    <!-- Contact & Assistance -->
+    <div class="pt-4 border-t border-white/10 space-y-4">
+      <p class="text-xs uppercase tracking-[0.2em] text-slate-400">Une urgence ou une commande ?</p>
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-3">
+        <a href="https://wa.me/221770699739" target="_blank" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-500 px-6 py-3 text-sm font-semibold text-black transition hover:bg-emerald-400">
+          <i class="fa-brands fa-whatsapp text-lg"></i> WhatsApp
+        </a>
+        <a href="tel:+221770699739" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/10">
+          <i class="fa-solid fa-phone text-xs"></i> 77 069 97 39
         </a>
       </div>
     </div>
-  </section>
 
-  <!-- Footer -->
-  <footer class="bg-[#020912] px-6 pb-24 pt-16 text-slate-300 lg:px-12 border-t border-white/10">
-    <div class="mx-auto grid max-w-[1400px] gap-12 lg:grid-cols-[1.5fr_1fr_1fr]">
-      <div class="space-y-5">
-        <div class="flex items-center gap-3">
-          <img src="/logo-sds.svg" alt="SDS" class="h-12 w-auto" onerror="this.src='https://via.placeholder.com/48x48?text=SDS'" />
-          <span class="text-lg font-bold tracking-[0.2em] text-white">SDS PRO</span>
-        </div>
-        <p class="max-w-xl leading-7 text-slate-400">
-          Votre boutique smartphones premium à Dakar. iPhones, Samsung, Huawei, Infinix, Tecno au meilleur prix.
-        </p>
-        <div class="rounded-3xl border border-white/10 bg-slate-950/80 p-5 text-xs text-slate-500">
-          NINEA : 013038395 | RCCM : SN DKR 2026 A 16899
-        </div>
-      </div>
-
-      <div class="space-y-4">
-        <h3 class="text-sm uppercase tracking-[0.3em] text-white/70">Contact</h3>
-        <div class="space-y-3 text-sm">
-          <a href="tel:+221770699739" class="block transition hover:text-cyan-300"><i class="fa-solid fa-phone mr-2"></i>77 069 97 39</a>
-          <a href="https://wa.me/221770699739" class="block transition hover:text-cyan-300"><i class="fa-brands fa-whatsapp mr-2"></i>WhatsApp</a>
-          <a href="mailto:contact@sdsprotech.com" class="block transition hover:text-cyan-300"><i class="fa-regular fa-envelope mr-2"></i>Email</a>
-          <span class="block text-slate-400"><i class="fa-solid fa-location-dot mr-2"></i>Petit Mbao, Dakar</span>
-        </div>
-      </div>
+    <!-- Footer carte -->
+    <div class="text-[11px] uppercase tracking-[0.2em] text-slate-500 pt-2">
+      SECK DIGITAL SERVICES PRO · Dakar
     </div>
-
-    <div class="mx-auto mt-16 max-w-[1400px] border-t border-white/10 pt-8 text-sm text-slate-500 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-      <span>© 2026 SECK DIGITAL SERVICES PRO</span>
-      <span class="font-semibold tracking-[0.2em] text-cyan-300">GÉRANT : SOULEYMANE SECK</span>
-    </div>
-  </footer>
+  </div>
 
 </body>
 </html>

@@ -7,10 +7,8 @@ export async function onRequestOptions(context) {
 export async function onRequestPost(context) {
   const { request, env } = context;
   const CORS = CORS_HEADERS(env, request);
-
   const SUPA_URL = (env.SUPABASE_URL || "").trim().replace(/\/$/, "");
   const SUPA_KEY = (env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
-
   if (!SUPA_URL || !SUPA_KEY)
     return new Response(JSON.stringify({ error: "Supabase non configuré" }), {
       status: 500,
@@ -41,29 +39,28 @@ export async function onRequestPost(context) {
     doc_cni_recto,
     doc_cni_verso,
     doc_selfie,
-    doc_cni_legalisee,
     doc_residence,
-    // chaque doc = { data: base64, type: "image/jpeg" }
   } = body;
 
-  // ── Validation des champs obligatoires ──────────────────────
   if (!user_id || !client_nom || !client_tel || !appareil)
     return new Response(JSON.stringify({ error: "Champs requis manquants" }), {
       status: 400,
       headers: CORS,
     });
 
+  // ✅ 4 documents uniquement (plus de CNI légalisée)
   if (
     !doc_cni_recto?.data ||
     !doc_cni_verso?.data ||
     !doc_selfie?.data ||
-    !doc_cni_legalisee?.data ||
     !doc_residence?.data
   )
-    return new Response(JSON.stringify({ error: "Les 5 documents sont requis" }), {
-      status: 400,
-      headers: CORS,
-    });
+    return new Response(
+      JSON.stringify({
+        error: "Les 4 documents sont requis (CNI recto, verso, selfie, résidence)",
+      }),
+      { status: 400, headers: CORS }
+    );
 
   const prixTotalNum = parseInt(prix_total, 10);
   if (!Number.isInteger(prixTotalNum) || prixTotalNum <= 0)
@@ -72,10 +69,8 @@ export async function onRequestPost(context) {
       headers: CORS,
     });
 
-  // ── Générer un dossier_id unique ────────────────────────────
   const dossier_id = "CRED-" + Date.now().toString().slice(-8);
 
-  // ── Convertir base64 → octets ───────────────────────────────
   const b64ToBytes = (b64) => {
     const clean = b64.includes(",") ? b64.split(",")[1] : b64;
     const bin = atob(clean);
@@ -93,7 +88,6 @@ export async function onRequestPost(context) {
       ? "webp"
       : "jpg";
 
-  // ── Uploader un document dans le bucket privé credit-docs ───
   const uploadDoc = async (doc, nom) => {
     const ext = extFromType(doc.type || "image/jpeg");
     const chemin = `${dossier_id}/${nom}.${ext}`;
@@ -120,7 +114,6 @@ export async function onRequestPost(context) {
       doc_cni: await uploadDoc(doc_cni_recto, "cni_recto"),
       doc_cni_verso: await uploadDoc(doc_cni_verso, "cni_verso"),
       doc_selfie: await uploadDoc(doc_selfie, "selfie"),
-      doc_cni_legalisee: await uploadDoc(doc_cni_legalisee, "cni_legalisee"),
       doc_residence: await uploadDoc(doc_residence, "residence"),
     };
   } catch (e) {
@@ -130,7 +123,6 @@ export async function onRequestPost(context) {
     );
   }
 
-  // ── Répartition : acompte 50% + 3 tranches sur les 50% restants ──
   const today = new Date();
   const addMonths = (d, n) => {
     const x = new Date(d);
@@ -145,7 +137,6 @@ export async function onRequestPost(context) {
   const versement3 = trancheBase;
   const versement4 = reste - versement2 - versement3;
 
-  // ── Insérer le dossier dans credit_phones ───────────────────
   const insertBody = {
     dossier_id,
     user_id,
@@ -153,9 +144,11 @@ export async function onRequestPost(context) {
     client_nom,
     client_tel,
     client_email: client_email || null,
+    client_adresse: client_adresse || null,
     device_id: "",
     appareil,
     numero_cni: numero_cni || null,
+    produit_id: produit_id || null,
     prix_total: prixTotalNum,
     montant_1: acompte,
     montant_2: versement2,
@@ -168,7 +161,7 @@ export async function onRequestPost(context) {
     doc_cni: chemins.doc_cni,
     doc_cni_verso: chemins.doc_cni_verso,
     doc_selfie: chemins.doc_selfie,
-    doc_cni_legalisee: chemins.doc_cni_legalisee,
+    doc_cni_legalisee: null,
     doc_residence: chemins.doc_residence,
     statut_compte: "en_verification",
     docs_envoyes_at: new Date().toISOString(),
@@ -201,7 +194,6 @@ export async function onRequestPost(context) {
     );
   }
 
-  // ── Notification admin (ne bloque pas si échoue) ────────────
   try {
     await fetch(`${SUPA_URL}/rest/v1/notifications`, {
       method: "POST",
@@ -221,7 +213,6 @@ export async function onRequestPost(context) {
     });
   } catch (e) {}
 
-  // ── Email au client : documents bien reçus ──────────────────
   try {
     await fetch("https://sdsprotech-backend.pages.dev/credit-notify", {
       method: "POST",
@@ -235,7 +226,13 @@ export async function onRequestPost(context) {
       success: true,
       dossier_id,
       statut_compte: "en_verification",
-      montants: { acompte, versement2, versement3, versement4, frais_mdm: 10000 },
+      montants: {
+        acompte,
+        versement2,
+        versement3,
+        versement4,
+        frais_mdm: 10000,
+      },
     }),
     { status: 200, headers: CORS }
   );

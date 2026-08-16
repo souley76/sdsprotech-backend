@@ -161,7 +161,6 @@ export async function onRequestPost(context) {
     doc_cni: chemins.doc_cni,
     doc_cni_verso: chemins.doc_cni_verso,
     doc_selfie: chemins.doc_selfie,
-    doc_cni_legalisee: null,
     doc_residence: chemins.doc_residence,
     statut_compte: "en_verification",
     docs_envoyes_at: new Date().toISOString(),

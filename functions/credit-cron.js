@@ -125,7 +125,7 @@ async function runCron(context) {
   // ════════════════════════════════════════════════════════════
   const supprimes = [];
   const BUCKET = "credit-docs";
-  const DOC_COLS = ["doc_cni", "doc_cni_verso", "doc_selfie", "doc_cni_legalisee", "doc_residence"];
+  const DOC_COLS = ["doc_cni", "doc_cni_verso", "doc_selfie", "doc_residence"];
 
   let aSupprimer = [];
   try {

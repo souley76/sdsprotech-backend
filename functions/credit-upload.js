@@ -162,7 +162,12 @@ export async function onRequestPost(context) {
     doc_cni_verso: chemins.doc_cni_verso,
     doc_selfie: chemins.doc_selfie,
     doc_residence: chemins.doc_residence,
-    statut_compte: "en_verification",
+    // Verrouillé tant que l'admin n'a pas validé les documents (évite de préparer
+    // physiquement le téléphone / MDM pour un dossier dont les docs seront refusés).
+    // L'admin débloque via credit-admin-action:debloquer_paiement, ce qui repasse
+    // le dossier en "en_verification" — seul statut où credit-checkout.js autorise
+    // le paiement de l'acompte.
+    statut_compte: "en_attente_docs",
     docs_envoyes_at: new Date().toISOString(),
     statut: "actif",
     created_at: new Date().toISOString(),
@@ -224,7 +229,7 @@ export async function onRequestPost(context) {
     JSON.stringify({
       success: true,
       dossier_id,
-      statut_compte: "en_verification",
+      statut_compte: "en_attente_docs",
       montants: {
         acompte,
         versement2,

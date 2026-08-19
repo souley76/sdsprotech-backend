@@ -106,6 +106,43 @@ export async function onRequestPost(context) {
     return new Response(JSON.stringify({ error: "Dossier introuvable" }), { status: 404, headers: CORS });
 
   // ════════════════════════════════════════════════════════════
+  // ── ACTION : DEBLOQUER LE PAIEMENT (docs valides par l'admin) ─
+  //    Ne demande PAS de device_id : on evite de preparer/enrouler
+  //    physiquement un telephone en MDM pour un dossier dont les
+  //    documents pourraient encore etre refuses ou dont le client
+  //    ne paie finalement pas. Le device_id reste exige plus tard,
+  //    a l'action "valider", une fois l'acompte reellement paye.
+  // ════════════════════════════════════════════════════════════
+  if (action === "debloquer_paiement") {
+    if (dossier.statut_compte !== "en_attente_docs")
+      return new Response(JSON.stringify({ error: "Ce dossier n'est pas en attente de deblocage (statut actuel: " + dossier.statut_compte + ")" }), { status: 400, headers: CORS });
+
+    const upd = await patchDossier({ statut_compte: "en_verification" });
+    if (!upd.ok) {
+      const t = await upd.text();
+      return new Response(JSON.stringify({ error: "Échec mise à jour", details: t }), { status: 500, headers: CORS });
+    }
+
+    await insertNotif({
+      dossier_id, user_id: dossier.user_id || null, pour_admin: false,
+      titre: "Documents validés ✅",
+      message: "Vos documents ont été vérifiés. Vous pouvez maintenant régler l'acompte pour lancer votre crédit.",
+      type: "succes"
+    });
+
+    // Email au client avec le lien de paiement (ne bloque pas la réponse en cas d'échec)
+    try {
+      await fetch("https://sdsprotech-backend.pages.dev/credit-notify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dossier_id, evenement: "paiement_debloque" })
+      });
+    } catch (e) {}
+
+    return new Response(JSON.stringify({ success: true, action: "debloquer_paiement" }), { status: 200, headers: CORS });
+  }
+
+  // ════════════════════════════════════════════════════════════
   // ── ACTION : VALIDER ────────────────────────────────────────
   // ════════════════════════════════════════════════════════════
   if (action === "valider") {

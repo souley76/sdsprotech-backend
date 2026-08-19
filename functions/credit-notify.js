@@ -109,6 +109,8 @@ export async function onRequestPost(context) {
       intro: `Attention : un versement arrive à échéance dans <strong>2 jours</strong>. Réglez-le dès maintenant pour éviter le verrouillage de votre téléphone.` },
     docs_recus:   { titre: "📥 Documents bien reçus",         badge: "DOSSIER EN EXAMEN",
       intro: `Nous avons bien reçu vos documents pour <strong>${d.appareil || "votre téléphone"}</strong>. Notre équipe les examine — cela peut prendre jusqu'à <strong>48h</strong>. Vous recevrez un email ici dès que votre compte sera vérifié.` },
+    paiement_debloque: { titre: "✅ Documents validés — vous pouvez payer",  badge: "PAIEMENT DÉBLOQUÉ",
+      intro: `Vos documents pour <strong>${d.appareil || "votre téléphone"}</strong> ont été vérifiés et validés. Vous pouvez maintenant régler l'acompte (50% + frais MDM) pour lancer votre crédit.` },
     refuse:       { titre: "❌ Dossier non validé",           badge: "DEMANDE REFUSÉE",
       intro: `Nous sommes désolés, nous n'avons pas pu valider votre dossier de crédit.${d.motif_refus ? `<br><br><strong>Motif :</strong> ${d.motif_refus}` : ""}<br><br>Vous pouvez soumettre une nouvelle demande à tout moment.` },
     suppression:  { titre: "🗑️ Demande de suppression reçue", badge: "SUPPRESSION DES DOCUMENTS",
@@ -128,17 +130,20 @@ export async function onRequestPost(context) {
   const sectionTitle = "padding:12px 20px;border-bottom:1px solid #e2e8f0;font-size:11px;font-weight:700;color:#0066cc;letter-spacing:2px;background:#f1f6fc;";
   const boxStyle     = "background:#ffffff;border:1px solid #dbe4ee;border-radius:12px;overflow:hidden;";
 
-  // Le dossier n'est "payable" qu'une fois VALIDE par l'admin.
-  // Avant validation (en_verification), aucun bouton de paiement ne s'affiche.
-  const dossierPayable = d.statut_compte === "valide" || d.statut_compte === "solde";
+  // Dossier "validé" (device_id assigné) : toutes les tranches sont payables.
+  const dossierValide = d.statut_compte === "valide" || d.statut_compte === "solde";
+  // Avant validation, seul l'acompte (n°1) est payable, et seulement une fois les
+  // documents vérifiés par l'admin (en_verification) — voir credit-checkout.js.
+  const acomptePayable = dossierValide || d.statut_compte === "en_verification";
 
   const lignesVers = versements.map(v => {
+    const payable = v.n === 1 ? acomptePayable : dossierValide;
     const statut = v.paye
       ? `<span style="color:#15803d;font-weight:700;">✅ Payé</span>`
-      : (dossierPayable
+      : (payable
           ? `<span style="color:#0066cc;font-weight:700;">À régler · ${dateFr(v.ech)}</span>`
           : `<span style="color:#94a3b8;font-weight:600;">En attente de validation</span>`);
-    const bouton = (v.paye || !dossierPayable)
+    const bouton = (v.paye || !payable)
       ? ""
       : `<a href="${LIEN_ESPACE}" style="display:inline-block;margin-top:8px;background:#0066cc;color:#ffffff;font-size:12px;font-weight:700;padding:9px 18px;border-radius:8px;text-decoration:none;">💳 Régler ce versement</a>`;
     return `
@@ -278,6 +283,7 @@ export async function onRequestPost(context) {
     rappel_7j:    `📅 Rappel : échéance dans 7 jours — ${companyName}`,
     rappel_2j:    `⏰ Urgent : échéance dans 2 jours — ${companyName}`,
     docs_recus:   `📥 Documents reçus — examen en cours — ${companyName}`,
+    paiement_debloque: `✅ Documents validés — vous pouvez payer l'acompte — ${companyName}`,
     refuse:       `Concernant votre demande de crédit — ${companyName}`,
     suppression:  `🗑️ Demande de suppression enregistrée — ${companyName}`,
     litige:       `⚠️ Votre dossier est en litige — ${companyName}`,
